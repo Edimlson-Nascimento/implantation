@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Implantação • Intelipulse</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #021F33;
+    --green: #00FF7A;
+    --green-mid: #00E676;
+    --light-bg: #F4F5F3;
+    --white: #FFFFFF;
+    --gray-text: #6B7280;
+    --navy-card: #0A2E45;
+    --border: rgba(255,255,255,0.08);
+    --border-light: #E5E7EB;
+    --red: #DC2626;
+    --amber: #F59E0B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--light-bg);
+    color: #1a1a1a;
+    line-height: 1.5;
+    padding-bottom: 60px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--navy);
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 420px; height: 420px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,255,122,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 32px 28px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .header-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,255,122,0.12);
+    border: 1px solid rgba(0,255,122,0.3);
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+  }
+  .header-tag::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
+  .header h1 {
+    font-size: clamp(24px, 3.5vw, 34px);
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: -0.02em;
+  }
+  .header h1 span { color: var(--green); }
+  .header-sub { color: rgba(255,255,255,0.55); font-size: 14px; margin-top: 6px; }
+
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 14px 20px;
+    min-width: 130px;
+  }
+  .stat-card .num { font-size: 24px; font-weight: 800; color: var(--white); }
+  .stat-card .num.alert { color: var(--green); }
+  .stat-card .lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  .divider-bar { height: 4px; background: linear-gradient(90deg, var(--green) 0%, var(--navy) 100%); }
+
+  /* ── TABS ── */
+  .tabs {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 32px 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .tab-buttons { display:flex; gap:8px; }
+  .tab-btn {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    color: var(--gray-text);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .tab-btn.active { background: var(--navy); color: var(--white); border-color: var(--navy); }
+  .tab-btn .badge-count {
+    display:inline-block; margin-left:6px; background:var(--green); color:var(--navy);
+    font-size:11px; font-weight:800; border-radius:100px; padding:0 7px;
+  }
+
+  .actions-row { display:flex; gap:8px; flex-wrap: wrap; }
+  .btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-light);
+    background: var(--white);
+    color: var(--navy);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--navy); }
+  .btn-primary { background: var(--navy); color: var(--white); border-color: var(--navy); }
+  .btn-primary:hover { background: #032a45; }
+  .btn-green { background: var(--green); color: var(--navy); border-color: var(--green); font-weight:700; }
+  .btn-danger { color: var(--red); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 32px; }
+
+  /* ── AGENDA VIEW ── */
+  .agenda-list { display: flex; flex-direction: column; gap: 14px; }
+  .empty-state {
+    background: var(--white);
+    border: 1px dashed var(--border-light);
+    border-radius: 16px;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--gray-text);
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+  .empty-state h3 { color: var(--navy); font-size: 18px; margin-bottom: 6px; }
+
+  .agenda-card {
+    background: var(--white);
+    border-radius: 16px;
+    border: 1px solid var(--border-light);
+    border-left: 4px solid var(--amber);
+    padding: 20px 24px;
+  }
+  .agenda-card.overdue { border-left-color: var(--red); }
+  .agenda-card.today { border-left-color: var(--green-mid); }
+
+  .agenda-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 16px; flex-wrap: wrap; }
+  .agenda-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+  .agenda-meta { font-size: 12.5px; color: var(--gray-text); margin-top: 3px; }
+  .agenda-meta a { color: inherit; }
+
+  .stage-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; font-weight:700; letter-spacing:.03em;
+    padding: 4px 10px; border-radius: 100px;
+    color: var(--white);
+  }
+  .urgency-badge {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 100px;
+  }
+  .urgency-badge.overdue { background:#FEE2E2; color:var(--red); }
+  .urgency-badge.today { background:#DCFCE7; color:#166534; }
+
+  .saude-badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px; }
+  .saude-badge .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .saude-badge.verde { background:#DCFCE7; color:#166534; }
+  .saude-badge.verde .dot { background:#22C55E; }
+  .saude-badge.amarelo { background:#FEF3C7; color:#92400E; }
+  .saude-badge.amarelo .dot { background:#F59E0B; }
+  .saude-badge.vermelho { background:#FEE2E2; color:#991B1B; }
+  .saude-badge.vermelho .dot { background:#DC2626; }
+
+  .fase-pill { display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px; }
+  .fase-pill.implantacao { background:#DBEAFE; color:#1D4ED8; }
+  .fase-pill.base { background:#E5E7EB; color:#374151; }
+
+  .codigo-tag { font-size: 11.5px; font-weight: 700; color: var(--gray-text); margin-right: 6px; }
+
+  .agenda-pend-preview { margin-top: 12px; display:flex; flex-wrap:wrap; gap:6px; }
+  .pend-chip {
+    font-size: 12px; color:#374151; background: var(--light-bg);
+    border: 1px solid var(--border-light); border-radius: 8px; padding: 4px 10px;
+  }
+  .pend-chip.cliente { border-left: 3px solid var(--amber); }
+  .pend-chip.rscrm { border-left: 3px solid #3B82F6; }
+  .pend-chip.more { color: var(--gray-text); }
+
+  .agenda-actions { display:flex; gap:8px; margin-top: 14px; flex-wrap: wrap; }
+
+  .inline-contato-form {
+    margin-top: 14px; padding: 14px; background: var(--light-bg); border-radius: 12px;
+    display: none;
+  }
+  .inline-contato-form.open { display:block; }
+  .inline-contato-form textarea {
+    width:100%; min-height: 60px; font-family:inherit; font-size: 13px;
+    padding: 10px; border-radius: 8px; border: 1px solid var(--border-light); resize: vertical;
+  }
+  .inline-contato-form .row2 { display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap: wrap; }
+  .inline-contato-form label { font-size: 12px; color: var(--gray-text); font-weight:600; }
+  .inline-contato-form input[type=date] { padding:6px 8px; border-radius:8px; border:1px solid var(--border-light); font-family:inherit; font-size:13px; }
+
+  /* ── CLIENTES TABLE ── */
+  .toolbar { display:flex; gap:10px; flex-wrap: wrap; margin-bottom: 16px; align-items:center; }
+  .toolbar input[type=text], .toolbar select {
+    font-family: inherit; font-size: 13px; padding: 9px 12px; border-radius: 10px;
+    border: 1px solid var(--border-light); background: var(--white);
+  }
+  .toolbar input[type=text] { min-width: 220px; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar label.chk { font-size: 12.5px; color: var(--gray-text); display:flex; align-items:center; gap:6px; }
+
+  .table-wrap { overflow-x: auto; }
+  table.clients-table { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px; }
+  .clients-table thead th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--gray-text); padding: 0 16px 6px;
+  }
+  .clients-table tbody tr { background: var(--white); cursor: pointer; }
+  .clients-table tbody tr:hover { outline: 1px solid var(--navy); }
+  .clients-table td { padding: 14px 16px; font-size: 13.5px; color: #374151; }
+  .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--navy); }
+  .clients-table td:last-child { border-radius: 0 10px 10px 0; text-align:right; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display:none; position: fixed; inset: 0; background: rgba(2,31,51,0.55);
+    align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y:auto; z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--white); border-radius: 18px; width: 100%; max-width: 720px;
+    padding: 28px; margin-bottom: 40px;
+  }
+  .modal-box h2 { font-size: 20px; color: var(--navy); font-weight: 800; margin-bottom: 18px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-field { display:flex; flex-direction: column; gap: 5px; }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-field label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); }
+  .form-field input, .form-field select {
+    font-family: inherit; font-size: 14px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-light);
+  }
+  .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
+  .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .pend-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .pend-col h4 { font-size: 11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin-bottom:8px; }
+  .pend-col.cliente h4 { color: #B45309; }
+  .pend-col.rscrm h4 { color: #1D4ED8; }
+  .pend-item {
+    display:flex; align-items:flex-start; gap:8px; font-size: 13px; padding: 6px 0; color:#374151;
+  }
+  .pend-item.done { color: var(--gray-text); text-decoration: line-through; }
+  .pend-item input[type=checkbox] { margin-top: 3px; }
+  .pend-item .del { margin-left:auto; cursor:pointer; color:var(--gray-text); font-size:12px; }
+  .pend-item .del:hover { color: var(--red); }
+  .add-pend-row { display:flex; gap:6px; margin-top:8px; }
+  .add-pend-row input { flex:1; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
+
+  .history-list { display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y:auto; }
+  .history-item { background: var(--light-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .history-item .date { font-size: 11px; font-weight: 700; color: var(--gray-text); margin-bottom: 3px; }
+
+  .modal-footer { display:flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
+
+  .resumo-box { background: var(--white); border:1px solid var(--border-light); border-radius:16px; padding:24px; }
+  .resumo-box h2 { font-size: 17px; color: var(--navy); margin-bottom: 4px; }
+  .resumo-box .resumo-sub { font-size: 12.5px; color: var(--gray-text); margin-bottom: 4px; }
+  .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: #1a1a1a; background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
+  .resumo-actions { display:flex; gap:8px; margin-top:14px; }
+
+  @media (max-width: 720px) {
+    .form-grid, .pend-cols { grid-template-columns: 1fr; }
+    .header-inner { flex-direction: column; }
+    .tabs { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-tag">Gestão de Implantação</div>
+      <h1>Painel <span>Intelipulse</span></h1>
+      <div class="header-sub" id="header-date"></div>
+    </div>
+    <div class="stats-row" id="stats-row"></div>
+  </div>
+</header>
+<div class="divider-bar"></div>
+
+<div class="tabs">
+  <div class="tab-buttons">
+    <button class="tab-btn active" id="tab-agenda" onclick="setTab('agenda')">Agenda de Hoje <span class="badge-count" id="agenda-count">0</span></button>
+    <button class="tab-btn" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
+    <button class="tab-btn" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
+  </div>
+  <div class="actions-row">
+    <button class="btn" onclick="exportJSON()">⬇ Exportar backup</button>
+    <button class="btn" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
+    <button class="btn btn-green" onclick="openModal(null)">+ Novo Cliente</button>
+  </div>
+</div>
+
+<main>
+  <section id="view-agenda">
+    <div class="agenda-list" id="agenda-list"></div>
+  </section>
+
+  <section id="view-clientes" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="Buscar cliente ou contato..." oninput="renderClientes()">
+      <select id="filter-stage" onchange="renderClientes()">
+        <option value="">Todas as etapas</option>
+      </select>
+      <select id="filter-saude" onchange="renderClientes()">
+        <option value="">Todas as saúdes</option>
+        <option value="verde">🟢 Verde</option>
+        <option value="amarelo">🟡 Amarelo</option>
+        <option value="vermelho">🔴 Vermelho</option>
+      </select>
+      <select id="filter-responsavel" onchange="renderClientes()">
+        <option value="">Todos os responsáveis</option>
+      </select>
+      <select id="filter-fase" onchange="renderClientes()">
+        <option value="implantacao" selected>Em Implantação</option>
+        <option value="base">Na Base</option>
+        <option value="">Todos</option>
+      </select>
+      <div class="spacer"></div>
+    </div>
+    <div class="table-wrap">
+    <table class="clients-table">
+      <thead>
+        <tr><th>Código</th><th>Cliente</th><th>Fase</th><th>Etapa</th><th>Saúde</th><th>Responsável</th><th>Último contato</th><th>Próximo contato</th><th>Pendências</th><th></th></tr>
+      </thead>
+      <tbody id="clients-tbody"></tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="view-resumo" style="display:none">
+    <div class="resumo-box">
+      <h2>Resumo para a Diretoria</h2>
+      <div class="resumo-sub" id="resumo-data"></div>
+      <div class="resumo-actions">
+        <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
+      </div>
+      <div class="resumo-pre" id="resumo-texto"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ══ MODAL ══ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <h2 id="modal-title">Novo Cliente</h2>
+    <div class="form-grid">
+      <div class="form-field"><label>Código</label><input type="text" id="f-codigo" placeholder="Ex: 21"></div>
+      <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome"></div>
+      <div class="form-field"><label>Contato no Cliente</label><input type="text" id="f-contato"></div>
+      <div class="form-field"><label>Telefone</label><input type="text" id="f-telefone"></div>
+      <div class="form-field"><label>Responsável (Intelipulse)</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
+      <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
+      <div class="form-field">
+        <label>Fase</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="f-fase" style="flex:1;">
+            <option value="implantacao">Em Implantação</option>
+            <option value="base">Na Base (só manutenção)</option>
+          </select>
+          <button type="button" class="btn btn-sm" onclick="moverParaBase()" title="Marca como Base e limpa o próximo contato agendado">→ Base</button>
+        </div>
+      </div>
+      <div class="form-field"><label>Início da Implantação</label><input type="date" id="f-inicio"></div>
+      <div class="form-field"><label>Próximo Contato</label><input type="date" id="f-proximo"></div>
+      <div class="form-field"><label>Saúde</label>
+        <select id="f-saude">
+          <option value="verde">🟢 Verde — em dia</option>
+          <option value="amarelo">🟡 Amarelo — atenção</option>
+          <option value="vermelho">🔴 Vermelho — em risco</option>
+        </select>
+      </div>
+      <div class="form-field full"><label>Motivo (se amarelo/vermelho)</label><input type="text" id="f-saude-motivo" placeholder="Ex: aguardando definição de fluxo há 5 dias"></div>
+    </div>
+    <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só aparecem na Agenda de Hoje quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
+
+    <div class="modal-section">
+      <h3>Pendências</h3>
+      <div class="pend-cols">
+        <div class="pend-col cliente">
+          <h4>⚠ Do Cliente</h4>
+          <div id="pend-list-cliente"></div>
+          <div class="add-pend-row">
+            <input type="text" id="new-pend-cliente" placeholder="Nova pendência do cliente...">
+            <button class="btn btn-sm" onclick="addPendencia('cliente')">+</button>
+          </div>
+        </div>
+        <div class="pend-col rscrm">
+          <h4>🔧 Da Intelipulse</h4>
+          <div id="pend-list-rscrm"></div>
+          <div class="add-pend-row">
+            <input type="text" id="new-pend-rscrm" placeholder="Nova pendência interna...">
+            <button class="btn btn-sm" onclick="addPendencia('rscrm')">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Registrar Contato de Hoje</h3>
+      <textarea id="f-nota-contato" placeholder="O que foi conversado hoje? (opcional)" style="width:100%;min-height:56px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
+        <label style="font-size:12px;color:var(--gray-text);font-weight:600;">Próximo contato:</label>
+        <input type="date" id="f-nota-proximo" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border-light);font-family:inherit;font-size:13px;">
+        <button class="btn btn-green btn-sm" onclick="registrarContatoModal()">✓ Registrar contato</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Histórico de Contatos</h3>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-client" onclick="deleteClient()" style="display:none">Excluir cliente</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveClient()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STAGES = [
+  { id:'kickoff',      nome:'Kick Off',                      cor:'#3B82F6' },
+  { id:'levantamento', nome:'Levantamento',                  cor:'#8B5CF6' },
+  { id:'integracao',   nome:'Integração',                    cor:'#EC4899' },
+  { id:'carga',        nome:'Carga de Dados',                cor:'#F59E0B' },
+  { id:'configuracao', nome:'Configuração',                  cor:'#F97316' },
+  { id:'treinamento',  nome:'Treinamento',                   cor:'#14B8A6' },
+  { id:'testes',       nome:'Testes / Homologação',          cor:'#0EA5E9' },
+  { id:'golive',       nome:'Go-live',                       cor:'#22C55E' },
+  { id:'posgolive',    nome:'Acompanhamento Pós Go-live',    cor:'#84CC16' },
+];
+
+let state = { clients: [] };
+let activeTab = 'agenda';
+let editingClientId = null;
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function daysBetween(a, b) {
+  const da = new Date(a + 'T00:00:00'), db = new Date(b + 'T00:00:00');
+  return Math.round((db - da) / 86400000);
+}
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const [y,m,d] = dateStr.split('-');
+  return d + '/' + m + '/' + y;
+}
+function uid() { return crypto.randomUUID(); }
+function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0]; }
+function escapeHtml(str) {
+  return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadState() {
+  const { data: clientes, error: errC } = await sb.from('clientes').select('*').order('nome');
+  if (errC) { alert('Erro ao carregar clientes do banco: ' + errC.message); return; }
+  const { data: pendencias, error: errP } = await sb.from('pendencias').select('*');
+  if (errP) { alert('Erro ao carregar pendências do banco: ' + errP.message); return; }
+  const { data: historico, error: errH } = await sb.from('historico').select('*').order('data', { ascending: false }).order('created_at', { ascending: false });
+  if (errH) { alert('Erro ao carregar histórico do banco: ' + errH.message); return; }
+
+  state.clients = clientes.map(c => ({
+    id: c.id,
+    codigo: c.codigo || '',
+    nome: c.nome,
+    contato: c.contato || '',
+    telefone: c.telefone || '',
+    responsavel: c.responsavel || '',
+    etapa: c.etapa,
+    fase: c.fase || 'implantacao',
+    saude: c.saude || 'verde',
+    saudeMotivo: c.saude_motivo || '',
+    inicio: c.inicio,
+    ultimoContato: c.ultimo_contato,
+    proximoContato: c.proximo_contato,
+    pendencias: pendencias.filter(p => p.cliente_id === c.id).map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito })),
+    historico: historico.filter(h => h.cliente_id === c.id).map(h => ({ id: h.id, data: h.data, texto: h.texto }))
+  }));
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-agenda').classList.toggle('active', tab === 'agenda');
+  document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
+  document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
+  document.getElementById('view-agenda').style.display = tab === 'agenda' ? '' : 'none';
+  document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
+  document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
+  render();
+}
+
+function render() {
+  document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
+  renderStats();
+  populateStageOptions();
+  if (activeTab === 'agenda') renderAgenda();
+  else if (activeTab === 'clientes') renderClientes();
+  else renderResumo();
+}
+
+function renderStats() {
+  const today = todayStr();
+  const emImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
+  const pendentesHoje = state.clients.filter(c => c.proximoContato && c.proximoContato <= today);
+  const atrasados = state.clients.filter(c => c.proximoContato && c.proximoContato < today);
+  const emRisco = state.clients.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
+    <div class="stat-card"><div class="num alert">${pendentesHoje.length}</div><div class="lbl">Contatos hoje</div></div>
+    <div class="stat-card"><div class="num" style="color:${atrasados.length ? '#FF6B6B' : '#fff'}">${atrasados.length}</div><div class="lbl">Em atraso</div></div>
+    <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#FBBF24' : '#fff'}">${emRisco.length}</div><div class="lbl">Em risco (RAG)</div></div>
+  `;
+  document.getElementById('agenda-count').textContent = pendentesHoje.length;
+}
+
+function populateStageOptions() {
+  const sel = document.getElementById('filter-stage');
+  if (sel.options.length <= 1) {
+    STAGES.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = s.nome;
+      sel.appendChild(o);
+    });
+  }
+  const fEtapa = document.getElementById('f-etapa');
+  if (fEtapa.options.length === 0) {
+    STAGES.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = s.nome;
+      fEtapa.appendChild(o);
+    });
+  }
+
+  const responsaveis = [...new Set(state.clients.map(c => c.responsavel).filter(Boolean))].sort();
+  const filterResp = document.getElementById('filter-responsavel');
+  const currentFilterVal = filterResp.value;
+  filterResp.innerHTML = '<option value="">Todos os responsáveis</option>' + responsaveis.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+  filterResp.value = currentFilterVal;
+
+  document.getElementById('lista-responsaveis').innerHTML = responsaveis.map(r => `<option value="${escapeHtml(r)}">`).join('');
+}
+
+function renderAgenda() {
+  const today = todayStr();
+  const list = state.clients
+    .filter(c => c.proximoContato && c.proximoContato <= today)
+    .sort((a,b) => (a.proximoContato || '') < (b.proximoContato || '') ? -1 : 1);
+
+  const container = document.getElementById('agenda-list');
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">🎉</div><h3>Nenhum contato pendente hoje</h3><p>Todos os clientes estão em dia.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(c => {
+    const stage = stageOf(c.etapa);
+    const overdue = c.proximoContato && c.proximoContato < today;
+    const diasAtraso = overdue ? daysBetween(c.proximoContato, today) : 0;
+    const cardClass = overdue ? 'overdue' : 'today';
+    const urgencyHtml = overdue
+      ? `<span class="urgency-badge overdue">Atrasado ${diasAtraso} dia${diasAtraso>1?'s':''}</span>`
+      : `<span class="urgency-badge today">Contato hoje</span>`;
+    const diasSemContato = c.ultimoContato ? daysBetween(c.ultimoContato, today) : daysBetween(c.inicio, today);
+
+    const pendAbertas = c.pendencias.filter(p => !p.feito);
+    const pendPreview = pendAbertas.slice(0,3).map(p =>
+      `<span class="pend-chip ${p.responsavel}">${escapeHtml(p.texto)}</span>`
+    ).join('');
+    const pendMore = pendAbertas.length > 3 ? `<span class="pend-chip more">+${pendAbertas.length - 3} outras</span>` : '';
+
+    const saude = c.saude || 'verde';
+    const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
+    const fase = c.fase || 'implantacao';
+
+    return `
+      <div class="agenda-card ${cardClass}">
+        <div class="agenda-top">
+          <div>
+            <div class="agenda-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+            <div class="agenda-meta">${escapeHtml(c.responsavel || 'Sem responsável')} · ${escapeHtml(c.contato || 'Sem contato definido')} ${c.telefone ? '· ' + escapeHtml(c.telefone) : ''} · ${c.ultimoContato ? diasSemContato + ' dia(s) sem contato' : 'Nunca contatado'}</div>
+            ${saude !== 'verde' && c.saudeMotivo ? `<div class="agenda-meta" style="margin-top:4px;color:${saude === 'vermelho' ? 'var(--red)' : '#B45309'};font-weight:600;">⚠ ${escapeHtml(c.saudeMotivo)}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            ${fase === 'base' ? '<span class="fase-pill base">Base</span>' : ''}
+            <span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span>
+            <span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span>
+            ${urgencyHtml}
+          </div>
+        </div>
+        ${pendAbertas.length ? `<div class="agenda-pend-preview">${pendPreview}${pendMore}</div>` : ''}
+        <div class="agenda-actions">
+          <button class="btn btn-green btn-sm" onclick="toggleInlineForm('${c.id}')">✓ Registrar contato</button>
+          <button class="btn btn-sm" onclick="openModal('${c.id}')">Ver detalhes</button>
+        </div>
+        <div class="inline-contato-form" id="inline-form-${c.id}">
+          <textarea id="inline-nota-${c.id}" placeholder="O que foi conversado hoje? (opcional)"></textarea>
+          <div class="row2">
+            <label>Próximo contato:</label>
+            <input type="date" id="inline-proximo-${c.id}" value="${addDays(today,1)}">
+            <button class="btn btn-primary btn-sm" onclick="registrarContatoInline('${c.id}')">Salvar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleInlineForm(id) {
+  const el = document.getElementById('inline-form-' + id);
+  el.classList.toggle('open');
+}
+
+async function registrarContatoInline(id) {
+  const nota = document.getElementById('inline-nota-' + id).value.trim();
+  const proximo = document.getElementById('inline-proximo-' + id).value || addDays(todayStr(),1);
+  await registrarContato(id, nota, proximo);
+  render();
+}
+
+async function registrarContato(id, nota, proximo) {
+  const c = state.clients.find(c => c.id === id);
+  if (!c) return;
+  const today = todayStr();
+  const texto = nota || 'Contato realizado.';
+  const proximoFinal = proximo || addDays(today, 1);
+
+  const { data: histRow, error: errH } = await sb.from('historico').insert({ cliente_id: id, data: today, texto }).select().single();
+  if (errH) { alert('Erro ao registrar contato: ' + errH.message); return; }
+
+  const { error: errU } = await sb.from('clientes').update({ ultimo_contato: today, proximo_contato: proximoFinal }).eq('id', id);
+  if (errU) { alert('Erro ao atualizar cliente: ' + errU.message); return; }
+
+  c.historico.unshift({ id: histRow.id, data: today, texto });
+  c.ultimoContato = today;
+  c.proximoContato = proximoFinal;
+}
+
+function renderClientes() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const filterStage = document.getElementById('filter-stage').value;
+  const filterSaude = document.getElementById('filter-saude').value;
+  const filterResp = document.getElementById('filter-responsavel').value;
+  const filterFase = document.getElementById('filter-fase').value;
+  const today = todayStr();
+
+  let list = state.clients.filter(c => {
+    if (filterFase && (c.fase || 'implantacao') !== filterFase) return false;
+    if (filterStage && c.etapa !== filterStage) return false;
+    if (filterSaude && (c.saude || 'verde') !== filterSaude) return false;
+    if (filterResp && c.responsavel !== filterResp) return false;
+    if (search && !(c.nome.toLowerCase().includes(search) || (c.contato||'').toLowerCase().includes(search) || (c.codigo||'').toLowerCase().includes(search))) return false;
+    return true;
+  }).sort((a,b) => a.nome.localeCompare(b.nome));
+
+  const tbody = document.getElementById('clients-tbody');
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(c => {
+    const stage = stageOf(c.etapa);
+    const saude = c.saude || 'verde';
+    const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
+    const fase = c.fase || 'implantacao';
+    const pendAbertas = c.pendencias.filter(p => !p.feito).length;
+    const overdue = c.proximoContato && c.proximoContato < today;
+    return `
+      <tr onclick="openModal('${c.id}')">
+        <td>${escapeHtml(c.codigo || '—')}</td>
+        <td>${escapeHtml(c.nome)}</td>
+        <td><span class="fase-pill ${fase}">${fase === 'base' ? 'Base' : 'Implantação'}</span></td>
+        <td><span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span></td>
+        <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
+        <td>${escapeHtml(c.responsavel || '—')}</td>
+        <td>${c.ultimoContato ? formatDate(c.ultimoContato) : '—'}</td>
+        <td style="${overdue ? 'color:var(--red);font-weight:700;' : ''}">${c.proximoContato ? formatDate(c.proximoContato) : '—'}</td>
+        <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
+        <td><button class="btn btn-sm" onclick="event.stopPropagation();openModal('${c.id}')">Abrir</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/* ── MODAL ── */
+function openModal(id) {
+  editingClientId = id;
+  const overlay = document.getElementById('modal-overlay');
+  const isNew = !id;
+  document.getElementById('modal-title').textContent = isNew ? 'Novo Cliente' : 'Editar Cliente';
+  document.getElementById('btn-delete-client').style.display = isNew ? 'none' : 'inline-block';
+
+  const c = isNew ? {
+    codigo:'', nome:'', contato:'', telefone:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
+    saude: 'verde', saudeMotivo: '',
+    inicio: todayStr(), proximoContato: todayStr(),
+    pendencias: [], historico: []
+  } : state.clients.find(c => c.id === id);
+
+  document.getElementById('f-codigo').value = c.codigo || '';
+  document.getElementById('f-nome').value = c.nome;
+  document.getElementById('f-contato').value = c.contato;
+  document.getElementById('f-telefone').value = c.telefone;
+  document.getElementById('f-responsavel').value = c.responsavel || '';
+  document.getElementById('f-etapa').value = c.etapa;
+  document.getElementById('f-fase').value = c.fase || 'implantacao';
+  document.getElementById('f-saude').value = c.saude || 'verde';
+  document.getElementById('f-saude-motivo').value = c.saudeMotivo || '';
+  document.getElementById('f-inicio').value = c.inicio;
+  document.getElementById('f-proximo').value = c.proximoContato || '';
+  document.getElementById('f-nota-contato').value = '';
+  document.getElementById('f-nota-proximo').value = addDays(todayStr(),1);
+
+  renderPendList(c);
+  renderHistory(c);
+
+  overlay.classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingClientId = null;
+}
+
+function currentEditingClient() {
+  if (editingClientId) return state.clients.find(c => c.id === editingClientId);
+  return null;
+}
+
+function renderPendList(c) {
+  ['cliente','rscrm'].forEach(tipo => {
+    const container = document.getElementById('pend-list-' + tipo);
+    const items = c.pendencias.filter(p => p.responsavel === tipo);
+    container.innerHTML = items.length ? items.map(p => `
+      <div class="pend-item ${p.feito ? 'done' : ''}">
+        <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendencia('${p.id}')">
+        <span>${escapeHtml(p.texto)}</span>
+        <span class="del" onclick="removePendencia('${p.id}')">✕</span>
+      </div>
+    `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+  });
+}
+
+function renderHistory(c) {
+  const container = document.getElementById('history-list');
+  container.innerHTML = c.historico.length ? c.historico.map(h => `
+    <div class="history-item"><div class="date">${formatDate(h.data)}</div>${escapeHtml(h.texto)}</div>
+  `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhum contato registrado ainda.</div>`;
+}
+
+async function addPendencia(tipo) {
+  const input = document.getElementById('new-pend-' + tipo);
+  const texto = input.value.trim();
+  if (!texto) return;
+
+  if (!editingClientId) {
+    // cliente ainda não salvo — salva primeiro
+    await saveClient(true);
+  }
+  const c = currentEditingClient();
+  const { data, error } = await sb.from('pendencias').insert({ cliente_id: c.id, texto, responsavel: tipo, feito: false }).select().single();
+  if (error) { alert('Erro ao adicionar pendência: ' + error.message); return; }
+  c.pendencias.push({ id: data.id, texto, responsavel: tipo, feito: false });
+  input.value = '';
+  renderPendList(c);
+}
+
+async function togglePendencia(pendId) {
+  const c = currentEditingClient();
+  if (!c) return;
+  const p = c.pendencias.find(p => p.id === pendId);
+  if (!p) return;
+  const novoFeito = !p.feito;
+  const { error } = await sb.from('pendencias').update({ feito: novoFeito }).eq('id', pendId);
+  if (error) { alert('Erro ao atualizar pendência: ' + error.message); return; }
+  p.feito = novoFeito;
+  renderPendList(c);
+}
+
+async function removePendencia(pendId) {
+  const c = currentEditingClient();
+  if (!c) return;
+  const { error } = await sb.from('pendencias').delete().eq('id', pendId);
+  if (error) { alert('Erro ao remover pendência: ' + error.message); return; }
+  c.pendencias = c.pendencias.filter(p => p.id !== pendId);
+  renderPendList(c);
+}
+
+async function registrarContatoModal() {
+  if (!editingClientId) await saveClient(true);
+  const nota = document.getElementById('f-nota-contato').value.trim();
+  const proximo = document.getElementById('f-nota-proximo').value || addDays(todayStr(),1);
+  await registrarContato(editingClientId, nota, proximo);
+  document.getElementById('f-proximo').value = proximo;
+  document.getElementById('f-nota-contato').value = '';
+  renderHistory(currentEditingClient());
+}
+
+function moverParaBase() {
+  document.getElementById('f-fase').value = 'base';
+  document.getElementById('f-proximo').value = '';
+}
+
+async function saveClient(silent) {
+  const nome = document.getElementById('f-nome').value.trim();
+  if (!nome) { alert('Informe o nome do cliente.'); return; }
+
+  const isNew = !editingClientId;
+  const existing = isNew ? null : currentEditingClient();
+  const saudeAnterior = existing ? (existing.saude || 'verde') : 'verde';
+  const faseAnterior = existing ? (existing.fase || 'implantacao') : 'implantacao';
+  const clientId = isNew ? uid() : editingClientId;
+
+  const novaSaude = document.getElementById('f-saude').value;
+  const novoMotivo = document.getElementById('f-saude-motivo').value.trim();
+  const novaFase = document.getElementById('f-fase').value;
+
+  const payload = {
+    id: clientId,
+    codigo: document.getElementById('f-codigo').value.trim() || null,
+    nome,
+    contato: document.getElementById('f-contato').value.trim(),
+    telefone: document.getElementById('f-telefone').value.trim(),
+    responsavel: document.getElementById('f-responsavel').value.trim(),
+    etapa: document.getElementById('f-etapa').value,
+    fase: novaFase,
+    saude: novaSaude,
+    saude_motivo: novoMotivo,
+    inicio: document.getElementById('f-inicio').value || todayStr(),
+    proximo_contato: document.getElementById('f-proximo').value || null
+  };
+
+  const { error } = await sb.from('clientes').upsert(payload, { onConflict: 'id' });
+  if (error) { alert('Erro ao salvar cliente: ' + error.message); return; }
+
+  let c;
+  if (isNew) {
+    c = {
+      id: clientId, codigo: payload.codigo || '', nome: payload.nome, contato: payload.contato, telefone: payload.telefone,
+      responsavel: payload.responsavel, etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
+      saudeMotivo: payload.saude_motivo, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
+      pendencias: [], historico: []
+    };
+    state.clients.push(c);
+    editingClientId = clientId;
+  } else {
+    c = existing;
+    c.codigo = payload.codigo || '';
+    c.nome = payload.nome;
+    c.contato = payload.contato;
+    c.telefone = payload.telefone;
+    c.responsavel = payload.responsavel;
+    c.etapa = payload.etapa;
+    c.inicio = payload.inicio;
+    c.proximoContato = payload.proximo_contato;
+  }
+  c.saude = novaSaude;
+  c.saudeMotivo = novoMotivo;
+  c.fase = novaFase;
+
+  const eventos = [];
+  if (novaSaude !== saudeAnterior) {
+    const label = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[novaSaude];
+    eventos.push(`Saúde alterada para ${label}${novoMotivo ? ': ' + novoMotivo : ''}.`);
+  }
+  if (novaFase !== faseAnterior) {
+    eventos.push(novaFase === 'base' ? 'Cliente movido para a Base — implantação concluída.' : 'Cliente reativado para Implantação.');
+  }
+  for (const texto of eventos) {
+    const { data, error: errH } = await sb.from('historico').insert({ cliente_id: clientId, data: todayStr(), texto }).select().single();
+    if (!errH) c.historico.unshift({ id: data.id, data: todayStr(), texto });
+  }
+
+  if (!silent) { closeModal(); render(); }
+}
+
+async function deleteClient() {
+  if (!editingClientId) return;
+  const c = currentEditingClient();
+  if (!confirm(`Excluir o cliente "${c.nome}"? Essa ação não pode ser desfeita.`)) return;
+  const { error } = await sb.from('clientes').delete().eq('id', editingClientId);
+  if (error) { alert('Erro ao excluir cliente: ' + error.message); return; }
+  state.clients = state.clients.filter(c => c.id !== editingClientId);
+  closeModal();
+  render();
+}
+
+/* ── RESUMO PARA DIRETORIA ── */
+function renderResumo() {
+  const today = todayStr();
+  const implantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
+  const baseComTarefaHoje = state.clients.filter(c => (c.fase === 'base') && c.proximoContato && c.proximoContato <= today);
+  const verdes = implantacao.filter(c => (c.saude || 'verde') === 'verde');
+  const amarelos = implantacao.filter(c => c.saude === 'amarelo');
+  const vermelhos = implantacao.filter(c => c.saude === 'vermelho');
+  const contatadosHoje = state.clients.filter(c => c.ultimoContato === today);
+  const atrasados = state.clients
+    .filter(c => c.proximoContato && c.proximoContato < today)
+    .sort((a,b) => a.proximoContato < b.proximoContato ? -1 : 1);
+
+  document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(today);
+
+  let txt = `📊 Resumo de Implantação — ${formatDate(today)}\n\n`;
+  txt += `Clientes em implantação: ${implantacao.length}\n`;
+  txt += `🟢 Verde: ${verdes.length}   🟡 Amarelo: ${amarelos.length}   🔴 Vermelho: ${vermelhos.length}\n\n`;
+
+  txt += `✅ Contatos realizados hoje (${contatadosHoje.length}):\n`;
+  txt += contatadosHoje.length
+    ? contatadosHoje.map(c => `- ${c.nome}${c.historico[0] ? ' — ' + c.historico[0].texto : ''}`).join('\n')
+    : '- Nenhum contato registrado ainda hoje.';
+  txt += '\n\n';
+
+  const risco = [...vermelhos, ...amarelos];
+  txt += `⚠️ Em risco — atenção da diretoria (${risco.length}):\n`;
+  txt += risco.length
+    ? risco.map(c => `- ${c.nome} [${c.saude === 'vermelho' ? '🔴' : '🟡'}] (${stageOf(c.etapa).nome})${c.saudeMotivo ? ' — ' + c.saudeMotivo : ''}`).join('\n')
+    : '- Nenhum cliente em risco no momento.';
+  txt += '\n\n';
+
+  txt += `🔺 Atrasados sem contato (${atrasados.length}):\n`;
+  txt += atrasados.length
+    ? atrasados.map(c => `- ${c.nome} — ${daysBetween(c.proximoContato, today)} dia(s) em atraso`).join('\n')
+    : '- Nenhum cliente em atraso.';
+  txt += '\n\n';
+
+  txt += `🛠 Manutenção pontual hoje — clientes da Base (${baseComTarefaHoje.length}):\n`;
+  txt += baseComTarefaHoje.length
+    ? baseComTarefaHoje.map(c => `- ${c.nome}${c.saudeMotivo ? ' — ' + c.saudeMotivo : ''}`).join('\n')
+    : '- Nenhuma manutenção pontual hoje.';
+
+  document.getElementById('resumo-texto').textContent = txt;
+}
+
+function copyResumo() {
+  const texto = document.getElementById('resumo-texto').textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(
+      () => alert('Resumo copiado! Já pode colar no WhatsApp ou e-mail.'),
+      () => promptFallbackCopy(texto)
+    );
+  } else {
+    promptFallbackCopy(texto);
+  }
+}
+
+function promptFallbackCopy(texto) {
+  window.prompt('Copie o resumo abaixo (Ctrl+C):', texto);
+}
+
+/* ── EXPORT / IMPORT ── */
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup-implantacao-' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.clients) throw new Error('Formato inválido');
+      if (!confirm(`Importar ${data.clients.length} cliente(s) deste backup para o banco? Clientes com o mesmo ID serão sobrescritos.`)) return;
+
+      for (const c of data.clients) {
+        const payload = {
+          id: c.id, codigo: c.codigo || null, nome: c.nome, contato: c.contato || '', telefone: c.telefone || '',
+          responsavel: c.responsavel || '', etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
+          saude_motivo: c.saudeMotivo || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
+        };
+        await sb.from('clientes').upsert(payload, { onConflict: 'id' });
+        for (const p of (c.pendencias || [])) {
+          await sb.from('pendencias').upsert({ id: p.id, cliente_id: c.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito }, { onConflict: 'id' });
+        }
+        for (const h of (c.historico || [])) {
+          await sb.from('historico').upsert({ id: h.id, cliente_id: c.id, data: h.data, texto: h.texto }, { onConflict: 'id' });
+        }
+      }
+      await loadState();
+      render();
+      alert('Importação concluída.');
+    } catch(err) {
+      alert('Não foi possível importar o arquivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'modal-overlay') closeModal();
+});
+
+(async function init() {
+  await loadState();
+  render();
+})();
+</script>
+</body>
+</html>
