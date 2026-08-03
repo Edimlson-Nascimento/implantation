@@ -352,6 +352,43 @@
   .etapa-row .icon-btn:disabled { opacity:0.3; cursor:default; }
   .etapa-row .icon-btn.danger:hover { color:var(--red); }
 
+  .calendario-list { display:flex; flex-direction:column; gap:20px; margin-top:18px; }
+  .calendario-group-label {
+    font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--gray-text);
+    padding-bottom:6px; border-bottom:1px solid var(--border-light);
+  }
+  .calendario-group-label.hoje { color: var(--green-mid); }
+  .calendario-items { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .ag-item {
+    display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px;
+    border:1px solid var(--border-light); background:var(--light-bg); cursor:pointer;
+  }
+  .ag-item.feito { opacity:0.55; }
+  .ag-item.feito .ag-titulo { text-decoration: line-through; }
+  .ag-item .ag-hora { font-size:13px; font-weight:800; color:var(--navy); min-width:52px; }
+  :root[data-theme="dark"] .ag-item .ag-hora { color: var(--on-navy); }
+  .ag-item .ag-tipo-icon { font-size:16px; }
+  .ag-item .ag-body { flex:1; min-width:0; }
+  .ag-item .ag-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
+  .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
+  .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
+
+  .lembrete-toast {
+    position: fixed; top: 20px; right: 20px; z-index: 200;
+    display:flex; align-items:flex-start; gap:12px;
+    background: var(--navy); color: var(--on-navy);
+    border-radius: 14px; padding: 16px 18px; max-width: 340px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    border: 1px solid rgba(0,255,122,0.35);
+    animation: lembrete-in .25s ease-out;
+  }
+  @keyframes lembrete-in { from { transform: translateY(-12px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .lembrete-toast-icon { font-size: 20px; }
+  .lembrete-toast-title { font-size: 13.5px; font-weight: 700; color: var(--on-navy); }
+  .lembrete-toast-sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+  .lembrete-toast-close { background:none; border:none; color: rgba(255,255,255,0.5); cursor:pointer; font-size:14px; margin-left:auto; }
+  .lembrete-toast-close:hover { color: var(--on-navy); }
+
   @media (max-width: 860px) {
     .app-shell { flex-direction: column; }
     .sidebar { width: 100%; min-height: auto; position: relative; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 16px; gap: 14px; }
@@ -375,6 +412,7 @@
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item active" id="tab-agenda" onclick="setTab('agenda')">Agenda de Hoje <span class="badge-count" id="agenda-count">0</span></button>
+      <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item" id="tab-etapas" onclick="setTab('etapas')">Etapas</button>
@@ -459,7 +497,62 @@
       <div id="etapas-list" class="etapas-list"></div>
     </div>
   </section>
+
+  <section id="view-calendario" style="display:none">
+    <div class="resumo-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin-bottom:0;">Agenda de Reuniões e Ligações</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
+          <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
+        </div>
+      </div>
+      <label class="chk" style="margin-top:14px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
+      <div id="calendario-list" class="calendario-list"></div>
+    </div>
+  </section>
     </main>
+  </div>
+</div>
+
+<div id="lembrete-toast" class="lembrete-toast" style="display:none">
+  <div class="lembrete-toast-icon">🔔</div>
+  <div>
+    <div class="lembrete-toast-title" id="lembrete-toast-title"></div>
+    <div class="lembrete-toast-sub" id="lembrete-toast-sub"></div>
+  </div>
+  <button class="lembrete-toast-close" onclick="document.getElementById('lembrete-toast').style.display='none'">✕</button>
+</div>
+
+<!-- ══ MODAL AGENDAMENTO ══ -->
+<div class="modal-overlay" id="agendamento-modal-overlay">
+  <div class="modal-box" style="max-width:480px;">
+    <h2 id="agendamento-modal-title">Novo Agendamento</h2>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Cliente (opcional)</label>
+        <input type="text" id="ag-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
+        <datalist id="lista-clientes-nomes"></datalist>
+      </div>
+      <div class="form-field"><label>Tipo</label>
+        <select id="ag-tipo">
+          <option value="reuniao">Reunião</option>
+          <option value="ligacao">Ligação</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Título</label><input type="text" id="ag-titulo" placeholder="Ex: Alinhamento de fluxo"></div>
+      <div class="form-field"><label>Data</label><input type="date" id="ag-data"></div>
+      <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
+      <div class="form-field full"><label>Observação</label><input type="text" id="ag-obs" placeholder="Opcional"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" onclick="closeAgendamentoModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveAgendamento()">Salvar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -578,6 +671,10 @@ let state = { clients: [] };
 let activeTab = 'agenda';
 let clientsView = 'lista';
 let editingClientId = null;
+let agendamentos = [];
+let editingAgendamentoId = null;
+let lembretesAtivos = false;
+let notifiedAgendamentoIds = new Set();
 
 function todayStr() {
   const d = new Date();
@@ -639,15 +736,28 @@ async function loadState() {
     pendencias: pendencias.filter(p => p.cliente_id === c.id).map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito })),
     historico: historico.filter(h => h.cliente_id === c.id).map(h => ({ id: h.id, data: h.data, texto: h.texto }))
   }));
+
+  const { data: ags, error: errA } = await sb.from('agendamentos').select('*').order('data').order('hora');
+  if (errA) {
+    console.warn('Tabela agendamentos ainda não disponível:', errA.message);
+    agendamentos = [];
+  } else {
+    agendamentos = ags.map(a => ({
+      id: a.id, clienteId: a.cliente_id, titulo: a.titulo, tipo: a.tipo,
+      data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito
+    }));
+  }
 }
 
 function setTab(tab) {
   activeTab = tab;
   document.getElementById('tab-agenda').classList.toggle('active', tab === 'agenda');
+  document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('view-agenda').style.display = tab === 'agenda' ? '' : 'none';
+  document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
   document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
@@ -658,10 +768,19 @@ function render() {
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   renderStats();
   populateStageOptions();
+  populateClientesDatalist();
+  updateCalendarioCount();
   if (activeTab === 'agenda') renderAgenda();
+  else if (activeTab === 'calendario') renderCalendario();
   else if (activeTab === 'clientes') renderClientes();
   else if (activeTab === 'etapas') renderEtapas();
   else renderResumo();
+}
+
+function updateCalendarioCount() {
+  const today = todayStr();
+  const pendentes = agendamentos.filter(a => !a.feito && a.data <= today);
+  document.getElementById('calendario-count').textContent = pendentes.length;
 }
 
 function renderStats() {
@@ -1242,6 +1361,178 @@ async function deleteEtapa(id) {
   render();
 }
 
+/* ── AGENDA (AGENDAMENTOS) ── */
+function populateClientesDatalist() {
+  document.getElementById('lista-clientes-nomes').innerHTML =
+    state.clients.map(c => `<option value="${escapeHtml(c.nome)}">`).join('');
+}
+
+const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', outro: '📌' };
+const TIPO_LABEL = { reuniao: 'Reunião', ligacao: 'Ligação', outro: 'Outro' };
+
+function renderCalendario() {
+  const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
+  const container = document.getElementById('calendario-list');
+  const today = todayStr();
+
+  const list = agendamentos
+    .filter(a => showConcluidos || !a.feito)
+    .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">🗓</div><h3>Nenhum agendamento</h3><p>Marque uma reunião ou ligação com "+ Novo Agendamento".</p></div>`;
+    return;
+  }
+
+  const grupos = {};
+  list.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
+
+  container.innerHTML = Object.keys(grupos).sort().map(data => {
+    const isHoje = data === today;
+    const label = isHoje ? 'Hoje — ' + formatDate(data) : formatDate(data);
+    const itens = grupos[data].map(a => {
+      const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+      return `
+        <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
+          <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
+          <div class="ag-hora">${a.hora || '—'}</div>
+          <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
+          <div class="ag-body">
+            <div class="ag-titulo">${escapeHtml(a.titulo)}</div>
+            <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${cliente ? ' · ' + escapeHtml(cliente.nome) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    return `<div><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="calendario-items">${itens}</div></div>`;
+  }).join('');
+}
+
+function openAgendamentoModal(id) {
+  editingAgendamentoId = id;
+  const isNew = !id;
+  document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
+  document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
+
+  const a = isNew ? { clienteId: null, titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '' }
+                  : agendamentos.find(a => a.id === id);
+  const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+
+  document.getElementById('ag-cliente-nome').value = cliente ? cliente.nome : '';
+  document.getElementById('ag-tipo').value = a.tipo;
+  document.getElementById('ag-titulo').value = a.titulo;
+  document.getElementById('ag-data').value = a.data;
+  document.getElementById('ag-hora').value = a.hora;
+  document.getElementById('ag-obs').value = a.observacao;
+
+  document.getElementById('agendamento-modal-overlay').classList.add('open');
+}
+
+function closeAgendamentoModal() {
+  document.getElementById('agendamento-modal-overlay').classList.remove('open');
+  editingAgendamentoId = null;
+}
+
+async function saveAgendamento() {
+  const titulo = document.getElementById('ag-titulo').value.trim();
+  if (!titulo) { alert('Informe um título para o agendamento.'); return; }
+  const data = document.getElementById('ag-data').value;
+  if (!data) { alert('Informe a data.'); return; }
+
+  const nomeCliente = document.getElementById('ag-cliente-nome').value.trim();
+  const clienteMatch = nomeCliente ? state.clients.find(c => c.nome.toLowerCase() === nomeCliente.toLowerCase()) : null;
+
+  const payload = {
+    cliente_id: clienteMatch ? clienteMatch.id : null,
+    titulo,
+    tipo: document.getElementById('ag-tipo').value,
+    data,
+    hora: document.getElementById('ag-hora').value || null,
+    observacao: document.getElementById('ag-obs').value.trim()
+  };
+
+  if (editingAgendamentoId) {
+    const { error } = await sb.from('agendamentos').update(payload).eq('id', editingAgendamentoId);
+    if (error) { alert('Erro ao salvar agendamento: ' + error.message); return; }
+    const a = agendamentos.find(a => a.id === editingAgendamentoId);
+    Object.assign(a, { clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao });
+  } else {
+    const { data: row, error } = await sb.from('agendamentos').insert(payload).select().single();
+    if (error) { alert('Erro ao criar agendamento: ' + error.message); return; }
+    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, feito: false });
+  }
+
+  closeAgendamentoModal();
+  render();
+}
+
+async function deleteAgendamento() {
+  if (!editingAgendamentoId) return;
+  if (!confirm('Excluir este agendamento?')) return;
+  const { error } = await sb.from('agendamentos').delete().eq('id', editingAgendamentoId);
+  if (error) { alert('Erro ao excluir agendamento: ' + error.message); return; }
+  agendamentos = agendamentos.filter(a => a.id !== editingAgendamentoId);
+  closeAgendamentoModal();
+  render();
+}
+
+async function toggleAgendamentoFeito(id) {
+  const a = agendamentos.find(a => a.id === id);
+  if (!a) return;
+  const novoFeito = !a.feito;
+  const { error } = await sb.from('agendamentos').update({ feito: novoFeito }).eq('id', id);
+  if (error) { alert('Erro ao atualizar agendamento: ' + error.message); return; }
+  a.feito = novoFeito;
+  render();
+}
+
+/* ── LEMBRETES ── */
+function ativarLembretes() {
+  const btn = document.getElementById('btn-ativar-lembretes');
+  if (!('Notification' in window)) {
+    lembretesAtivos = true;
+    btn.textContent = '🔔 Lembretes na tela ativos';
+    return;
+  }
+  Notification.requestPermission().then(perm => {
+    lembretesAtivos = true;
+    btn.textContent = perm === 'granted' ? '🔔 Lembretes ativos' : '🔔 Lembretes na tela ativos';
+  });
+}
+
+function showLembreteToast(a) {
+  const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+  document.getElementById('lembrete-toast-title').textContent = `${TIPO_ICON[a.tipo] || '📌'} ${a.titulo}`;
+  document.getElementById('lembrete-toast-sub').textContent =
+    `${a.hora || ''}${cliente ? ' · ' + cliente.nome : ''}`.trim();
+  document.getElementById('lembrete-toast').style.display = 'flex';
+}
+
+function checkLembretes() {
+  if (!agendamentos.length) return;
+  const now = new Date();
+  const hojeStr = todayStr();
+  agendamentos.forEach(a => {
+    if (a.feito || !a.hora || a.data !== hojeStr || notifiedAgendamentoIds.has(a.id)) return;
+    const [h, m] = a.hora.split(':').map(Number);
+    const agTime = new Date();
+    agTime.setHours(h, m, 0, 0);
+    const diffMin = (agTime - now) / 60000;
+    if (diffMin <= 15 && diffMin >= -5) {
+      notifiedAgendamentoIds.add(a.id);
+      showLembreteToast(a);
+      if (lembretesAtivos && 'Notification' in window && Notification.permission === 'granted') {
+        const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+        new Notification((TIPO_ICON[a.tipo] || '') + ' ' + a.titulo, {
+          body: `${a.hora}${cliente ? ' · ' + cliente.nome : ''}`,
+          icon: 'logo-intelipulse.png'
+        });
+      }
+    }
+  });
+}
+setInterval(checkLembretes, 30000);
+
 /* ── EXPORT / IMPORT ── */
 function exportJSON() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -1289,10 +1580,14 @@ function importJSON(file) {
 document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target.id === 'modal-overlay') closeModal();
 });
+document.getElementById('agendamento-modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'agendamento-modal-overlay') closeAgendamentoModal();
+});
 
 (async function init() {
   await loadState();
   render();
+  checkLembretes();
 })();
 </script>
 </body>
