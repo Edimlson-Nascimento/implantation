@@ -127,6 +127,7 @@
     text-align: left;
   }
   .btn-sidebar:hover { background: rgba(255,255,255,0.09); color: var(--on-navy); }
+  .btn-sidebar.active { background: rgba(0,255,122,0.12); color: var(--green); }
 
   .main-area { flex: 1; min-width: 0; width: 100%; }
   .topbar {
@@ -372,7 +373,10 @@
   :root[data-theme="dark"] .ag-item .ag-hora { color: var(--on-navy); }
   .ag-item .ag-tipo-icon { font-size:16px; }
   .ag-item .ag-body { flex:1; min-width:0; }
+  .ag-item .ag-titulo-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .ag-item .ag-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
+  .ag-item .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
+  :root[data-theme="dark"] .ag-item .ag-cliente-badge { color: var(--green); }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
 
@@ -391,6 +395,69 @@
   .lembrete-toast-sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 3px; }
   .lembrete-toast-close { background:none; border:none; color: rgba(255,255,255,0.5); cursor:pointer; font-size:14px; margin-left:auto; }
   .lembrete-toast-close:hover { color: var(--on-navy); }
+
+  /* ── ATIVIDADES (KANBAN) ── */
+  .atividades-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+  .pessoa-filter { display:flex; gap:6px; background:var(--white); border:1px solid var(--border-light); padding:4px; border-radius:10px; }
+  .pessoa-filter-btn { font-family:inherit; font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:8px; border:none; background:transparent; color:var(--gray-text); cursor:pointer; }
+  .pessoa-filter-btn.active { background:var(--navy); color:var(--on-navy); }
+
+  .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:14px; align-items:flex-start; }
+  .kanban-column { background:var(--light-bg); border:1px solid var(--border-light); border-radius:14px; width:270px; min-width:270px; padding:12px; }
+  .kanban-column-header { display:flex; justify-content:space-between; align-items:center; padding:2px 4px 12px; }
+  .kanban-column-header h3 { font-size:13px; font-weight:700; color:var(--text-main); margin:0; }
+  .kanban-wip { font-size:10.5px; color:var(--gray-text); background:var(--white); padding:2px 8px; border-radius:12px; border:1px solid var(--border-light); }
+  .kanban-add { width:100%; background:transparent; border:1px dashed var(--border-light); color:var(--gray-text); font-size:12px; padding:8px; margin-top:6px; border-radius:8px; cursor:pointer; }
+  .kanban-add:hover { color:var(--green-mid); border-color:var(--green-mid); }
+  .kanban-empty { font-size:12px; color:var(--gray-text); padding:8px 4px; }
+
+  .kanban-card { background:var(--white); border:1px solid var(--border-light); border-radius:10px; padding:11px 12px; margin-bottom:10px; cursor:grab; position:relative; }
+  .kanban-card:active { cursor:grabbing; }
+  .kanban-card.dragging { opacity:0.45; }
+  .kanban-card.cancelada { opacity:0.55; }
+  .kanban-card.cancelada .kc-titulo { text-decoration:line-through; }
+  .kc-cancelada-badge { display:inline-block; font-size:10px; font-weight:700; color:var(--red); background:#FEE2E2; padding:2px 7px; border-radius:4px; margin-bottom:6px; }
+  .kc-label { height:6px; min-width:32px; border-radius:4px; display:inline-block; margin-bottom:8px; }
+  .kc-label.red { background:var(--red); }
+  .kc-label.orange { background:var(--amber); }
+  .kc-label.yellow { background:#F2C94C; }
+  .kc-label.blue { background:#4A90D9; }
+  .kc-titulo { font-size:13px; line-height:1.4; color:var(--text-main); margin-bottom:8px; padding-right:16px; }
+  .kc-footer { display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; }
+  .kc-cliente { font-size:10.5px; background:var(--light-bg); color:var(--text-main); padding:3px 8px; border-radius:5px; font-weight:700; }
+  .kc-pessoa { font-size:10px; font-weight:700; color:var(--on-navy); background:var(--navy); padding:2px 7px; border-radius:100px; }
+  .kc-delete { position:absolute; top:6px; right:8px; font-size:13px; color:var(--gray-text); cursor:pointer; }
+  .kc-delete:hover { color:var(--red); }
+
+  /* ── RELATÓRIO (visual sempre claro, pra ficar igual em qualquer tema) ── */
+  .filter-bar-label { font-size:11.5px; color:var(--gray-text); font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-top:14px; margin-bottom:8px; }
+  .filter-days { display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-day-btn { background:var(--light-bg); color:var(--text-main); border:none; border-radius:7px; padding:8px 6px; font-size:11.5px; font-weight:700; text-align:center; min-width:50px; cursor:pointer; line-height:1.3; }
+  .filter-day-btn .dow { display:block; }
+  .filter-day-btn .dnum { display:block; font-size:10px; font-weight:500; color:var(--gray-text); }
+  .filter-day-btn.active { background:var(--green-mid); color:#062017; }
+  .relatorio-visual { background:#fff; padding:24px; border-radius:12px; border:1px solid #e3e6ee; margin-top:14px; color:#1a2029; }
+  .rv-brand img { height:30px; width:auto; display:block; margin-bottom:14px; }
+  .rv-header { border-bottom:2px solid #1f9d63; padding-bottom:10px; margin-bottom:14px; }
+  .rv-header h3 { margin:0; color:#0e6b41; font-size:17px; }
+  .rv-header p { margin:5px 0 0; font-size:12.5px; color:#5e6c84; }
+  .rv-cliente { font-size:13.5px; font-weight:700; margin-top:14px; margin-bottom:6px; background:#eef1f7; padding:6px 10px; border-radius:5px; color:#1a2029; }
+  .rv-pessoa { font-size:11px; font-weight:700; color:#5e6c84; margin-top:16px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.04em; }
+  .rv-tarefa { font-size:13px; margin:5px 0 5px 16px; position:relative; color:#1a2029; }
+  .rv-tarefa::before { content:"✓"; color:#1f9d63; position:absolute; left:-16px; font-weight:bold; }
+  .rv-resolucao { font-size:11.5px; color:#5e6c84; margin-top:2px; font-style:italic; }
+  .rv-empty { text-align:center; color:#7a8399; font-size:13px; padding:10px 0; }
+  .rv-date-tag { font-size:10.5px; color:#8a94aa; font-weight:400; margin-left:6px; }
+
+  .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
+  .label-swatches { display:flex; gap:8px; margin-top:2px; }
+  .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .swatch.selected { border-color: var(--text-main); }
+  .swatch-none { background: var(--light-bg); color: var(--gray-text); border: 1px solid var(--border-light); }
+  .swatch-red { background: var(--red); }
+  .swatch-orange { background: var(--amber); }
+  .swatch-yellow { background: #F2C94C; }
+  .swatch-blue { background: #4A90D9; }
 
   @media (max-width: 860px) {
     .app-shell { flex-direction: column; }
@@ -418,9 +485,10 @@
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
-      <button class="nav-item" id="tab-etapas" onclick="setTab('etapas')">Etapas</button>
+      <button class="nav-item" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
     <div class="sidebar-footer">
+      <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
       <button class="btn-sidebar" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
       <button class="btn-sidebar" onclick="exportJSON()">⬇ Exportar backup</button>
       <button class="btn-sidebar" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
@@ -524,6 +592,17 @@
       <div id="calendario-list" class="calendario-list"></div>
     </div>
   </section>
+
+  <section id="view-atividades" style="display:none">
+    <div class="atividades-toolbar">
+      <div class="pessoa-filter" id="pessoa-filter"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" onclick="abrirRelatorioAtividades()">📋 Gerar Relatório</button>
+        <button class="btn btn-green btn-sm" onclick="novaAtividade()">+ Nova Atividade</button>
+      </div>
+    </div>
+    <div class="kanban-board" id="kanban-board"></div>
+  </section>
     </main>
   </div>
 </div>
@@ -555,6 +634,7 @@
         </select>
       </div>
       <div class="form-field"><label>Título</label><input type="text" id="ag-titulo" placeholder="Ex: Alinhamento de fluxo"></div>
+      <div class="form-field"><label>Agendado por</label><select id="ag-responsavel"></select></div>
       <div class="form-field"><label>Data</label><input type="date" id="ag-data"></div>
       <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
       <div class="form-field full"><label>Observação</label><input type="text" id="ag-obs" placeholder="Opcional"></div>
@@ -565,6 +645,65 @@
         <button class="btn" onclick="closeAgendamentoModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="withLock(this, saveAgendamento)">Salvar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ATIVIDADE ══ -->
+<div class="modal-overlay" id="atividade-modal-overlay">
+  <div class="modal-box" style="max-width:480px;">
+    <h2 id="atividade-modal-title">Nova Atividade</h2>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Descrição</label>
+        <textarea id="at-titulo" style="width:100%;min-height:56px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+      </div>
+      <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
+      <div class="form-field"><label>Coluna</label>
+        <select id="at-coluna">
+          <option value="urgencias">Fila de Urgências (Hoje)</option>
+          <option value="afazer">A Fazer (Próximos)</option>
+          <option value="andamento">Em Andamento</option>
+          <option value="concluida">Concluído</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <label>Cliente (opcional)</label>
+        <input type="text" id="at-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
+      </div>
+      <div class="form-field full" id="at-resolucao-field" style="display:none;">
+        <label>Resolução (o que foi feito)</label>
+        <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:56px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+      </div>
+      <div class="form-field full"><label>Etiqueta</label><div class="label-swatches" id="at-label-swatches"></div></div>
+    </div>
+    <div class="modal-footer">
+      <div id="atividade-danger-actions" style="display:flex;gap:8px;"></div>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" onclick="closeAtividadeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="withLock(this, saveAtividade)">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL RELATÓRIO DE ATIVIDADES ══ -->
+<div class="modal-overlay" id="relatorio-modal-overlay">
+  <div class="modal-box" style="max-width:560px;">
+    <h2>Relatório de Atividades</h2>
+    <div class="filter-bar-label">Ver o que foi concluído em:</div>
+    <div class="filter-days" id="relatorio-filter-days"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+      <input type="date" id="relatorio-filter-custom">
+      <button class="btn btn-sm" id="relatorio-filter-all" onclick="setRelatorioFiltro(null)">Todos os dias</button>
+    </div>
+    <div id="relatorio-visual" class="relatorio-visual"></div>
+    <div class="modal-footer">
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="baixarRelatorioTexto()">📄 Baixar Texto</button>
+        <button class="btn btn-primary" onclick="baixarRelatorioImagem()">📸 Baixar Imagem</button>
+      </div>
+      <button class="btn" onclick="closeRelatorioModal()" style="margin-left:auto;">Fechar</button>
     </div>
   </div>
 </div>
@@ -651,6 +790,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
@@ -690,6 +830,21 @@ let sortDirection = 'asc';
 let editingAgendamentoId = null;
 let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
+
+const PESSOAS = ['Edimilson', 'Jefferson', 'Leandro'];
+const KANBAN_COLUMNS = [
+  { id:'urgencias', nome:'Fila de Urgências (Hoje)' },
+  { id:'afazer',    nome:'A Fazer (Próximos)' },
+  { id:'andamento', nome:'Em Andamento', limite:3 },
+  { id:'concluida', nome:'Concluído' }
+];
+const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', yellow:'Atenção', blue:'Rotina' };
+let atividades = [];
+let pessoaFiltro = 'Todos';
+let draggedAtividadeId = null;
+let editingAtividadeId = null;
+let editingAtividadeLabel = null;
+let relatorioFiltroData = null;
 
 function todayStr() {
   const d = new Date();
@@ -772,7 +927,20 @@ async function loadState() {
   } else {
     agendamentos = ags.map(a => ({
       id: a.id, clienteId: a.cliente_id, titulo: a.titulo, tipo: a.tipo,
-      data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito
+      data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito,
+      responsavel: a.responsavel || ''
+    }));
+  }
+
+  const { data: ativs, error: errT } = await sb.from('atividades').select('*').order('ordem');
+  if (errT) {
+    console.warn('Tabela atividades ainda não disponível:', errT.message);
+    atividades = [];
+  } else {
+    atividades = ativs.map(a => ({
+      id: a.id, responsavel: a.responsavel, titulo: a.titulo, clienteNome: a.cliente_nome || '',
+      label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '',
+      concluidoEm: a.concluido_em, ordem: a.ordem
     }));
   }
 }
@@ -784,11 +952,13 @@ function setTab(tab) {
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
+  document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
   document.getElementById('view-agenda').style.display = tab === 'agenda' ? '' : 'none';
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
   document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
+  document.getElementById('view-atividades').style.display = tab === 'atividades' ? '' : 'none';
   render();
 }
 
@@ -802,6 +972,7 @@ function render() {
   else if (activeTab === 'calendario') renderCalendario();
   else if (activeTab === 'clientes') renderClientes();
   else if (activeTab === 'etapas') renderEtapas();
+  else if (activeTab === 'atividades') renderAtividades();
   else renderResumo();
 }
 
@@ -902,7 +1073,7 @@ function renderAgenda() {
           <textarea id="inline-nota-${c.id}" placeholder="O que foi conversado hoje? (opcional)"></textarea>
           <div class="row2">
             <label>Próximo contato:</label>
-            <input type="date" id="inline-proximo-${c.id}" value="${addDays(today,1)}">
+            <input type="date" id="inline-proximo-${c.id}" value="${today}">
             <button class="btn btn-primary btn-sm" onclick="withLock(this, () => registrarContatoInline('${c.id}'))">Salvar</button>
           </div>
         </div>
@@ -918,7 +1089,7 @@ function toggleInlineForm(id) {
 
 async function registrarContatoInline(id) {
   const nota = document.getElementById('inline-nota-' + id).value.trim();
-  const proximo = document.getElementById('inline-proximo-' + id).value || addDays(todayStr(),1);
+  const proximo = document.getElementById('inline-proximo-' + id).value || todayStr();
   await registrarContato(id, nota, proximo);
   render();
 }
@@ -1121,7 +1292,7 @@ function openModal(id) {
   document.getElementById('f-inicio').value = c.inicio;
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
-  document.getElementById('f-nota-proximo').value = addDays(todayStr(),1);
+  document.getElementById('f-nota-proximo').value = todayStr();
 
   renderPendList(c);
   renderHistory(c);
@@ -1199,7 +1370,7 @@ async function removePendencia(pendId) {
 async function registrarContatoModal() {
   await saveClient(true);
   const nota = document.getElementById('f-nota-contato').value.trim();
-  const proximo = document.getElementById('f-nota-proximo').value || addDays(todayStr(),1);
+  const proximo = document.getElementById('f-nota-proximo').value || todayStr();
   await registrarContato(editingClientId, nota, proximo);
   document.getElementById('f-proximo').value = proximo;
   document.getElementById('f-nota-contato').value = '';
@@ -1475,8 +1646,11 @@ function renderCalendario() {
           <div class="ag-hora">${a.hora || '—'}</div>
           <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
           <div class="ag-body">
-            <div class="ag-titulo">${escapeHtml(a.titulo)}</div>
-            <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${cliente ? ' · ' + escapeHtml(cliente.nome) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+            <div class="ag-titulo-row">
+              <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
+              ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+            </div>
+            <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
           </div>
         </div>
       `;
@@ -1491,13 +1665,15 @@ function openAgendamentoModal(id) {
   document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
   document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
 
-  const a = isNew ? { clienteId: null, titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '' }
+  const a = isNew ? { clienteId: null, titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0] }
                   : agendamentos.find(a => a.id === id);
   const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
 
   document.getElementById('ag-cliente-nome').value = cliente ? cliente.nome : '';
   document.getElementById('ag-tipo').value = a.tipo;
   document.getElementById('ag-titulo').value = a.titulo;
+  document.getElementById('ag-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('ag-responsavel').value = a.responsavel || PESSOAS[0];
   document.getElementById('ag-data').value = a.data;
   document.getElementById('ag-hora').value = a.hora;
   document.getElementById('ag-obs').value = a.observacao;
@@ -1525,18 +1701,19 @@ async function saveAgendamento() {
     tipo: document.getElementById('ag-tipo').value,
     data,
     hora: document.getElementById('ag-hora').value || null,
-    observacao: document.getElementById('ag-obs').value.trim()
+    observacao: document.getElementById('ag-obs').value.trim(),
+    responsavel: document.getElementById('ag-responsavel').value
   };
 
   if (editingAgendamentoId) {
     const { error } = await sb.from('agendamentos').update(payload).eq('id', editingAgendamentoId);
     if (error) { alert('Erro ao salvar agendamento: ' + error.message); return; }
     const a = agendamentos.find(a => a.id === editingAgendamentoId);
-    Object.assign(a, { clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao });
+    Object.assign(a, { clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel });
   } else {
     const { data: row, error } = await sb.from('agendamentos').insert(payload).select().single();
     if (error) { alert('Erro ao criar agendamento: ' + error.message); return; }
-    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, feito: false });
+    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, feito: false });
   }
 
   closeAgendamentoModal();
@@ -1581,7 +1758,7 @@ function showLembreteToast(a) {
   const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
   document.getElementById('lembrete-toast-title').textContent = `${TIPO_ICON[a.tipo] || '📌'} ${a.titulo}`;
   document.getElementById('lembrete-toast-sub').textContent =
-    `${a.hora || ''}${cliente ? ' · ' + cliente.nome : ''}`.trim();
+    `${a.hora || ''}${cliente ? ' · ' + cliente.nome : ''}${a.responsavel ? ' · ' + a.responsavel : ''}`.trim();
   document.getElementById('lembrete-toast').style.display = 'flex';
 }
 
@@ -1609,6 +1786,380 @@ function checkLembretes() {
   });
 }
 setInterval(checkLembretes, 30000);
+
+/* ── ATIVIDADES (KANBAN) ── */
+function renderPessoaFilter() {
+  const wrap = document.getElementById('pessoa-filter');
+  const opcoes = ['Todos', ...PESSOAS];
+  wrap.innerHTML = opcoes.map(p =>
+    `<button class="pessoa-filter-btn ${pessoaFiltro === p ? 'active' : ''}" onclick="setPessoaFiltro('${p}')">${p}</button>`
+  ).join('');
+}
+
+function setPessoaFiltro(p) {
+  pessoaFiltro = p;
+  render();
+}
+
+function renderAtividades() {
+  renderPessoaFilter();
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = '';
+
+  KANBAN_COLUMNS.forEach(col => {
+    let cards = atividades.filter(a => a.coluna === col.id);
+    if (pessoaFiltro !== 'Todos') cards = cards.filter(a => a.responsavel === pessoaFiltro);
+
+    const colEl = document.createElement('div');
+    colEl.className = 'kanban-column';
+    colEl.dataset.coluna = col.id;
+    colEl.innerHTML = `
+      <div class="kanban-column-header">
+        <h3>${col.nome}</h3>
+        <span class="kanban-wip">${cards.length}${col.limite ? ' / ' + col.limite : ''}</span>
+      </div>
+    `;
+    if (cards.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'kanban-empty';
+      empty.textContent = 'Nada aqui.';
+      colEl.appendChild(empty);
+    }
+    cards.forEach(a => colEl.appendChild(renderAtividadeCard(a)));
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'kanban-add';
+    addBtn.textContent = '+ Nova atividade';
+    addBtn.onclick = () => novaAtividade(col.id);
+    colEl.appendChild(addBtn);
+
+    colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('drop-hover'); });
+    colEl.addEventListener('dragleave', () => colEl.classList.remove('drop-hover'));
+    colEl.addEventListener('drop', async e => {
+      e.preventDefault();
+      colEl.classList.remove('drop-hover');
+      const id = draggedAtividadeId;
+      draggedAtividadeId = null;
+      if (!id) return;
+      const a = atividades.find(x => x.id === id);
+      if (!a || a.coluna === col.id) return;
+      const payload = { coluna: col.id, concluido_em: col.id === 'concluida' ? (a.concluidoEm || todayStr()) : null };
+      const { error } = await sb.from('atividades').update(payload).eq('id', a.id);
+      if (error) { alert('Erro ao mover atividade: ' + error.message); return; }
+      a.coluna = col.id;
+      a.concluidoEm = payload.concluido_em;
+      render();
+      if (col.id === 'concluida') {
+        openAtividadeModal(a.id);
+        setTimeout(() => document.getElementById('at-resolucao').focus(), 50);
+      }
+    });
+
+    board.appendChild(colEl);
+  });
+}
+
+function renderAtividadeCard(a) {
+  const el = document.createElement('div');
+  el.className = 'kanban-card' + (a.cancelado ? ' cancelada' : '');
+  el.draggable = true;
+  el.dataset.id = a.id;
+
+  el.innerHTML = `
+    ${a.cancelado ? '<span class="kc-cancelada-badge">Cancelada</span>' : ''}
+    ${a.label ? `<span class="kc-label ${a.label}" title="${ATIV_LABEL_NAMES[a.label]}"></span>` : ''}
+    <span class="kc-delete" title="Excluir">✕</span>
+    <div class="kc-titulo">${escapeHtml(a.titulo)}</div>
+    <div class="kc-footer">
+      ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
+      <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
+    </div>
+  `;
+
+  el.addEventListener('dragstart', () => { draggedAtividadeId = a.id; el.classList.add('dragging'); });
+  el.addEventListener('dragend', () => el.classList.remove('dragging'));
+  el.addEventListener('click', () => openAtividadeModal(a.id));
+  el.querySelector('.kc-delete').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!confirm('Excluir esta atividade definitivamente?')) return;
+    const { error } = await sb.from('atividades').delete().eq('id', a.id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    atividades = atividades.filter(x => x.id !== a.id);
+    render();
+  });
+
+  return el;
+}
+
+function novaAtividade(coluna) {
+  openAtividadeModal(null, coluna || 'afazer');
+}
+
+function openAtividadeModal(id, coluna) {
+  editingAtividadeId = id;
+  const isNew = !id;
+  document.getElementById('atividade-modal-title').textContent = isNew ? 'Nova Atividade' : 'Editar Atividade';
+
+  const a = isNew
+    ? { responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], titulo: '', clienteNome: '', label: null, coluna: coluna || 'afazer', resolucao: '', cancelado: false }
+    : atividades.find(x => x.id === id);
+
+  editingAtividadeLabel = a.label;
+
+  document.getElementById('at-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('at-titulo').value = a.titulo;
+  document.getElementById('at-responsavel').value = a.responsavel;
+  document.getElementById('at-coluna').value = a.coluna;
+  document.getElementById('at-cliente-nome').value = a.clienteNome;
+  document.getElementById('at-resolucao').value = a.resolucao;
+  toggleResolucaoField(a.coluna);
+
+  renderAtividadeLabelSwatches();
+  renderAtividadeDangerActions(isNew, a.cancelado);
+
+  document.getElementById('atividade-modal-overlay').classList.add('open');
+}
+
+function toggleResolucaoField(coluna) {
+  document.getElementById('at-resolucao-field').style.display = coluna === 'concluida' ? '' : 'none';
+}
+document.getElementById('at-coluna').addEventListener('change', e => toggleResolucaoField(e.target.value));
+
+function renderAtividadeLabelSwatches() {
+  const wrap = document.getElementById('at-label-swatches');
+  const options = [
+    { key: null, cls: 'swatch-none', title: 'Sem etiqueta', content: '✕' },
+    { key: 'red', cls: 'swatch-red', title: ATIV_LABEL_NAMES.red, content: '' },
+    { key: 'orange', cls: 'swatch-orange', title: ATIV_LABEL_NAMES.orange, content: '' },
+    { key: 'yellow', cls: 'swatch-yellow', title: ATIV_LABEL_NAMES.yellow, content: '' },
+    { key: 'blue', cls: 'swatch-blue', title: ATIV_LABEL_NAMES.blue, content: '' }
+  ];
+  wrap.innerHTML = '';
+  options.forEach(opt => {
+    const sw = document.createElement('div');
+    sw.className = 'swatch ' + opt.cls + (editingAtividadeLabel === opt.key ? ' selected' : '');
+    sw.title = opt.title;
+    sw.textContent = opt.content;
+    sw.onclick = () => { editingAtividadeLabel = opt.key; renderAtividadeLabelSwatches(); };
+    wrap.appendChild(sw);
+  });
+}
+
+function renderAtividadeDangerActions(isNew, cancelado) {
+  const wrap = document.getElementById('atividade-danger-actions');
+  if (isNew) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = cancelado
+    ? `<button class="btn btn-sm" onclick="withLock(this, reativarAtividade)">↺ Reativar</button>
+       <button class="btn btn-danger btn-sm" onclick="withLock(this, excluirAtividade)">🗑 Excluir</button>`
+    : `<button class="btn btn-danger btn-sm" onclick="withLock(this, cancelarAtividade)">Cancelar tarefa</button>`;
+}
+
+function closeAtividadeModal() {
+  document.getElementById('atividade-modal-overlay').classList.remove('open');
+  editingAtividadeId = null;
+  editingAtividadeLabel = null;
+}
+
+async function saveAtividade() {
+  const titulo = document.getElementById('at-titulo').value.trim();
+  if (!titulo) { alert('Descreva a atividade.'); return; }
+
+  const responsavel = document.getElementById('at-responsavel').value;
+  const coluna = document.getElementById('at-coluna').value;
+  const clienteNome = document.getElementById('at-cliente-nome').value.trim();
+  const resolucao = coluna === 'concluida' ? document.getElementById('at-resolucao').value.trim() : '';
+
+  const isNew = !editingAtividadeId;
+  const anterior = isNew ? null : atividades.find(a => a.id === editingAtividadeId);
+
+  const payload = { responsavel, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
+  if (coluna === 'concluida') {
+    payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
+  } else {
+    payload.concluido_em = null;
+  }
+
+  if (isNew) {
+    payload.ordem = atividades.length ? Math.max(...atividades.map(a => a.ordem || 0)) + 1 : 1;
+    const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
+    if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
+    atividades.push({
+      id: row.id, responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna,
+      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem
+    });
+  } else {
+    const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
+    if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
+    Object.assign(anterior, { responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, concluidoEm: payload.concluido_em });
+  }
+
+  closeAtividadeModal();
+  render();
+}
+
+async function cancelarAtividade() {
+  if (!editingAtividadeId) return;
+  if (!confirm('Marcar esta atividade como cancelada?')) return;
+  const { error } = await sb.from('atividades').update({ cancelado: true }).eq('id', editingAtividadeId);
+  if (error) { alert('Erro ao cancelar: ' + error.message); return; }
+  const a = atividades.find(x => x.id === editingAtividadeId);
+  if (a) a.cancelado = true;
+  closeAtividadeModal();
+  render();
+}
+
+async function reativarAtividade() {
+  if (!editingAtividadeId) return;
+  const { error } = await sb.from('atividades').update({ cancelado: false }).eq('id', editingAtividadeId);
+  if (error) { alert('Erro ao reativar: ' + error.message); return; }
+  const a = atividades.find(x => x.id === editingAtividadeId);
+  if (a) a.cancelado = false;
+  closeAtividadeModal();
+  render();
+}
+
+async function excluirAtividade() {
+  if (!editingAtividadeId) return;
+  if (!confirm('Excluir esta atividade definitivamente? Essa ação não pode ser desfeita.')) return;
+  const { error } = await sb.from('atividades').delete().eq('id', editingAtividadeId);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  atividades = atividades.filter(x => x.id !== editingAtividadeId);
+  closeAtividadeModal();
+  render();
+}
+
+/* ── RELATÓRIO DE ATIVIDADES ── */
+const DOW_ABBR_AT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function weekdayAbbrAt(iso) {
+  const [y,m,d] = iso.split('-').map(Number);
+  return DOW_ABBR_AT[new Date(y, m-1, d).getDay()];
+}
+function shortDateAt(iso) {
+  const [,m,d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+function abrirRelatorioAtividades() {
+  relatorioFiltroData = todayStr();
+  renderRelatorioFilterDays();
+  renderRelatorioVisual();
+  document.getElementById('relatorio-modal-overlay').classList.add('open');
+}
+
+function closeRelatorioModal() {
+  document.getElementById('relatorio-modal-overlay').classList.remove('open');
+}
+
+function renderRelatorioFilterDays() {
+  const wrap = document.getElementById('relatorio-filter-days');
+  wrap.innerHTML = '';
+  for (let i = 6; i >= 0; i--) {
+    const iso = addDays(todayStr(), -i);
+    const btn = document.createElement('button');
+    btn.className = 'filter-day-btn' + (relatorioFiltroData === iso ? ' active' : '');
+    btn.innerHTML = `<span class="dow">${i === 0 ? 'Hoje' : weekdayAbbrAt(iso)}</span><span class="dnum">${shortDateAt(iso)}</span>`;
+    btn.onclick = () => setRelatorioFiltro(iso);
+    wrap.appendChild(btn);
+  }
+  document.getElementById('relatorio-filter-all').classList.toggle('active', relatorioFiltroData === null);
+}
+
+function setRelatorioFiltro(v) {
+  relatorioFiltroData = v;
+  document.getElementById('relatorio-filter-custom').value = '';
+  renderRelatorioFilterDays();
+  renderRelatorioVisual();
+}
+
+document.getElementById('relatorio-filter-custom').addEventListener('change', e => {
+  if (e.target.value) setRelatorioFiltro(e.target.value);
+});
+
+function atividadesConcluidasFiltradas() {
+  return atividades.filter(a =>
+    a.coluna === 'concluida' && !a.cancelado &&
+    (relatorioFiltroData === null || a.concluidoEm === relatorioFiltroData) &&
+    (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
+  );
+}
+
+function renderRelatorioVisual() {
+  const concluidos = atividadesConcluidasFiltradas();
+  const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
+  const subtitulo = pessoaFiltro === 'Todos' ? '' : ` · ${escapeHtml(pessoaFiltro)}`;
+
+  let html = `
+    <div class="rv-brand"><img src="logo-intelipulse-light.png" alt="Intelipulse"></div>
+    <div class="rv-header">
+      <h3>Resumo do Dia${subtitulo}</h3>
+      <p>${tituloData} · ${concluidos.length} tarefa${concluidos.length===1?'':'s'} concluída${concluidos.length===1?'':'s'}</p>
+    </div>
+  `;
+
+  if (concluidos.length === 0) {
+    html += `<div class="rv-empty">Nenhuma atividade concluída neste dia.</div>`;
+  } else {
+    const grupos = {};
+    concluidos.forEach(a => { const c = a.clienteNome || 'Geral'; (grupos[c] = grupos[c] || []).push(a); });
+    Object.keys(grupos).sort().forEach(cliente => {
+      html += `<div class="rv-cliente">${escapeHtml(cliente)}</div>`;
+      grupos[cliente].forEach(a => {
+        const tag = relatorioFiltroData === null && a.concluidoEm ? `<span class="rv-date-tag">${formatDate(a.concluidoEm)}</span>` : '';
+        const pessoaTag = pessoaFiltro === 'Todos' ? `<span class="rv-date-tag">· ${escapeHtml(a.responsavel)}</span>` : '';
+        const resolucaoHtml = a.resolucao ? `<div class="rv-resolucao">↳ ${escapeHtml(a.resolucao)}</div>` : '';
+        html += `<div class="rv-tarefa">${escapeHtml(a.titulo)}${tag}${pessoaTag}${resolucaoHtml}</div>`;
+      });
+    });
+  }
+
+  document.getElementById('relatorio-visual').innerHTML = html;
+}
+
+function baixarRelatorioTexto() {
+  const concluidos = atividadesConcluidasFiltradas();
+  const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
+
+  let texto = `Resumo do Dia${pessoaFiltro === 'Todos' ? '' : ' — ' + pessoaFiltro} — ${tituloData}\n`;
+  texto += `Total: ${concluidos.length} tarefa${concluidos.length===1?'':'s'} concluída${concluidos.length===1?'':'s'}\n\n`;
+
+  if (concluidos.length === 0) {
+    texto += 'Nenhuma atividade concluída neste período.\n';
+  } else {
+    const grupos = {};
+    concluidos.forEach(a => { const c = a.clienteNome || 'Geral'; (grupos[c] = grupos[c] || []).push(a); });
+    Object.keys(grupos).sort().forEach(cliente => {
+      texto += `${cliente} (${grupos[cliente].length}):\n`;
+      grupos[cliente].forEach(a => {
+        const dataTag = relatorioFiltroData === null && a.concluidoEm ? ` [${formatDate(a.concluidoEm)}]` : '';
+        const pessoaTag = pessoaFiltro === 'Todos' ? ` (${a.responsavel})` : '';
+        texto += `  - ${a.titulo}${dataTag}${pessoaTag}\n`;
+        if (a.resolucao) texto += `      Resolução: ${a.resolucao}\n`;
+      });
+      texto += '\n';
+    });
+  }
+
+  const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const nomeArquivo = relatorioFiltroData === null ? 'todos-os-dias' : relatorioFiltroData;
+  link.href = url;
+  link.download = `Resumo-Atividades-${nomeArquivo}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function baixarRelatorioImagem() {
+  const el = document.getElementById('relatorio-visual');
+  html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    link.download = `Resumo-Atividades-${dataHoje}.png`;
+    link.href = imgData;
+    link.click();
+  });
+}
 
 /* ── EXPORT / IMPORT ── */
 function exportJSON() {
@@ -1659,6 +2210,12 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
 });
 document.getElementById('agendamento-modal-overlay').addEventListener('click', e => {
   if (e.target.id === 'agendamento-modal-overlay') closeAgendamentoModal();
+});
+document.getElementById('atividade-modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'atividade-modal-overlay') closeAtividadeModal();
+});
+document.getElementById('relatorio-modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'relatorio-modal-overlay') closeRelatorioModal();
 });
 
 (async function init() {
