@@ -282,7 +282,7 @@
   .client-card .cc-pend { display:flex; flex-wrap:wrap; gap:6px; }
 
   .table-wrap { overflow-x: auto; }
-  table.clients-table { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px; }
+  table.clients-table { width: 100%; min-width: 780px; border-collapse: separate; border-spacing: 0 8px; }
   .clients-table thead th {
     text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     color: var(--gray-text); padding: 0 16px 6px;
@@ -294,7 +294,7 @@
   .clients-table tbody tr:hover { outline: 1px solid var(--navy); }
   .clients-table td { padding: 14px 16px; font-size: 13.5px; color: var(--text-main); }
   .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--text-main); }
-  .clients-table td:last-child { border-radius: 0 10px 10px 0; text-align:right; }
+  .clients-table td:last-child { border-radius: 0 10px 10px 0; }
 
   /* ── MODAL ── */
   .modal-overlay {
@@ -479,7 +479,6 @@
           <th class="sortable" id="th-ultimoContato" onclick="sortClientes('ultimoContato')">Último contato</th>
           <th class="sortable" id="th-proximoContato" onclick="sortClientes('proximoContato')">Próximo contato</th>
           <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
-          <th></th>
         </tr>
       </thead>
       <tbody id="clients-tbody"></tbody>
@@ -1025,7 +1024,7 @@ function renderClientesTable(list) {
   const today = todayStr();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -1047,7 +1046,6 @@ function renderClientesTable(list) {
         <td>${c.ultimoContato ? formatDate(c.ultimoContato) : '—'}</td>
         <td style="${overdue ? 'color:var(--red);font-weight:700;' : ''}">${c.proximoContato ? formatDate(c.proximoContato) : '—'}</td>
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
-        <td><button class="btn btn-sm" onclick="event.stopPropagation();openModal('${c.id}')">Abrir</button></td>
       </tr>
     `;
   }).join('');
