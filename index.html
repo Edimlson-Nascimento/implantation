@@ -287,6 +287,9 @@
     text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     color: var(--gray-text); padding: 0 16px 6px;
   }
+  .clients-table thead th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .clients-table thead th.sortable:hover { color: var(--text-main); }
+  .clients-table thead th.sorted { color: var(--green-mid); }
   .clients-table tbody tr { background: var(--white); cursor: pointer; }
   .clients-table tbody tr:hover { outline: 1px solid var(--navy); }
   .clients-table td { padding: 14px 16px; font-size: 13.5px; color: var(--text-main); }
@@ -466,7 +469,18 @@
     <div class="table-wrap" id="clients-list-wrap">
     <table class="clients-table">
       <thead>
-        <tr><th>Código</th><th>Cliente</th><th>Fase</th><th>Etapa</th><th>Saúde</th><th>Responsável</th><th>Último contato</th><th>Próximo contato</th><th>Pendências</th><th></th></tr>
+        <tr>
+          <th class="sortable" id="th-codigo" onclick="sortClientes('codigo')">Código</th>
+          <th class="sortable" id="th-nome" onclick="sortClientes('nome')">Cliente</th>
+          <th class="sortable" id="th-fase" onclick="sortClientes('fase')">Fase</th>
+          <th class="sortable" id="th-etapa" onclick="sortClientes('etapa')">Etapa</th>
+          <th class="sortable" id="th-saude" onclick="sortClientes('saude')">Saúde</th>
+          <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável</th>
+          <th class="sortable" id="th-ultimoContato" onclick="sortClientes('ultimoContato')">Último contato</th>
+          <th class="sortable" id="th-proximoContato" onclick="sortClientes('proximoContato')">Próximo contato</th>
+          <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
+          <th></th>
+        </tr>
       </thead>
       <tbody id="clients-tbody"></tbody>
     </table>
@@ -672,6 +686,8 @@ let activeTab = 'agenda';
 let clientsView = 'lista';
 let editingClientId = null;
 let agendamentos = [];
+let sortColumn = null;
+let sortDirection = 'asc';
 let editingAgendamentoId = null;
 let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
@@ -936,13 +952,63 @@ function renderClientes() {
     if (filterResp && c.responsavel !== filterResp) return false;
     if (search && !(c.nome.toLowerCase().includes(search) || (c.contato||'').toLowerCase().includes(search) || (c.codigo||'').toLowerCase().includes(search))) return false;
     return true;
-  }).sort((a,b) => a.nome.localeCompare(b.nome));
+  });
+
+  if (sortColumn) {
+    list.sort((a,b) => {
+      const va = sortValue(a, sortColumn), vb = sortValue(b, sortColumn);
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  } else {
+    list.sort((a,b) => a.nome.localeCompare(b.nome));
+  }
 
   if (clientsView === 'cards') renderClientesCards(list);
   else renderClientesTable(list);
 }
 
+function sortValue(c, col) {
+  switch (col) {
+    case 'codigo': return parseFloat(c.codigo) || 0;
+    case 'nome': return c.nome.toLowerCase();
+    case 'fase': return c.fase || 'implantacao';
+    case 'etapa': return stageOf(c.etapa).ordem ?? 0;
+    case 'saude': return { verde: 0, amarelo: 1, vermelho: 2 }[c.saude || 'verde'];
+    case 'responsavel': return (c.responsavel || '').toLowerCase();
+    case 'ultimoContato': return c.ultimoContato || '';
+    case 'proximoContato': return c.proximoContato || '';
+    case 'pendencias': return c.pendencias.filter(p => !p.feito).length;
+    default: return '';
+  }
+}
+
+function sortClientes(col) {
+  if (sortColumn === col) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = col;
+    sortDirection = 'asc';
+  }
+  renderClientes();
+}
+
+function updateSortIndicators() {
+  const labels = {
+    codigo: 'Código', nome: 'Cliente', fase: 'Fase', etapa: 'Etapa', saude: 'Saúde',
+    responsavel: 'Responsável', ultimoContato: 'Último contato', proximoContato: 'Próximo contato', pendencias: 'Pendências'
+  };
+  Object.keys(labels).forEach(col => {
+    const th = document.getElementById('th-' + col);
+    if (!th) return;
+    th.classList.toggle('sorted', sortColumn === col);
+    const arrow = sortColumn === col ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : '';
+    th.textContent = labels[col] + arrow;
+  });
+}
+
 function renderClientesTable(list) {
+  updateSortIndicators();
   const today = todayStr();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
