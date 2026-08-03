@@ -151,7 +151,7 @@
     border-radius: 10px;
     border: 1px solid var(--border-light);
     background: var(--white);
-    color: var(--navy);
+    color: var(--text-main);
     cursor: pointer;
   }
   .btn:hover { border-color: var(--navy); }
@@ -174,7 +174,7 @@
     color: var(--gray-text);
   }
   .empty-state .big { font-size: 40px; margin-bottom: 12px; }
-  .empty-state h3 { color: var(--navy); font-size: 18px; margin-bottom: 6px; }
+  .empty-state h3 { color: var(--text-main); font-size: 18px; margin-bottom: 6px; }
 
   .agenda-card {
     background: var(--white);
@@ -187,7 +187,7 @@
   .agenda-card.today { border-left-color: var(--green-mid); }
 
   .agenda-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 16px; flex-wrap: wrap; }
-  .agenda-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+  .agenda-name { font-size: 16px; font-weight: 700; color: var(--text-main); }
   .agenda-meta { font-size: 12.5px; color: var(--gray-text); margin-top: 3px; }
   .agenda-meta a { color: inherit; }
 
@@ -257,7 +257,7 @@
     font-family:inherit; font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:8px;
     border:none; background:transparent; color:var(--gray-text); cursor:pointer;
   }
-  .view-toggle-btn.active { background:var(--white); color:var(--navy); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+  .view-toggle-btn.active { background:var(--white); color:var(--text-main); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
 
   .clients-cards-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
   .client-card {
@@ -266,7 +266,7 @@
   }
   .client-card:hover { border-color:var(--navy); }
   .client-card .cc-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-  .client-card .cc-name { font-size:15px; font-weight:700; color:var(--navy); }
+  .client-card .cc-name { font-size:15px; font-weight:700; color:var(--text-main); }
   .client-card .cc-meta { font-size:12px; color:var(--gray-text); }
   .client-card .cc-badges { display:flex; flex-wrap:wrap; gap:6px; }
   .client-card .cc-dates { font-size:11.5px; color:var(--gray-text); display:flex; justify-content:space-between; border-top:1px solid var(--border-light); padding-top:10px; }
@@ -282,7 +282,7 @@
   .clients-table tbody tr { background: var(--white); cursor: pointer; }
   .clients-table tbody tr:hover { outline: 1px solid var(--navy); }
   .clients-table td { padding: 14px 16px; font-size: 13.5px; color: var(--text-main); }
-  .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--navy); }
+  .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--text-main); }
   .clients-table td:last-child { border-radius: 0 10px 10px 0; text-align:right; }
 
   /* ── MODAL ── */
@@ -295,7 +295,7 @@
     background: var(--white); border-radius: 18px; width: 100%; max-width: 720px;
     padding: 28px; margin-bottom: 40px;
   }
-  .modal-box h2 { font-size: 20px; color: var(--navy); font-weight: 800; margin-bottom: 18px; }
+  .modal-box h2 { font-size: 20px; color: var(--text-main); font-weight: 800; margin-bottom: 18px; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-field { display:flex; flex-direction: column; gap: 5px; }
   .form-field.full { grid-column: 1 / -1; }
@@ -304,7 +304,7 @@
     font-family: inherit; font-size: 14px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-light);
   }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
-  .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
   .pend-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .pend-col h4 { font-size: 11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin-bottom:8px; }
   .pend-col.cliente h4 { color: #B45309; }
@@ -326,10 +326,23 @@
   .modal-footer { display:flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
 
   .resumo-box { background: var(--white); border:1px solid var(--border-light); border-radius:16px; padding:24px; }
-  .resumo-box h2 { font-size: 17px; color: var(--navy); margin-bottom: 4px; }
+  .resumo-box h2 { font-size: 17px; color: var(--text-main); margin-bottom: 4px; }
   .resumo-box .resumo-sub { font-size: 12.5px; color: var(--gray-text); margin-bottom: 4px; }
   .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--text-main); background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
   .resumo-actions { display:flex; gap:8px; margin-top:14px; }
+
+  .etapas-add-row { display:flex; gap:8px; align-items:center; margin-top:16px; }
+  .etapas-add-row input[type=text] { flex:1; font-family:inherit; font-size:13.5px; padding:9px 12px; border-radius:10px; border:1px solid var(--border-light); }
+  .etapas-add-row input[type=color] { width:40px; height:38px; padding:2px; border-radius:8px; border:1px solid var(--border-light); cursor:pointer; }
+  .etapas-list { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .etapa-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--border-light); background:var(--light-bg); }
+  .etapa-row input[type=text] { flex:1; font-family:inherit; font-size:13.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
+  .etapa-row input[type=color] { width:34px; height:32px; padding:2px; border-radius:6px; border:1px solid var(--border-light); cursor:pointer; }
+  .etapa-usage { font-size:11.5px; color:var(--gray-text); white-space:nowrap; min-width:70px; }
+  .etapa-row .icon-btn { background:none; border:none; cursor:pointer; font-size:14px; color:var(--gray-text); padding:4px 6px; border-radius:6px; }
+  .etapa-row .icon-btn:hover { background:var(--white); color:var(--text-main); }
+  .etapa-row .icon-btn:disabled { opacity:0.3; cursor:default; }
+  .etapa-row .icon-btn.danger:hover { color:var(--red); }
 
   @media (max-width: 720px) {
     .form-grid, .pend-cols { grid-template-columns: 1fr; }
@@ -357,6 +370,7 @@
     <button class="tab-btn active" id="tab-agenda" onclick="setTab('agenda')">Agenda de Hoje <span class="badge-count" id="agenda-count">0</span></button>
     <button class="tab-btn" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
     <button class="tab-btn" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
+    <button class="tab-btn" id="tab-etapas" onclick="setTab('etapas')">Etapas</button>
   </div>
   <div class="actions-row">
     <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
@@ -417,6 +431,19 @@
         <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
       </div>
       <div class="resumo-pre" id="resumo-texto"></div>
+    </div>
+  </section>
+
+  <section id="view-etapas" style="display:none">
+    <div class="resumo-box">
+      <h2>Etapas da Implantação</h2>
+      <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Crie, renomeie, recolora, reordene ou remova as etapas usadas por todos os clientes.</p>
+      <div class="etapas-add-row">
+        <input type="text" id="new-etapa-nome" placeholder="Nome da nova etapa...">
+        <input type="color" id="new-etapa-cor" value="#3B82F6">
+        <button class="btn btn-green btn-sm" onclick="addEtapa()">+ Adicionar</button>
+      </div>
+      <div id="etapas-list" class="etapas-list"></div>
     </div>
   </section>
 </main>
@@ -530,17 +557,7 @@ function toggleTheme() {
   });
 })();
 
-const STAGES = [
-  { id:'kickoff',      nome:'Kick Off',                      cor:'#3B82F6' },
-  { id:'levantamento', nome:'Levantamento',                  cor:'#8B5CF6' },
-  { id:'integracao',   nome:'Integração',                    cor:'#EC4899' },
-  { id:'carga',        nome:'Carga de Dados',                cor:'#F59E0B' },
-  { id:'configuracao', nome:'Configuração',                  cor:'#F97316' },
-  { id:'treinamento',  nome:'Treinamento',                   cor:'#14B8A6' },
-  { id:'testes',       nome:'Testes / Homologação',          cor:'#0EA5E9' },
-  { id:'golive',       nome:'Go-live',                       cor:'#22C55E' },
-  { id:'posgolive',    nome:'Acompanhamento Pós Go-live',    cor:'#84CC16' },
-];
+let STAGES = [];
 
 let state = { clients: [] };
 let activeTab = 'agenda';
@@ -566,12 +583,23 @@ function formatDate(dateStr) {
   return d + '/' + m + '/' + y;
 }
 function uid() { return crypto.randomUUID(); }
-function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0]; }
+function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0] || { id:'', nome: id || '—', cor:'#6B7280' }; }
+function slugify(str) {
+  const base = str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  let slug = base || ('etapa_' + Date.now());
+  let n = 2;
+  while (STAGES.some(s => s.id === slug)) { slug = base + '_' + n; n++; }
+  return slug;
+}
 function escapeHtml(str) {
   return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 async function loadState() {
+  const { data: etapas, error: errE } = await sb.from('etapas').select('*').order('ordem');
+  if (errE) { alert('Erro ao carregar etapas do banco: ' + errE.message); return; }
+  STAGES = etapas.map(e => ({ id: e.id, nome: e.nome, cor: e.cor, ordem: e.ordem }));
+
   const { data: clientes, error: errC } = await sb.from('clientes').select('*').order('nome');
   if (errC) { alert('Erro ao carregar clientes do banco: ' + errC.message); return; }
   const { data: pendencias, error: errP } = await sb.from('pendencias').select('*');
@@ -603,9 +631,11 @@ function setTab(tab) {
   document.getElementById('tab-agenda').classList.toggle('active', tab === 'agenda');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
+  document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('view-agenda').style.display = tab === 'agenda' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
+  document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
   render();
 }
 
@@ -615,6 +645,7 @@ function render() {
   populateStageOptions();
   if (activeTab === 'agenda') renderAgenda();
   else if (activeTab === 'clientes') renderClientes();
+  else if (activeTab === 'etapas') renderEtapas();
   else renderResumo();
 }
 
@@ -635,21 +666,14 @@ function renderStats() {
 
 function populateStageOptions() {
   const sel = document.getElementById('filter-stage');
-  if (sel.options.length <= 1) {
-    STAGES.forEach(s => {
-      const o = document.createElement('option');
-      o.value = s.id; o.textContent = s.nome;
-      sel.appendChild(o);
-    });
-  }
+  const currentFilterStage = sel.value;
+  sel.innerHTML = '<option value="">Todas as etapas</option>' + STAGES.map(s => `<option value="${s.id}">${escapeHtml(s.nome)}</option>`).join('');
+  sel.value = currentFilterStage;
+
   const fEtapa = document.getElementById('f-etapa');
-  if (fEtapa.options.length === 0) {
-    STAGES.forEach(s => {
-      const o = document.createElement('option');
-      o.value = s.id; o.textContent = s.nome;
-      fEtapa.appendChild(o);
-    });
-  }
+  const currentFEtapa = fEtapa.value;
+  fEtapa.innerHTML = STAGES.map(s => `<option value="${s.id}">${escapeHtml(s.nome)}</option>`).join('');
+  if (currentFEtapa) fEtapa.value = currentFEtapa;
 
   const responsaveis = [...new Set(state.clients.map(c => c.responsavel).filter(Boolean))].sort();
   const filterResp = document.getElementById('filter-responsavel');
@@ -1122,6 +1146,87 @@ function copyResumo() {
 
 function promptFallbackCopy(texto) {
   window.prompt('Copie o resumo abaixo (Ctrl+C):', texto);
+}
+
+/* ── ETAPAS ── */
+function renderEtapas() {
+  const container = document.getElementById('etapas-list');
+  const sorted = [...STAGES].sort((a,b) => a.ordem - b.ordem);
+  container.innerHTML = sorted.map((s, i) => {
+    const usage = state.clients.filter(c => c.etapa === s.id).length;
+    return `
+      <div class="etapa-row">
+        <button class="icon-btn" ${i === 0 ? 'disabled' : ''} onclick="moveEtapa('${s.id}',-1)" title="Mover para cima">↑</button>
+        <button class="icon-btn" ${i === sorted.length - 1 ? 'disabled' : ''} onclick="moveEtapa('${s.id}',1)" title="Mover para baixo">↓</button>
+        <input type="color" value="${s.cor}" onchange="recolorEtapa('${s.id}', this.value)">
+        <input type="text" value="${escapeHtml(s.nome)}" onchange="renameEtapa('${s.id}', this.value)">
+        <span class="etapa-usage">${usage} cliente${usage === 1 ? '' : 's'}</span>
+        <button class="icon-btn danger" onclick="deleteEtapa('${s.id}')" title="Excluir etapa">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addEtapa() {
+  const nomeInput = document.getElementById('new-etapa-nome');
+  const corInput = document.getElementById('new-etapa-cor');
+  const nome = nomeInput.value.trim();
+  if (!nome) return;
+  const id = slugify(nome);
+  const ordem = STAGES.length ? Math.max(...STAGES.map(s => s.ordem)) + 1 : 1;
+  const { error } = await sb.from('etapas').insert({ id, nome, cor: corInput.value, ordem });
+  if (error) { alert('Erro ao criar etapa: ' + error.message); return; }
+  STAGES.push({ id, nome, cor: corInput.value, ordem });
+  nomeInput.value = '';
+  corInput.value = '#3B82F6';
+  render();
+}
+
+async function renameEtapa(id, novoNome) {
+  novoNome = novoNome.trim();
+  if (!novoNome) { renderEtapas(); return; }
+  const { error } = await sb.from('etapas').update({ nome: novoNome }).eq('id', id);
+  if (error) { alert('Erro ao renomear etapa: ' + error.message); render(); return; }
+  const s = STAGES.find(s => s.id === id);
+  if (s) s.nome = novoNome;
+  render();
+}
+
+async function recolorEtapa(id, novaCor) {
+  const { error } = await sb.from('etapas').update({ cor: novaCor }).eq('id', id);
+  if (error) { alert('Erro ao mudar cor da etapa: ' + error.message); return; }
+  const s = STAGES.find(s => s.id === id);
+  if (s) s.cor = novaCor;
+  render();
+}
+
+async function moveEtapa(id, direction) {
+  const sorted = [...STAGES].sort((a,b) => a.ordem - b.ordem);
+  const idx = sorted.findIndex(s => s.id === id);
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return;
+  const a = sorted[idx], b = sorted[swapIdx];
+  const ordemA = a.ordem, ordemB = b.ordem;
+  const { error: e1 } = await sb.from('etapas').update({ ordem: ordemB }).eq('id', a.id);
+  const { error: e2 } = await sb.from('etapas').update({ ordem: ordemA }).eq('id', b.id);
+  if (e1 || e2) { alert('Erro ao reordenar etapas.'); return; }
+  a.ordem = ordemB;
+  b.ordem = ordemA;
+  render();
+}
+
+async function deleteEtapa(id) {
+  const usage = state.clients.filter(c => c.etapa === id).length;
+  if (usage > 0) {
+    alert(`Não é possível excluir: ${usage} cliente(s) estão nessa etapa. Mude a etapa deles primeiro.`);
+    return;
+  }
+  const s = STAGES.find(s => s.id === id);
+  if (!confirm(`Excluir a etapa "${s ? s.nome : id}"?`)) return;
+  const { error } = await sb.from('etapas').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir etapa: ' + error.message); return; }
+  STAGES = STAGES.filter(s => s.id !== id);
+  render();
 }
 
 /* ── EXPORT / IMPORT ── */
