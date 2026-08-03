@@ -564,7 +564,7 @@
       <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
       <div style="display:flex;gap:8px;margin-left:auto;">
         <button class="btn" onclick="closeAgendamentoModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="saveAgendamento()">Salvar</button>
+        <button class="btn btn-primary" onclick="withLock(this, saveAgendamento)">Salvar</button>
       </div>
     </div>
   </div>
@@ -612,7 +612,7 @@
           <div id="pend-list-cliente"></div>
           <div class="add-pend-row">
             <input type="text" id="new-pend-cliente" placeholder="Nova pendência do cliente...">
-            <button class="btn btn-sm" onclick="addPendencia('cliente')">+</button>
+            <button class="btn btn-sm" onclick="withLock(this, () => addPendencia('cliente'))">+</button>
           </div>
         </div>
         <div class="pend-col rscrm">
@@ -620,7 +620,7 @@
           <div id="pend-list-rscrm"></div>
           <div class="add-pend-row">
             <input type="text" id="new-pend-rscrm" placeholder="Nova pendência interna...">
-            <button class="btn btn-sm" onclick="addPendencia('rscrm')">+</button>
+            <button class="btn btn-sm" onclick="withLock(this, () => addPendencia('rscrm'))">+</button>
           </div>
         </div>
       </div>
@@ -632,7 +632,7 @@
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
         <label style="font-size:12px;color:var(--gray-text);font-weight:600;">Próximo contato:</label>
         <input type="date" id="f-nota-proximo" style="padding:6px 8px;border-radius:8px;border:1px solid var(--border-light);font-family:inherit;font-size:13px;">
-        <button class="btn btn-green btn-sm" onclick="registrarContatoModal()">✓ Registrar contato</button>
+        <button class="btn btn-green btn-sm" onclick="withLock(this, registrarContatoModal)">✓ Registrar contato</button>
       </div>
     </div>
 
@@ -645,7 +645,7 @@
       <button class="btn btn-danger" id="btn-delete-client" onclick="deleteClient()" style="display:none">Excluir cliente</button>
       <div style="display:flex;gap:8px;margin-left:auto;">
         <button class="btn" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="saveClient()">Salvar</button>
+        <button class="btn btn-primary" onclick="withLock(this, () => saveClient())">Salvar</button>
       </div>
     </div>
   </div>
@@ -721,6 +721,19 @@ function slugify(str) {
 }
 function escapeHtml(str) {
   return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Trava o botão enquanto a ação assíncrona roda, pra clique duplo/rápido não disparar duas vezes
+async function withLock(btn, asyncFn) {
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  try {
+    await asyncFn();
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
 }
 
 async function loadState() {
@@ -891,7 +904,7 @@ function renderAgenda() {
           <div class="row2">
             <label>Próximo contato:</label>
             <input type="date" id="inline-proximo-${c.id}" value="${addDays(today,1)}">
-            <button class="btn btn-primary btn-sm" onclick="registrarContatoInline('${c.id}')">Salvar</button>
+            <button class="btn btn-primary btn-sm" onclick="withLock(this, () => registrarContatoInline('${c.id}'))">Salvar</button>
           </div>
         </div>
       </div>
