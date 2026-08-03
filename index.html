@@ -87,13 +87,7 @@
     margin-bottom: 14px;
   }
   .header-tag::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
-  .sidebar-title {
-    font-size: 21px;
-    font-weight: 800;
-    color: var(--on-navy);
-    letter-spacing: -0.02em;
-  }
-  .sidebar-title span { color: var(--green); }
+  .sidebar-logo-img { height: 28px; width: auto; display: block; }
   .header-sub { color: var(--gray-text); font-size: 13.5px; }
 
   .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -377,7 +371,7 @@
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="header-tag">Gestão de Implantação</div>
-      <h1 class="sidebar-title">Painel <span>Intelipulse</span></h1>
+      <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item active" id="tab-agenda" onclick="setTab('agenda')">Agenda de Hoje <span class="badge-count" id="agenda-count">0</span></button>
