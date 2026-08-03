@@ -18,14 +18,36 @@
     --border-light: #E5E7EB;
     --red: #DC2626;
     --amber: #F59E0B;
+    --text-main: #1a1a1a;
+  }
+  :root[data-theme="dark"] {
+    --light-bg: #0B1622;
+    --white: #14212F;
+    --gray-text: #94A3B8;
+    --border-light: #24374D;
+    --text-main: #E5E7EB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --light-bg: #0B1622;
+      --white: #14212F;
+      --gray-text: #94A3B8;
+      --border-light: #24374D;
+      --text-main: #E5E7EB;
+    }
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Inter', sans-serif;
     background: var(--light-bg);
-    color: #1a1a1a;
+    color: var(--text-main);
     line-height: 1.5;
     padding-bottom: 60px;
+    transition: background-color .15s, color .15s;
+  }
+  input, select, textarea {
+    background: var(--white);
+    color: var(--text-main);
   }
 
   /* ── HEADER ── */
@@ -198,7 +220,7 @@
 
   .agenda-pend-preview { margin-top: 12px; display:flex; flex-wrap:wrap; gap:6px; }
   .pend-chip {
-    font-size: 12px; color:#374151; background: var(--light-bg);
+    font-size: 12px; color:var(--text-main); background: var(--light-bg);
     border: 1px solid var(--border-light); border-radius: 8px; padding: 4px 10px;
   }
   .pend-chip.cliente { border-left: 3px solid var(--amber); }
@@ -230,6 +252,27 @@
   .toolbar .spacer { flex: 1; }
   .toolbar label.chk { font-size: 12.5px; color: var(--gray-text); display:flex; align-items:center; gap:6px; }
 
+  .view-toggle { display:flex; gap:4px; background:var(--light-bg); padding:4px; border-radius:10px; }
+  .view-toggle-btn {
+    font-family:inherit; font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:8px;
+    border:none; background:transparent; color:var(--gray-text); cursor:pointer;
+  }
+  .view-toggle-btn.active { background:var(--white); color:var(--navy); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  .clients-cards-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
+  .client-card {
+    background:var(--white); border-radius:16px; border:1px solid var(--border-light);
+    padding:18px; cursor:pointer; display:flex; flex-direction:column; gap:10px;
+  }
+  .client-card:hover { border-color:var(--navy); }
+  .client-card .cc-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .client-card .cc-name { font-size:15px; font-weight:700; color:var(--navy); }
+  .client-card .cc-meta { font-size:12px; color:var(--gray-text); }
+  .client-card .cc-badges { display:flex; flex-wrap:wrap; gap:6px; }
+  .client-card .cc-dates { font-size:11.5px; color:var(--gray-text); display:flex; justify-content:space-between; border-top:1px solid var(--border-light); padding-top:10px; }
+  .client-card .cc-dates .overdue { color:var(--red); font-weight:700; }
+  .client-card .cc-pend { display:flex; flex-wrap:wrap; gap:6px; }
+
   .table-wrap { overflow-x: auto; }
   table.clients-table { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px; }
   .clients-table thead th {
@@ -238,7 +281,7 @@
   }
   .clients-table tbody tr { background: var(--white); cursor: pointer; }
   .clients-table tbody tr:hover { outline: 1px solid var(--navy); }
-  .clients-table td { padding: 14px 16px; font-size: 13.5px; color: #374151; }
+  .clients-table td { padding: 14px 16px; font-size: 13.5px; color: var(--text-main); }
   .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--navy); }
   .clients-table td:last-child { border-radius: 0 10px 10px 0; text-align:right; }
 
@@ -267,7 +310,7 @@
   .pend-col.cliente h4 { color: #B45309; }
   .pend-col.rscrm h4 { color: #1D4ED8; }
   .pend-item {
-    display:flex; align-items:flex-start; gap:8px; font-size: 13px; padding: 6px 0; color:#374151;
+    display:flex; align-items:flex-start; gap:8px; font-size: 13px; padding: 6px 0; color:var(--text-main);
   }
   .pend-item.done { color: var(--gray-text); text-decoration: line-through; }
   .pend-item input[type=checkbox] { margin-top: 3px; }
@@ -285,7 +328,7 @@
   .resumo-box { background: var(--white); border:1px solid var(--border-light); border-radius:16px; padding:24px; }
   .resumo-box h2 { font-size: 17px; color: var(--navy); margin-bottom: 4px; }
   .resumo-box .resumo-sub { font-size: 12.5px; color: var(--gray-text); margin-bottom: 4px; }
-  .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: #1a1a1a; background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
+  .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--text-main); background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
   .resumo-actions { display:flex; gap:8px; margin-top:14px; }
 
   @media (max-width: 720px) {
@@ -316,6 +359,7 @@
     <button class="tab-btn" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
   </div>
   <div class="actions-row">
+    <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
     <button class="btn" onclick="exportJSON()">⬇ Exportar backup</button>
     <button class="btn" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
@@ -349,8 +393,12 @@
         <option value="">Todos</option>
       </select>
       <div class="spacer"></div>
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="view-btn-lista" onclick="setClientsView('lista')">☰ Lista</button>
+        <button class="view-toggle-btn" id="view-btn-cards" onclick="setClientsView('cards')">▦ Cards</button>
+      </div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap" id="clients-list-wrap">
     <table class="clients-table">
       <thead>
         <tr><th>Código</th><th>Cliente</th><th>Fase</th><th>Etapa</th><th>Saúde</th><th>Responsável</th><th>Último contato</th><th>Próximo contato</th><th>Pendências</th><th></th></tr>
@@ -358,6 +406,7 @@
       <tbody id="clients-tbody"></tbody>
     </table>
     </div>
+    <div class="clients-cards-grid" id="clients-cards-wrap" style="display:none"></div>
   </section>
 
   <section id="view-resumo" style="display:none">
@@ -459,6 +508,28 @@ const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const THEME_KEY = 'intelipulse_theme';
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme')
+    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+(function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  const effective = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = effective === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+  });
+})();
+
 const STAGES = [
   { id:'kickoff',      nome:'Kick Off',                      cor:'#3B82F6' },
   { id:'levantamento', nome:'Levantamento',                  cor:'#8B5CF6' },
@@ -473,6 +544,7 @@ const STAGES = [
 
 let state = { clients: [] };
 let activeTab = 'agenda';
+let clientsView = 'lista';
 let editingClientId = null;
 
 function todayStr() {
@@ -683,13 +755,21 @@ async function registrarContato(id, nota, proximo) {
   c.proximoContato = proximoFinal;
 }
 
+function setClientsView(view) {
+  clientsView = view;
+  document.getElementById('view-btn-lista').classList.toggle('active', view === 'lista');
+  document.getElementById('view-btn-cards').classList.toggle('active', view === 'cards');
+  document.getElementById('clients-list-wrap').style.display = view === 'lista' ? '' : 'none';
+  document.getElementById('clients-cards-wrap').style.display = view === 'cards' ? '' : 'none';
+  renderClientes();
+}
+
 function renderClientes() {
   const search = document.getElementById('search-input').value.toLowerCase();
   const filterStage = document.getElementById('filter-stage').value;
   const filterSaude = document.getElementById('filter-saude').value;
   const filterResp = document.getElementById('filter-responsavel').value;
   const filterFase = document.getElementById('filter-fase').value;
-  const today = todayStr();
 
   let list = state.clients.filter(c => {
     if (filterFase && (c.fase || 'implantacao') !== filterFase) return false;
@@ -700,6 +780,12 @@ function renderClientes() {
     return true;
   }).sort((a,b) => a.nome.localeCompare(b.nome));
 
+  if (clientsView === 'cards') renderClientesCards(list);
+  else renderClientesTable(list);
+}
+
+function renderClientesTable(list) {
+  const today = todayStr();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
@@ -726,6 +812,49 @@ function renderClientes() {
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
         <td><button class="btn btn-sm" onclick="event.stopPropagation();openModal('${c.id}')">Abrir</button></td>
       </tr>
+    `;
+  }).join('');
+}
+
+function renderClientesCards(list) {
+  const today = todayStr();
+  const container = document.getElementById('clients-cards-wrap');
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-state">Nenhum cliente encontrado.</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(c => {
+    const stage = stageOf(c.etapa);
+    const saude = c.saude || 'verde';
+    const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
+    const fase = c.fase || 'implantacao';
+    const pendAbertas = c.pendencias.filter(p => !p.feito);
+    const overdue = c.proximoContato && c.proximoContato < today;
+    const pendPreview = pendAbertas.slice(0,2).map(p =>
+      `<span class="pend-chip ${p.responsavel}">${escapeHtml(p.texto)}</span>`
+    ).join('');
+    const pendMore = pendAbertas.length > 2 ? `<span class="pend-chip more">+${pendAbertas.length - 2}</span>` : '';
+
+    return `
+      <div class="client-card" onclick="openModal('${c.id}')">
+        <div class="cc-top">
+          <div>
+            <div class="cc-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+            <div class="cc-meta">${escapeHtml(c.responsavel || 'Sem responsável')}</div>
+          </div>
+        </div>
+        <div class="cc-badges">
+          ${fase === 'base' ? '<span class="fase-pill base">Base</span>' : ''}
+          <span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span>
+          <span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span>
+        </div>
+        ${pendAbertas.length ? `<div class="cc-pend">${pendPreview}${pendMore}</div>` : ''}
+        <div class="cc-dates">
+          <span>Último: ${c.ultimoContato ? formatDate(c.ultimoContato) : '—'}</span>
+          <span class="${overdue ? 'overdue' : ''}">Próximo: ${c.proximoContato ? formatDate(c.proximoContato) : '—'}</span>
+        </div>
+      </div>
     `;
   }).join('');
 }
@@ -835,7 +964,7 @@ async function removePendencia(pendId) {
 }
 
 async function registrarContatoModal() {
-  if (!editingClientId) await saveClient(true);
+  await saveClient(true);
   const nota = document.getElementById('f-nota-contato').value.trim();
   const proximo = document.getElementById('f-nota-proximo').value || addDays(todayStr(),1);
   await registrarContato(editingClientId, nota, proximo);
