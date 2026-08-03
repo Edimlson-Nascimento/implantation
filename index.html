@@ -38,6 +38,10 @@
     }
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
   body {
     font-family: 'Inter', sans-serif;
     background: var(--light-bg);
@@ -130,7 +134,7 @@
   }
   .btn-sidebar:hover { background: rgba(255,255,255,0.09); color: var(--on-navy); }
 
-  .main-area { flex: 1; min-width: 0; }
+  .main-area { flex: 1; min-width: 0; width: 100%; }
   .topbar {
     max-width: 1100px;
     padding: 28px 32px;
