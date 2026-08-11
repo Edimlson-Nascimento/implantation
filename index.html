@@ -639,7 +639,10 @@
       <div class="form-field"><label>Agendado por</label><select id="ag-responsavel"></select></div>
       <div class="form-field"><label>Data</label><input type="date" id="ag-data"></div>
       <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
-      <div class="form-field full"><label>Observação</label><input type="text" id="ag-obs" placeholder="Opcional"></div>
+      <div class="form-field full">
+        <label>Observação</label>
+        <textarea id="ag-obs" placeholder="Opcional" style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
