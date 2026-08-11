@@ -413,16 +413,17 @@
   .pessoa-filter-btn { font-family:inherit; font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:8px; border:none; background:transparent; color:var(--gray-text); cursor:pointer; }
   .pessoa-filter-btn.active { background:var(--navy); color:var(--on-navy); }
 
-  .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:14px; align-items:flex-start; }
-  .kanban-column { background:var(--light-bg); border:1px solid var(--border-light); border-radius:14px; width:270px; min-width:270px; padding:12px; }
-  .kanban-column-header { display:flex; justify-content:space-between; align-items:center; padding:2px 4px 12px; }
+  .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:14px; align-items:stretch; height:calc(100vh - 330px); min-height:320px; }
+  .kanban-column { background:var(--light-bg); border:1px solid var(--border-light); border-radius:14px; width:270px; min-width:270px; padding:12px; display:flex; flex-direction:column; min-height:0; }
+  .kanban-column-header { display:flex; justify-content:space-between; align-items:center; padding:2px 4px 12px; flex-shrink:0; }
   .kanban-column-header h3 { font-size:13px; font-weight:700; color:var(--text-main); margin:0; }
   .kanban-wip { font-size:10.5px; color:var(--gray-text); background:var(--white); padding:2px 8px; border-radius:12px; border:1px solid var(--border-light); }
+  .kanban-cards-scroll { flex:1; min-height:0; overflow-y:auto; padding-right:2px; }
   .kanban-add { width:100%; background:transparent; border:1px dashed var(--border-light); color:var(--gray-text); font-size:12px; padding:8px; margin-top:6px; border-radius:8px; cursor:pointer; }
   .kanban-add:hover { color:var(--green-mid); border-color:var(--green-mid); }
   .kanban-empty { font-size:12px; color:var(--gray-text); padding:8px 4px; }
 
-  .kanban-concluido-filtros { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .kanban-concluido-filtros { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; flex-shrink:0; }
   .kanban-concluido-filtros select, .kanban-concluido-filtros input[type=date] {
     width:100%; font-family:inherit; font-size:11.5px; padding:6px 8px; border-radius:7px;
     border:1px solid var(--border-light); background:var(--white); color:var(--text-main);
@@ -607,7 +608,8 @@
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
-      <label class="chk" style="margin-top:14px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
+      <div class="pessoa-filter" id="pessoa-filter-calendario" style="margin-top:14px;"></div>
+      <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
     </div>
   </section>
@@ -1701,12 +1703,14 @@ const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', mensagem: '💬', email: '
 const TIPO_LABEL = { reuniao: 'Reunião', ligacao: 'Ligação', outro: 'Outro' };
 
 function renderCalendario() {
+  renderPessoaFilterInto('pessoa-filter-calendario');
   const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
   const container = document.getElementById('calendario-list');
   const today = todayStr();
 
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
+    .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
     .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
 
   if (list.length === 0) {
@@ -1941,19 +1945,24 @@ function renderAtividades() {
       </div>
       ${filtrosHtml}
     `;
+
+    const cardsWrap = document.createElement('div');
+    cardsWrap.className = 'kanban-cards-scroll';
     if (cards.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'kanban-empty';
       empty.textContent = 'Nada aqui.';
-      colEl.appendChild(empty);
+      cardsWrap.appendChild(empty);
     }
-    cards.forEach(a => colEl.appendChild(renderAtividadeCard(a)));
+    cards.forEach(a => cardsWrap.appendChild(renderAtividadeCard(a)));
 
     const addBtn = document.createElement('button');
     addBtn.className = 'kanban-add';
     addBtn.textContent = '+ Nova atividade';
     addBtn.onclick = () => novaAtividade(col.id);
-    colEl.appendChild(addBtn);
+    cardsWrap.appendChild(addBtn);
+
+    colEl.appendChild(cardsWrap);
 
     colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('drop-hover'); });
     colEl.addEventListener('dragleave', () => colEl.classList.remove('drop-hover'));
