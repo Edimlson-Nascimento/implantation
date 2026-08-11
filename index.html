@@ -730,6 +730,8 @@
       <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome"></div>
       <div class="form-field"><label>Contato no Cliente</label><input type="text" id="f-contato"></div>
       <div class="form-field"><label>Telefone</label><input type="text" id="f-telefone"></div>
+      <div class="form-field"><label>Gestor do Projeto</label><input type="text" id="f-gestor"></div>
+      <div class="form-field"><label>Telefone do Gestor</label><input type="text" id="f-gestor-telefone"></div>
       <div class="form-field"><label>Responsável (Intelipulse)</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
       <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
       <div class="form-field">
@@ -923,6 +925,8 @@ async function loadState() {
     nome: c.nome,
     contato: c.contato || '',
     telefone: c.telefone || '',
+    gestorProjeto: c.gestor_projeto || '',
+    gestorTelefone: c.gestor_telefone || '',
     responsavel: c.responsavel || '',
     etapa: c.etapa,
     fase: c.fase || 'implantacao',
@@ -1289,7 +1293,7 @@ function openModal(id) {
   document.getElementById('btn-delete-client').style.display = isNew ? 'none' : 'inline-block';
 
   const c = isNew ? {
-    codigo:'', nome:'', contato:'', telefone:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
+    codigo:'', nome:'', contato:'', telefone:'', gestorProjeto:'', gestorTelefone:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
     saude: 'verde', saudeMotivo: '',
     inicio: todayStr(), proximoContato: todayStr(),
     pendencias: [], historico: []
@@ -1299,6 +1303,8 @@ function openModal(id) {
   document.getElementById('f-nome').value = c.nome;
   document.getElementById('f-contato').value = c.contato;
   document.getElementById('f-telefone').value = c.telefone;
+  document.getElementById('f-gestor').value = c.gestorProjeto || '';
+  document.getElementById('f-gestor-telefone').value = c.gestorTelefone || '';
   document.getElementById('f-responsavel').value = c.responsavel || '';
   document.getElementById('f-etapa').value = c.etapa;
   document.getElementById('f-fase').value = c.fase || 'implantacao';
@@ -1417,6 +1423,8 @@ async function saveClient(silent) {
     nome,
     contato: document.getElementById('f-contato').value.trim(),
     telefone: document.getElementById('f-telefone').value.trim(),
+    gestor_projeto: document.getElementById('f-gestor').value.trim(),
+    gestor_telefone: document.getElementById('f-gestor-telefone').value.trim(),
     responsavel: document.getElementById('f-responsavel').value.trim(),
     etapa: document.getElementById('f-etapa').value,
     fase: novaFase,
@@ -1433,6 +1441,7 @@ async function saveClient(silent) {
   if (isNew) {
     c = {
       id: clientId, codigo: payload.codigo || '', nome: payload.nome, contato: payload.contato, telefone: payload.telefone,
+      gestorProjeto: payload.gestor_projeto, gestorTelefone: payload.gestor_telefone,
       responsavel: payload.responsavel, etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
       saudeMotivo: payload.saude_motivo, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
       pendencias: [], historico: []
@@ -1445,6 +1454,8 @@ async function saveClient(silent) {
     c.nome = payload.nome;
     c.contato = payload.contato;
     c.telefone = payload.telefone;
+    c.gestorProjeto = payload.gestor_projeto;
+    c.gestorTelefone = payload.gestor_telefone;
     c.responsavel = payload.responsavel;
     c.etapa = payload.etapa;
     c.inicio = payload.inicio;
@@ -2239,6 +2250,7 @@ function importJSON(file) {
       for (const c of data.clients) {
         const payload = {
           id: c.id, codigo: c.codigo || null, nome: c.nome, contato: c.contato || '', telefone: c.telefone || '',
+          gestor_projeto: c.gestorProjeto || '', gestor_telefone: c.gestorTelefone || '',
           responsavel: c.responsavel || '', etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
           saude_motivo: c.saudeMotivo || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
