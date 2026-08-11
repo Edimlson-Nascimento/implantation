@@ -331,6 +331,17 @@
   .add-pend-row { display:flex; gap:6px; margin-top:8px; }
   .add-pend-row input { flex:1; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
 
+  .contatos-list { display:flex; flex-direction:column; gap:8px; }
+  .contato-item { display:flex; align-items:center; gap:10px; font-size:13px; padding:8px 10px; border-radius:8px; background:var(--light-bg); }
+  .contato-item .ci-nome { font-weight:700; color:var(--text-main); }
+  .contato-item .ci-cargo { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
+  :root[data-theme="dark"] .contato-item .ci-cargo { color: var(--green); }
+  .contato-item .ci-telefone { color:var(--gray-text); }
+  .contato-item .del { margin-left:auto; cursor:pointer; color:var(--gray-text); font-size:12px; }
+  .contato-item .del:hover { color: var(--red); }
+  .add-contato-row { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+  .add-contato-row input { flex:1; min-width:120px; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
+
   .history-list { display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y:auto; }
   .history-item { background: var(--light-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
   .history-item .date { font-size: 11px; font-weight: 700; color: var(--gray-text); margin-bottom: 3px; }
@@ -728,10 +739,6 @@
     <div class="form-grid">
       <div class="form-field"><label>Código</label><input type="text" id="f-codigo" placeholder="Ex: 21"></div>
       <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome"></div>
-      <div class="form-field"><label>Contato no Cliente</label><input type="text" id="f-contato"></div>
-      <div class="form-field"><label>Telefone</label><input type="text" id="f-telefone"></div>
-      <div class="form-field"><label>Gestor do Projeto</label><input type="text" id="f-gestor"></div>
-      <div class="form-field"><label>Telefone do Gestor</label><input type="text" id="f-gestor-telefone"></div>
       <div class="form-field"><label>Responsável (Intelipulse)</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
       <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
       <div class="form-field">
@@ -756,6 +763,17 @@
       <div class="form-field full"><label>Motivo (se amarelo/vermelho)</label><input type="text" id="f-saude-motivo" placeholder="Ex: aguardando definição de fluxo há 5 dias"></div>
     </div>
     <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só aparecem na Agenda de Hoje quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
+
+    <div class="modal-section">
+      <h3>Contatos</h3>
+      <div id="contatos-list" class="contatos-list"></div>
+      <div class="add-contato-row">
+        <input type="text" id="new-contato-nome" placeholder="Nome...">
+        <input type="text" id="new-contato-telefone" placeholder="Telefone...">
+        <input type="text" id="new-contato-cargo" placeholder="Cargo/função (ex: Gestor, Financeiro)...">
+        <button class="btn btn-sm" onclick="withLock(this, addContato)">+</button>
+      </div>
+    </div>
 
     <div class="modal-section">
       <h3>Pendências</h3>
@@ -914,6 +932,11 @@ async function loadState() {
 
   const { data: clientes, error: errC } = await sb.from('clientes').select('*').order('nome');
   if (errC) { alert('Erro ao carregar clientes do banco: ' + errC.message); return; }
+  let { data: contatos, error: errCt } = await sb.from('contatos_cliente').select('*').order('created_at');
+  if (errCt) {
+    console.warn('Tabela contatos_cliente ainda não disponível:', errCt.message);
+    contatos = [];
+  }
   const { data: pendencias, error: errP } = await sb.from('pendencias').select('*');
   if (errP) { alert('Erro ao carregar pendências do banco: ' + errP.message); return; }
   const { data: historico, error: errH } = await sb.from('historico').select('*').order('data', { ascending: false }).order('created_at', { ascending: false });
@@ -923,10 +946,6 @@ async function loadState() {
     id: c.id,
     codigo: c.codigo || '',
     nome: c.nome,
-    contato: c.contato || '',
-    telefone: c.telefone || '',
-    gestorProjeto: c.gestor_projeto || '',
-    gestorTelefone: c.gestor_telefone || '',
     responsavel: c.responsavel || '',
     etapa: c.etapa,
     fase: c.fase || 'implantacao',
@@ -935,6 +954,7 @@ async function loadState() {
     inicio: c.inicio,
     ultimoContato: c.ultimo_contato,
     proximoContato: c.proximo_contato,
+    contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '' })),
     pendencias: pendencias.filter(p => p.cliente_id === c.id).map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito })),
     historico: historico.filter(h => h.cliente_id === c.id).map(h => ({ id: h.id, data: h.data, texto: h.texto }))
   }));
@@ -1067,13 +1087,16 @@ function renderAgenda() {
     const saude = c.saude || 'verde';
     const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
     const fase = c.fase || 'implantacao';
+    const contatoPrincipal = c.contatos && c.contatos.length
+      ? c.contatos[0].nome + (c.contatos.length > 1 ? ` (+${c.contatos.length - 1})` : '') + (c.contatos[0].telefone ? ' · ' + c.contatos[0].telefone : '')
+      : 'Sem contato definido';
 
     return `
       <div class="agenda-card ${cardClass}">
         <div class="agenda-top">
           <div>
             <div class="agenda-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-            <div class="agenda-meta">${escapeHtml(c.responsavel || 'Sem responsável')} · ${escapeHtml(c.contato || 'Sem contato definido')} ${c.telefone ? '· ' + escapeHtml(c.telefone) : ''} · ${c.ultimoContato ? diasSemContato + ' dia(s) sem contato' : 'Nunca contatado'}</div>
+            <div class="agenda-meta">${escapeHtml(c.responsavel || 'Sem responsável')} · ${escapeHtml(contatoPrincipal)} · ${c.ultimoContato ? diasSemContato + ' dia(s) sem contato' : 'Nunca contatado'}</div>
             ${saude !== 'verde' && c.saudeMotivo ? `<div class="agenda-meta" style="margin-top:4px;color:${saude === 'vermelho' ? 'var(--red)' : '#B45309'};font-weight:600;">⚠ ${escapeHtml(c.saudeMotivo)}</div>` : ''}
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -1152,7 +1175,7 @@ function renderClientes() {
     if (filterStage && c.etapa !== filterStage) return false;
     if (filterSaude && (c.saude || 'verde') !== filterSaude) return false;
     if (filterResp && c.responsavel !== filterResp) return false;
-    if (search && !(c.nome.toLowerCase().includes(search) || (c.contato||'').toLowerCase().includes(search) || (c.codigo||'').toLowerCase().includes(search))) return false;
+    if (search && !(c.nome.toLowerCase().includes(search) || (c.contatos||[]).some(ct => ct.nome.toLowerCase().includes(search)) || (c.codigo||'').toLowerCase().includes(search))) return false;
     return true;
   });
 
@@ -1293,18 +1316,14 @@ function openModal(id) {
   document.getElementById('btn-delete-client').style.display = isNew ? 'none' : 'inline-block';
 
   const c = isNew ? {
-    codigo:'', nome:'', contato:'', telefone:'', gestorProjeto:'', gestorTelefone:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
+    codigo:'', nome:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
     saude: 'verde', saudeMotivo: '',
     inicio: todayStr(), proximoContato: todayStr(),
-    pendencias: [], historico: []
+    contatos: [], pendencias: [], historico: []
   } : state.clients.find(c => c.id === id);
 
   document.getElementById('f-codigo').value = c.codigo || '';
   document.getElementById('f-nome').value = c.nome;
-  document.getElementById('f-contato').value = c.contato;
-  document.getElementById('f-telefone').value = c.telefone;
-  document.getElementById('f-gestor').value = c.gestorProjeto || '';
-  document.getElementById('f-gestor-telefone').value = c.gestorTelefone || '';
   document.getElementById('f-responsavel').value = c.responsavel || '';
   document.getElementById('f-etapa').value = c.etapa;
   document.getElementById('f-fase').value = c.fase || 'implantacao';
@@ -1314,7 +1333,11 @@ function openModal(id) {
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
   document.getElementById('f-nota-proximo').value = todayStr();
+  document.getElementById('new-contato-nome').value = '';
+  document.getElementById('new-contato-telefone').value = '';
+  document.getElementById('new-contato-cargo').value = '';
 
+  renderContatosList(c);
   renderPendList(c);
   renderHistory(c);
 
@@ -1329,6 +1352,48 @@ function closeModal() {
 function currentEditingClient() {
   if (editingClientId) return state.clients.find(c => c.id === editingClientId);
   return null;
+}
+
+function renderContatosList(c) {
+  const container = document.getElementById('contatos-list');
+  container.innerHTML = c.contatos.length ? c.contatos.map(ct => `
+    <div class="contato-item">
+      <span class="ci-nome">${escapeHtml(ct.nome)}</span>
+      ${ct.cargo ? `<span class="ci-cargo">${escapeHtml(ct.cargo)}</span>` : ''}
+      ${ct.telefone ? `<span class="ci-telefone">${escapeHtml(ct.telefone)}</span>` : ''}
+      <span class="del" onclick="removeContato('${ct.id}')">✕</span>
+    </div>
+  `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhum contato cadastrado.</div>`;
+}
+
+async function addContato() {
+  const nomeInput = document.getElementById('new-contato-nome');
+  const telefoneInput = document.getElementById('new-contato-telefone');
+  const cargoInput = document.getElementById('new-contato-cargo');
+  const nome = nomeInput.value.trim();
+  if (!nome) return;
+  const telefone = telefoneInput.value.trim();
+  const cargo = cargoInput.value.trim();
+
+  // salva o formulário inteiro primeiro (cliente novo ou edições pendentes nos campos)
+  await saveClient(true);
+  const c = currentEditingClient();
+  const { data, error } = await sb.from('contatos_cliente').insert({ cliente_id: c.id, nome, telefone, cargo }).select().single();
+  if (error) { alert('Erro ao adicionar contato: ' + error.message); return; }
+  c.contatos.push({ id: data.id, nome, telefone, cargo });
+  nomeInput.value = '';
+  telefoneInput.value = '';
+  cargoInput.value = '';
+  renderContatosList(c);
+}
+
+async function removeContato(contatoId) {
+  const c = currentEditingClient();
+  if (!c) return;
+  const { error } = await sb.from('contatos_cliente').delete().eq('id', contatoId);
+  if (error) { alert('Erro ao remover contato: ' + error.message); return; }
+  c.contatos = c.contatos.filter(ct => ct.id !== contatoId);
+  renderContatosList(c);
 }
 
 function renderPendList(c) {
@@ -1421,10 +1486,6 @@ async function saveClient(silent) {
     id: clientId,
     codigo: document.getElementById('f-codigo').value.trim() || null,
     nome,
-    contato: document.getElementById('f-contato').value.trim(),
-    telefone: document.getElementById('f-telefone').value.trim(),
-    gestor_projeto: document.getElementById('f-gestor').value.trim(),
-    gestor_telefone: document.getElementById('f-gestor-telefone').value.trim(),
     responsavel: document.getElementById('f-responsavel').value.trim(),
     etapa: document.getElementById('f-etapa').value,
     fase: novaFase,
@@ -1440,11 +1501,10 @@ async function saveClient(silent) {
   let c;
   if (isNew) {
     c = {
-      id: clientId, codigo: payload.codigo || '', nome: payload.nome, contato: payload.contato, telefone: payload.telefone,
-      gestorProjeto: payload.gestor_projeto, gestorTelefone: payload.gestor_telefone,
+      id: clientId, codigo: payload.codigo || '', nome: payload.nome,
       responsavel: payload.responsavel, etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
       saudeMotivo: payload.saude_motivo, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
-      pendencias: [], historico: []
+      contatos: [], pendencias: [], historico: []
     };
     state.clients.push(c);
     editingClientId = clientId;
@@ -1452,10 +1512,6 @@ async function saveClient(silent) {
     c = existing;
     c.codigo = payload.codigo || '';
     c.nome = payload.nome;
-    c.contato = payload.contato;
-    c.telefone = payload.telefone;
-    c.gestorProjeto = payload.gestor_projeto;
-    c.gestorTelefone = payload.gestor_telefone;
     c.responsavel = payload.responsavel;
     c.etapa = payload.etapa;
     c.inicio = payload.inicio;
@@ -2249,12 +2305,14 @@ function importJSON(file) {
 
       for (const c of data.clients) {
         const payload = {
-          id: c.id, codigo: c.codigo || null, nome: c.nome, contato: c.contato || '', telefone: c.telefone || '',
-          gestor_projeto: c.gestorProjeto || '', gestor_telefone: c.gestorTelefone || '',
+          id: c.id, codigo: c.codigo || null, nome: c.nome,
           responsavel: c.responsavel || '', etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
           saude_motivo: c.saudeMotivo || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
         await sb.from('clientes').upsert(payload, { onConflict: 'id' });
+        for (const ct of (c.contatos || [])) {
+          await sb.from('contatos_cliente').upsert({ id: ct.id, cliente_id: c.id, nome: ct.nome, telefone: ct.telefone, cargo: ct.cargo }, { onConflict: 'id' });
+        }
         for (const p of (c.pendencias || [])) {
           await sb.from('pendencias').upsert({ id: p.id, cliente_id: c.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito }, { onConflict: 'id' });
         }
