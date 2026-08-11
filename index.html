@@ -459,8 +459,8 @@
 
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
-  .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:13px; }
-  .swatch.selected { border-color: var(--text-main); }
+  .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.4); }
+  .swatch.selected { border-color: var(--text-main); box-shadow: 0 0 0 2px var(--white); transform: scale(1.08); }
   .swatch-none { background: var(--light-bg); color: var(--gray-text); border: 1px solid var(--border-light); }
   .swatch-red { background: var(--red); }
   .swatch-orange { background: var(--amber); }
@@ -1994,7 +1994,7 @@ function renderAtividadeLabelSwatches() {
     const sw = document.createElement('div');
     sw.className = 'swatch ' + opt.cls + (editingAtividadeLabel === opt.key ? ' selected' : '');
     sw.title = opt.title;
-    sw.textContent = opt.content;
+    sw.textContent = (opt.key !== null && editingAtividadeLabel === opt.key) ? '✓' : opt.content;
     sw.onclick = () => { editingAtividadeLabel = opt.key; renderAtividadeLabelSwatches(); };
     wrap.appendChild(sw);
   });
