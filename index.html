@@ -411,6 +411,14 @@
   .kanban-add:hover { color:var(--green-mid); border-color:var(--green-mid); }
   .kanban-empty { font-size:12px; color:var(--gray-text); padding:8px 4px; }
 
+  .kanban-concluido-filtros { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .kanban-concluido-filtros select, .kanban-concluido-filtros input[type=date] {
+    width:100%; font-family:inherit; font-size:11.5px; padding:6px 8px; border-radius:7px;
+    border:1px solid var(--border-light); background:var(--white); color:var(--text-main);
+  }
+  .kanban-filtro-limpar { align-self:flex-start; background:none; border:none; color:var(--gray-text); font-size:11px; cursor:pointer; text-decoration:underline; padding:0; }
+  .kanban-filtro-limpar:hover { color:var(--red); }
+
   .kanban-card { background:var(--white); border:1px solid var(--border-light); border-radius:10px; padding:11px 12px; margin-bottom:10px; cursor:grab; position:relative; }
   .kanban-card:active { cursor:grabbing; }
   .kanban-card.dragging { opacity:0.45; }
@@ -443,9 +451,9 @@
   .rv-header p { margin:5px 0 0; font-size:12.5px; color:#5e6c84; }
   .rv-cliente { font-size:13.5px; font-weight:700; margin-top:14px; margin-bottom:6px; background:#eef1f7; padding:6px 10px; border-radius:5px; color:#1a2029; }
   .rv-pessoa { font-size:11px; font-weight:700; color:#5e6c84; margin-top:16px; margin-bottom:2px; text-transform:uppercase; letter-spacing:.04em; }
-  .rv-tarefa { font-size:13px; line-height:1.5; margin:0 0 8px; padding:9px 12px 9px 30px; position:relative; color:#1a2029; background:#f6f8fb; border:1px solid #e3e6ee; border-left:3px solid #1f9d63; border-radius:8px; }
+  .rv-tarefa { font-size:13px; line-height:1.5; margin:0 0 8px; padding:9px 12px 9px 30px; position:relative; color:#1a2029; background:#f6f8fb; border:1px solid #e3e6ee; border-left:3px solid #1f9d63; border-radius:8px; white-space:pre-wrap; }
   .rv-tarefa::before { content:"✓"; color:#1f9d63; position:absolute; left:11px; top:9px; font-weight:bold; }
-  .rv-resolucao { font-size:11.5px; color:#5e6c84; margin-top:5px; font-style:italic; }
+  .rv-resolucao { font-size:11.5px; color:#5e6c84; margin-top:5px; font-style:italic; white-space:pre-wrap; }
   .rv-empty { text-align:center; color:#7a8399; font-size:13px; padding:10px 0; }
   .rv-date-tag { font-size:10.5px; color:#8a94aa; font-weight:400; margin-left:6px; }
 
@@ -661,7 +669,7 @@
     <div class="form-grid">
       <div class="form-field full">
         <label>Descrição</label>
-        <textarea id="at-titulo" style="width:100%;min-height:56px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <textarea id="at-titulo" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
       <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
       <div class="form-field"><label>Coluna</label>
@@ -678,7 +686,7 @@
       </div>
       <div class="form-field full" id="at-resolucao-field" style="display:none;">
         <label>Resolução (o que foi feito)</label>
-        <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:56px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
       <div class="form-field full"><label>Etiqueta</label><div class="label-swatches" id="at-label-swatches"></div></div>
     </div>
@@ -846,6 +854,8 @@ const KANBAN_COLUMNS = [
 const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', yellow:'Atenção', blue:'Rotina' };
 let atividades = [];
 let pessoaFiltro = 'Todos';
+let concluidoFiltroCliente = '';
+let concluidoFiltroData = '';
 let draggedAtividadeId = null;
 let editingAtividadeId = null;
 let editingAtividadeLabel = null;
@@ -1807,6 +1817,22 @@ function setPessoaFiltro(p) {
   render();
 }
 
+function setConcluidoFiltroCliente(v) {
+  concluidoFiltroCliente = v;
+  render();
+}
+
+function setConcluidoFiltroData(v) {
+  concluidoFiltroData = v;
+  render();
+}
+
+function limparFiltroConcluido() {
+  concluidoFiltroCliente = '';
+  concluidoFiltroData = '';
+  render();
+}
+
 function renderAtividades() {
   renderPessoaFilterInto('pessoa-filter');
   const board = document.getElementById('kanban-board');
@@ -1816,6 +1842,28 @@ function renderAtividades() {
     let cards = atividades.filter(a => a.coluna === col.id);
     if (pessoaFiltro !== 'Todos') cards = cards.filter(a => a.responsavel === pessoaFiltro);
 
+    let filtrosHtml = '';
+    if (col.id === 'concluida') {
+      const clientesDisponiveis = [...new Set(cards.map(a => a.clienteNome).filter(Boolean))].sort();
+      if (concluidoFiltroCliente && !clientesDisponiveis.includes(concluidoFiltroCliente)) concluidoFiltroCliente = '';
+
+      cards = cards.filter(a =>
+        (!concluidoFiltroCliente || a.clienteNome === concluidoFiltroCliente) &&
+        (!concluidoFiltroData || a.concluidoEm === concluidoFiltroData)
+      );
+
+      filtrosHtml = `
+        <div class="kanban-concluido-filtros">
+          <select onchange="setConcluidoFiltroCliente(this.value)">
+            <option value="">Todas as empresas</option>
+            ${clientesDisponiveis.map(c => `<option value="${escapeHtml(c)}" ${c === concluidoFiltroCliente ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+          <input type="date" value="${concluidoFiltroData}" onchange="setConcluidoFiltroData(this.value)">
+          ${(concluidoFiltroCliente || concluidoFiltroData) ? '<button type="button" class="kanban-filtro-limpar" onclick="limparFiltroConcluido()">Limpar filtro ✕</button>' : ''}
+        </div>
+      `;
+    }
+
     const colEl = document.createElement('div');
     colEl.className = 'kanban-column';
     colEl.dataset.coluna = col.id;
@@ -1824,6 +1872,7 @@ function renderAtividades() {
         <h3>${col.nome}</h3>
         <span class="kanban-wip">${cards.length}${col.limite ? ' / ' + col.limite : ''}</span>
       </div>
+      ${filtrosHtml}
     `;
     if (cards.length === 0) {
       const empty = document.createElement('div');
