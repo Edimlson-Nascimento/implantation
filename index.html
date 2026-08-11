@@ -630,6 +630,8 @@
         <select id="ag-tipo">
           <option value="reuniao">Reunião</option>
           <option value="ligacao">Ligação</option>
+          <option value="mensagem">Mensagem</option>
+          <option value="email">E-mail</option>
           <option value="outro">Outro</option>
         </select>
       </div>
@@ -1615,7 +1617,7 @@ function populateClientesDatalist() {
     state.clients.map(c => `<option value="${escapeHtml(c.nome)}">`).join('');
 }
 
-const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', outro: '📌' };
+const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', mensagem: '💬', email: '✉️', outro: '📌' };
 const TIPO_LABEL = { reuniao: 'Reunião', ligacao: 'Ligação', outro: 'Outro' };
 
 function renderCalendario() {
