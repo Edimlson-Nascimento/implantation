@@ -1788,8 +1788,9 @@ function checkLembretes() {
 setInterval(checkLembretes, 30000);
 
 /* ── ATIVIDADES (KANBAN) ── */
-function renderPessoaFilter() {
-  const wrap = document.getElementById('pessoa-filter');
+function renderPessoaFilterInto(elId) {
+  const wrap = document.getElementById(elId);
+  if (!wrap) return;
   const opcoes = ['Todos', ...PESSOAS];
   wrap.innerHTML = opcoes.map(p =>
     `<button class="pessoa-filter-btn ${pessoaFiltro === p ? 'active' : ''}" onclick="setPessoaFiltro('${p}')">${p}</button>`
@@ -1802,7 +1803,7 @@ function setPessoaFiltro(p) {
 }
 
 function renderAtividades() {
-  renderPessoaFilter();
+  renderPessoaFilterInto('pessoa-filter');
   const board = document.getElementById('kanban-board');
   board.innerHTML = '';
 
