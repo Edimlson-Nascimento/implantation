@@ -878,7 +878,7 @@ const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', ye
 let atividades = [];
 let pessoaFiltro = 'Todos';
 let concluidoFiltroCliente = '';
-let concluidoFiltroData = '';
+let concluidoFiltroData = todayStr();
 let draggedAtividadeId = null;
 let editingAtividadeId = null;
 let editingAtividadeLabel = null;
@@ -1901,7 +1901,7 @@ function setConcluidoFiltroData(v) {
 
 function limparFiltroConcluido() {
   concluidoFiltroCliente = '';
-  concluidoFiltroData = '';
+  concluidoFiltroData = todayStr();
   render();
 }
 
@@ -1931,7 +1931,7 @@ function renderAtividades() {
             ${clientesDisponiveis.map(c => `<option value="${escapeHtml(c)}" ${c === concluidoFiltroCliente ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
           </select>
           <input type="date" value="${concluidoFiltroData}" onchange="setConcluidoFiltroData(this.value)">
-          ${(concluidoFiltroCliente || concluidoFiltroData) ? '<button type="button" class="kanban-filtro-limpar" onclick="limparFiltroConcluido()">Limpar filtro ✕</button>' : ''}
+          ${(concluidoFiltroCliente || concluidoFiltroData !== todayStr()) ? '<button type="button" class="kanban-filtro-limpar" onclick="limparFiltroConcluido()">Limpar filtro ✕</button>' : ''}
         </div>
       `;
     }
