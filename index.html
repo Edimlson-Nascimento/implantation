@@ -504,6 +504,27 @@
     .form-grid, .pend-cols { grid-template-columns: 1fr; }
     .topbar { padding: 20px; }
   }
+  @media (max-width: 600px) {
+    /* Alvos de toque maiores — dedo precisa de mais área que cursor de mouse */
+    .etapa-row .icon-btn { padding: 8px 10px; font-size: 16px; }
+    .swatch { width: 34px; height: 34px; }
+    .kc-delete { padding: 6px; top: 0; right: 0; }
+    .pend-item .del, .contato-item .del { padding: 6px; font-size: 14px; }
+    .pend-item input[type=checkbox] { width: 20px; height: 20px; }
+    .ag-item input[type=checkbox] { width: 22px; height: 22px; }
+    .view-toggle-btn { padding: 9px 14px; }
+
+    /* Modal ocupa mais da tela disponível, menos espaço perdido em padding */
+    .modal-overlay { padding: 16px 10px; }
+    .modal-box { padding: 20px; }
+
+    /* Uma coluna do Kanban quase preenche a tela — foco em uma raia por vez */
+    .kanban-column { width: 85vw; min-width: 85vw; }
+
+    /* Formulário de contato empilha em vez de tentar caber 3 campos lado a lado */
+    .add-contato-row { flex-direction: column; }
+    .add-contato-row input { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -2496,6 +2517,7 @@ document.getElementById('relatorio-modal-overlay').addEventListener('click', e =
 
 (async function init() {
   await loadState();
+  if (window.innerWidth < 720) setClientsView('cards');
   render();
   checkLembretes();
 })();
