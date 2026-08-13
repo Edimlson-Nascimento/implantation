@@ -516,6 +516,7 @@
     </nav>
     <div class="sidebar-footer">
       <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
+      <button class="btn-sidebar" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
       <button class="btn-sidebar" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
       <button class="btn-sidebar" onclick="exportJSON()">⬇ Exportar backup</button>
       <button class="btn-sidebar" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
@@ -621,7 +622,6 @@
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
         <h2 style="margin-bottom:0;">Agenda de Reuniões e Ligações</h2>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-sm" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
