@@ -354,6 +354,13 @@
   .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--text-main); background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
   .resumo-actions { display:flex; gap:8px; margin-top:14px; }
 
+  .config-section { padding: 18px 24px; }
+  .config-section-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .config-section-header h2 { margin-bottom: 0; }
+  .config-section.open .config-section-header { margin-bottom: 6px; }
+  .config-chevron { font-size: 13px; color: var(--gray-text); transition: transform .15s; flex-shrink: 0; margin-left: 12px; }
+  .config-section.open .config-chevron { transform: rotate(90deg); }
+
   .etapas-add-row { display:flex; gap:8px; align-items:center; margin-top:16px; }
   .etapas-add-row input[type=text] { flex:1; font-family:inherit; font-size:13.5px; padding:9px 12px; border-radius:10px; border:1px solid var(--border-light); }
   .etapas-add-row input[type=color] { width:40px; height:38px; padding:2px; border-radius:8px; border:1px solid var(--border-light); cursor:pointer; }
@@ -595,25 +602,35 @@
   </section>
 
   <section id="view-etapas" style="display:none">
-    <div class="resumo-box">
-      <h2>Etapas da Implantação</h2>
-      <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Crie, renomeie, recolora, reordene ou remova as etapas usadas por todos os clientes.</p>
-      <div class="etapas-add-row">
-        <input type="text" id="new-etapa-nome" placeholder="Nome da nova etapa...">
-        <input type="color" id="new-etapa-cor" value="#3B82F6">
-        <button class="btn btn-green btn-sm" onclick="addEtapa()">+ Adicionar</button>
+    <div class="resumo-box config-section">
+      <div class="config-section-header" onclick="toggleConfigSection('etapas')">
+        <h2>Etapas da Implantação</h2>
+        <span class="config-chevron" id="chevron-etapas">▸</span>
       </div>
-      <div id="etapas-list" class="etapas-list"></div>
+      <div class="config-section-body" id="body-etapas" style="display:none">
+        <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Crie, renomeie, recolora, reordene ou remova as etapas usadas por todos os clientes.</p>
+        <div class="etapas-add-row">
+          <input type="text" id="new-etapa-nome" placeholder="Nome da nova etapa...">
+          <input type="color" id="new-etapa-cor" value="#3B82F6">
+          <button class="btn btn-green btn-sm" onclick="addEtapa()">+ Adicionar</button>
+        </div>
+        <div id="etapas-list" class="etapas-list"></div>
+      </div>
     </div>
 
-    <div class="resumo-box" style="margin-top:20px;">
-      <h2>Pessoas da Equipe</h2>
-      <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Quem aparece nos filtros e no "Responsável"/"Agendado por" de Atividades e Agenda. Renomear aqui não altera registros antigos já salvos com o nome anterior.</p>
-      <div class="etapas-add-row">
-        <input type="text" id="new-pessoa-nome" placeholder="Nome da nova pessoa...">
-        <button class="btn btn-green btn-sm" onclick="addPessoa()">+ Adicionar</button>
+    <div class="resumo-box config-section" style="margin-top:12px;">
+      <div class="config-section-header" onclick="toggleConfigSection('pessoas')">
+        <h2>Pessoas da Equipe</h2>
+        <span class="config-chevron" id="chevron-pessoas">▸</span>
       </div>
-      <div id="pessoas-list" class="etapas-list"></div>
+      <div class="config-section-body" id="body-pessoas" style="display:none">
+        <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Quem aparece nos filtros e no "Responsável"/"Agendado por" de Atividades e Agenda. Renomear aqui não altera registros antigos já salvos com o nome anterior.</p>
+        <div class="etapas-add-row">
+          <input type="text" id="new-pessoa-nome" placeholder="Nome da nova pessoa...">
+          <button class="btn btn-green btn-sm" onclick="addPessoa()">+ Adicionar</button>
+        </div>
+        <div id="pessoas-list" class="etapas-list"></div>
+      </div>
     </div>
   </section>
 
@@ -1638,6 +1655,13 @@ function copyResumo() {
 
 function promptFallbackCopy(texto) {
   window.prompt('Copie o resumo abaixo (Ctrl+C):', texto);
+}
+
+function toggleConfigSection(id) {
+  const section = document.getElementById('body-' + id).closest('.config-section');
+  const body = document.getElementById('body-' + id);
+  const isOpen = section.classList.toggle('open');
+  body.style.display = isOpen ? '' : 'none';
 }
 
 /* ── ETAPAS ── */
