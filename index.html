@@ -420,7 +420,7 @@
   .pessoa-filter-btn { font-family:inherit; font-size:12.5px; font-weight:600; padding:7px 14px; border-radius:8px; border:none; background:transparent; color:var(--gray-text); cursor:pointer; }
   .pessoa-filter-btn.active { background:var(--navy); color:var(--on-navy); }
 
-  .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:14px; align-items:stretch; min-height:320px; }
+  .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:14px; align-items:stretch; min-height:480px; }
   .kanban-column { background:var(--light-bg); border:1px solid var(--border-light); border-radius:14px; width:270px; min-width:270px; padding:12px; display:flex; flex-direction:column; min-height:0; }
   .kanban-column-header { display:flex; justify-content:space-between; align-items:center; padding:2px 4px 12px; flex-shrink:0; }
   .kanban-column-header h3 { font-size:13px; font-weight:700; color:var(--text-main); margin:0; }
@@ -2146,7 +2146,7 @@ function sizeKanbanBoard() {
   const board = document.getElementById('kanban-board');
   if (!board || board.getBoundingClientRect().width === 0) return;
   const top = board.getBoundingClientRect().top;
-  const altura = Math.max(320, window.innerHeight - top - 24);
+  const altura = Math.max(480, window.innerHeight - top - 12);
   board.style.height = altura + 'px';
 }
 window.addEventListener('resize', () => {
