@@ -418,7 +418,14 @@
   .kanban-column-header { display:flex; justify-content:space-between; align-items:center; padding:2px 4px 12px; flex-shrink:0; }
   .kanban-column-header h3 { font-size:13px; font-weight:700; color:var(--text-main); margin:0; }
   .kanban-wip { font-size:10.5px; color:var(--gray-text); background:var(--white); padding:2px 8px; border-radius:12px; border:1px solid var(--border-light); }
-  .kanban-cards-scroll { flex:1; min-height:0; overflow-y:auto; padding-right:2px; }
+  .kanban-cards-scroll {
+    flex:1; min-height:0; overflow-y:auto; padding-right:2px;
+    scrollbar-width: thin; scrollbar-color: rgba(128,128,128,0.25) transparent;
+  }
+  .kanban-cards-scroll::-webkit-scrollbar { width: 8px; }
+  .kanban-cards-scroll::-webkit-scrollbar-track { background: transparent; }
+  .kanban-cards-scroll::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 8px; }
+  .kanban-cards-scroll:hover::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.55); }
   .kanban-add { width:100%; background:transparent; border:1px dashed var(--border-light); color:var(--gray-text); font-size:12px; padding:8px; margin-top:6px; border-radius:8px; cursor:pointer; }
   .kanban-add:hover { color:var(--green-mid); border-color:var(--green-mid); }
   .kanban-empty { font-size:12px; color:var(--gray-text); padding:8px 4px; }
@@ -597,6 +604,16 @@
       </div>
       <div id="etapas-list" class="etapas-list"></div>
     </div>
+
+    <div class="resumo-box" style="margin-top:20px;">
+      <h2>Pessoas da Equipe</h2>
+      <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Quem aparece nos filtros e no "Responsável"/"Agendado por" de Atividades e Agenda. Renomear aqui não altera registros antigos já salvos com o nome anterior.</p>
+      <div class="etapas-add-row">
+        <input type="text" id="new-pessoa-nome" placeholder="Nome da nova pessoa...">
+        <button class="btn btn-green btn-sm" onclick="addPessoa()">+ Adicionar</button>
+      </div>
+      <div id="pessoas-list" class="etapas-list"></div>
+    </div>
   </section>
 
   <section id="view-calendario" style="display:none">
@@ -653,6 +670,7 @@
           <option value="ligacao">Ligação</option>
           <option value="mensagem">Mensagem</option>
           <option value="email">E-mail</option>
+          <option value="treinamento">Treinamento</option>
           <option value="outro">Outro</option>
         </select>
       </div>
@@ -866,7 +884,8 @@ let editingAgendamentoId = null;
 let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
 
-const PESSOAS = ['Edimilson', 'Jefferson', 'Leandro'];
+let PESSOAS = ['Edimilson', 'Jefferson', 'Leandro'];
+let PESSOAS_FULL = [];
 const KANBAN_COLUMNS = [
   { id:'urgencias', nome:'Fila de Urgências (Hoje)' },
   { id:'afazer',    nome:'A Fazer (Próximos)' },
@@ -931,6 +950,15 @@ async function loadState() {
   const { data: etapas, error: errE } = await sb.from('etapas').select('*').order('ordem');
   if (errE) { alert('Erro ao carregar etapas do banco: ' + errE.message); return; }
   STAGES = etapas.map(e => ({ id: e.id, nome: e.nome, cor: e.cor, ordem: e.ordem }));
+
+  const { data: pessoasRows, error: errPe } = await sb.from('pessoas').select('*').order('ordem');
+  if (errPe) {
+    console.warn('Tabela pessoas ainda não disponível:', errPe.message);
+    PESSOAS_FULL = PESSOAS.map((nome, i) => ({ id: nome, nome, ordem: i + 1 }));
+  } else {
+    PESSOAS_FULL = pessoasRows.map(p => ({ id: p.id, nome: p.nome, ordem: p.ordem }));
+    PESSOAS = PESSOAS_FULL.map(p => p.nome);
+  }
 
   const { data: clientes, error: errC } = await sb.from('clientes').select('*').order('nome');
   if (errC) { alert('Erro ao carregar clientes do banco: ' + errC.message); return; }
@@ -1629,6 +1657,7 @@ function renderEtapas() {
       </div>
     `;
   }).join('');
+  renderPessoasList();
 }
 
 async function addEtapa() {
@@ -1693,14 +1722,90 @@ async function deleteEtapa(id) {
   render();
 }
 
+/* ── PESSOAS ── */
+function renderPessoasList() {
+  const container = document.getElementById('pessoas-list');
+  if (!container) return;
+  const sorted = [...PESSOAS_FULL].sort((a,b) => a.ordem - b.ordem);
+  container.innerHTML = sorted.map((p, i) => {
+    const usage = atividades.filter(a => a.responsavel === p.nome).length + agendamentos.filter(a => a.responsavel === p.nome).length;
+    return `
+      <div class="etapa-row">
+        <button class="icon-btn" ${i === 0 ? 'disabled' : ''} onclick="movePessoa('${p.id}',-1)" title="Mover para cima">↑</button>
+        <button class="icon-btn" ${i === sorted.length - 1 ? 'disabled' : ''} onclick="movePessoa('${p.id}',1)" title="Mover para baixo">↓</button>
+        <input type="text" value="${escapeHtml(p.nome)}" onchange="renamePessoa('${p.id}', this.value)">
+        <span class="etapa-usage">${usage} registro${usage === 1 ? '' : 's'}</span>
+        <button class="icon-btn danger" onclick="deletePessoa('${p.id}')" title="Excluir pessoa">✕</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function refreshPessoasList() {
+  PESSOAS = [...PESSOAS_FULL].sort((a,b) => a.ordem - b.ordem).map(p => p.nome);
+}
+
+async function addPessoa() {
+  const nomeInput = document.getElementById('new-pessoa-nome');
+  const nome = nomeInput.value.trim();
+  if (!nome) return;
+  if (PESSOAS_FULL.some(p => p.nome.toLowerCase() === nome.toLowerCase())) { alert('Já existe uma pessoa com esse nome.'); return; }
+  const ordem = PESSOAS_FULL.length ? Math.max(...PESSOAS_FULL.map(p => p.ordem)) + 1 : 1;
+  const { data, error } = await sb.from('pessoas').insert({ nome, ordem }).select().single();
+  if (error) { alert('Erro ao adicionar pessoa: ' + error.message); return; }
+  PESSOAS_FULL.push({ id: data.id, nome, ordem });
+  refreshPessoasList();
+  nomeInput.value = '';
+  render();
+}
+
+async function renamePessoa(id, novoNome) {
+  novoNome = novoNome.trim();
+  if (!novoNome) { renderPessoasList(); return; }
+  const { error } = await sb.from('pessoas').update({ nome: novoNome }).eq('id', id);
+  if (error) { alert('Erro ao renomear pessoa: ' + error.message); renderPessoasList(); return; }
+  const p = PESSOAS_FULL.find(p => p.id === id);
+  if (p) p.nome = novoNome;
+  refreshPessoasList();
+  render();
+}
+
+async function movePessoa(id, direction) {
+  const sorted = [...PESSOAS_FULL].sort((a,b) => a.ordem - b.ordem);
+  const idx = sorted.findIndex(p => p.id === id);
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return;
+  const a = sorted[idx], b = sorted[swapIdx];
+  const ordemA = a.ordem, ordemB = b.ordem;
+  const { error: e1 } = await sb.from('pessoas').update({ ordem: ordemB }).eq('id', a.id);
+  const { error: e2 } = await sb.from('pessoas').update({ ordem: ordemA }).eq('id', b.id);
+  if (e1 || e2) { alert('Erro ao reordenar pessoas.'); return; }
+  a.ordem = ordemB;
+  b.ordem = ordemA;
+  refreshPessoasList();
+  render();
+}
+
+async function deletePessoa(id) {
+  const p = PESSOAS_FULL.find(p => p.id === id);
+  if (!p) return;
+  const usage = atividades.filter(a => a.responsavel === p.nome).length + agendamentos.filter(a => a.responsavel === p.nome).length;
+  if (usage > 0 && !confirm(`${p.nome} tem ${usage} registro(s) (atividades/agendamentos) já salvos. Excluir mesmo assim? Os registros antigos continuam existindo, só não vão mais aparecer nos filtros.`)) return;
+  const { error } = await sb.from('pessoas').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir pessoa: ' + error.message); return; }
+  PESSOAS_FULL = PESSOAS_FULL.filter(x => x.id !== id);
+  refreshPessoasList();
+  render();
+}
+
 /* ── AGENDA (AGENDAMENTOS) ── */
 function populateClientesDatalist() {
   document.getElementById('lista-clientes-nomes').innerHTML =
     state.clients.map(c => `<option value="${escapeHtml(c.nome)}">`).join('');
 }
 
-const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', mensagem: '💬', email: '✉️', outro: '📌' };
-const TIPO_LABEL = { reuniao: 'Reunião', ligacao: 'Ligação', outro: 'Outro' };
+const TIPO_ICON = { reuniao: '🗓', ligacao: '📞', mensagem: '💬', email: '✉️', treinamento: '🎓', outro: '📌' };
+const TIPO_LABEL = { reuniao: 'Reunião', ligacao: 'Ligação', mensagem: 'Mensagem', email: 'E-mail', treinamento: 'Treinamento', outro: 'Outro' };
 
 function renderCalendario() {
   renderPessoaFilterInto('pessoa-filter-calendario');
