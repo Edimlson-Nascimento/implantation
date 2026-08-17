@@ -2131,6 +2131,7 @@ function renderAtividades() {
       a.concluidoEm = payload.concluido_em;
       render();
       if (col.id === 'concluida') {
+        await registrarHistoricoDeAtividade(a);
         openAtividadeModal(a.id);
         setTimeout(() => document.getElementById('at-resolucao').focus(), 50);
       }
@@ -2254,6 +2255,17 @@ function closeAtividadeModal() {
   editingAtividadeLabel = null;
 }
 
+async function registrarHistoricoDeAtividade(a) {
+  if (!a.clienteNome) return;
+  const cliente = state.clients.find(c => c.nome.toLowerCase() === a.clienteNome.toLowerCase());
+  if (!cliente) return;
+  const texto = `[Atividades] ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''} (registrado por ${a.responsavel})`;
+  const hoje = todayStr();
+  const { data, error } = await sb.from('historico').insert({ cliente_id: cliente.id, data: hoje, texto }).select().single();
+  if (error) { console.warn('Erro ao registrar histórico automático da atividade:', error.message); return; }
+  cliente.historico.unshift({ id: data.id, data: hoje, texto });
+}
+
 async function saveAtividade() {
   const titulo = document.getElementById('at-titulo').value.trim();
   if (!titulo) { alert('Descreva a atividade.'); return; }
@@ -2265,6 +2277,7 @@ async function saveAtividade() {
 
   const isNew = !editingAtividadeId;
   const anterior = isNew ? null : atividades.find(a => a.id === editingAtividadeId);
+  const eraConcluida = !!(anterior && anterior.coluna === 'concluida');
 
   const payload = { responsavel, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
   if (coluna === 'concluida') {
@@ -2273,18 +2286,25 @@ async function saveAtividade() {
     payload.concluido_em = null;
   }
 
+  let atividadeSalva;
   if (isNew) {
     payload.ordem = atividades.length ? Math.max(...atividades.map(a => a.ordem || 0)) + 1 : 1;
     const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
     if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
-    atividades.push({
+    atividadeSalva = {
       id: row.id, responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem
-    });
+    };
+    atividades.push(atividadeSalva);
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
     Object.assign(anterior, { responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, concluidoEm: payload.concluido_em });
+    atividadeSalva = anterior;
+  }
+
+  if (coluna === 'concluida' && !eraConcluida) {
+    await registrarHistoricoDeAtividade(atividadeSalva);
   }
 
   closeAtividadeModal();
