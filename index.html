@@ -737,6 +737,10 @@
     <h2 id="atividade-modal-title">Nova Atividade</h2>
     <div class="form-grid">
       <div class="form-field full">
+        <label>Cliente (opcional)</label>
+        <input type="text" id="at-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
+      </div>
+      <div class="form-field full">
         <label>Descrição</label>
         <textarea id="at-titulo" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
@@ -748,10 +752,6 @@
           <option value="andamento">Em Andamento</option>
           <option value="concluida">Concluído</option>
         </select>
-      </div>
-      <div class="form-field full">
-        <label>Cliente (opcional)</label>
-        <input type="text" id="at-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
       </div>
       <div class="form-field full" id="at-resolucao-field" style="display:none;">
         <label>Resolução (o que foi feito)</label>
