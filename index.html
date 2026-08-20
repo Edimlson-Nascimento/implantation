@@ -737,7 +737,7 @@
     <h2 id="atividade-modal-title">Nova Atividade</h2>
     <div class="form-grid">
       <div class="form-field full">
-        <label>Cliente (opcional)</label>
+        <label>Cliente</label>
         <input type="text" id="at-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
       </div>
       <div class="form-field full">
@@ -2270,14 +2270,18 @@ async function saveAtividade() {
   const titulo = document.getElementById('at-titulo').value.trim();
   if (!titulo) { alert('Descreva a atividade.'); return; }
 
+  const clienteNome = document.getElementById('at-cliente-nome').value.trim();
+  if (!clienteNome) { alert('Selecione o cliente/empresa da atividade.'); return; }
+
   const responsavel = document.getElementById('at-responsavel').value;
   const coluna = document.getElementById('at-coluna').value;
-  const clienteNome = document.getElementById('at-cliente-nome').value.trim();
   const resolucao = coluna === 'concluida' ? document.getElementById('at-resolucao').value.trim() : '';
 
   const isNew = !editingAtividadeId;
   const anterior = isNew ? null : atividades.find(a => a.id === editingAtividadeId);
   const eraConcluida = !!(anterior && anterior.coluna === 'concluida');
+  const clienteAnterior = anterior ? anterior.clienteNome : '';
+  const resolucaoAnterior = anterior ? anterior.resolucao : '';
 
   const payload = { responsavel, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
   if (coluna === 'concluida') {
@@ -2303,7 +2307,8 @@ async function saveAtividade() {
     atividadeSalva = anterior;
   }
 
-  if (coluna === 'concluida' && !eraConcluida) {
+  const contextoRelevanteMudou = !eraConcluida || clienteAnterior !== clienteNome || resolucaoAnterior !== resolucao;
+  if (coluna === 'concluida' && contextoRelevanteMudou) {
     await registrarHistoricoDeAtividade(atividadeSalva);
   }
 
