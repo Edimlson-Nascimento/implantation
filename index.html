@@ -2259,7 +2259,7 @@ async function registrarHistoricoDeAtividade(a) {
   if (!a.clienteNome) return;
   const cliente = state.clients.find(c => c.nome.toLowerCase() === a.clienteNome.toLowerCase());
   if (!cliente) return;
-  const texto = `[Atividades] ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''} (registrado por ${a.responsavel})`;
+  const texto = `[Atividades - ${a.responsavel}] ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''}`;
   const hoje = todayStr();
   const { data, error } = await sb.from('historico').insert({ cliente_id: cliente.id, data: hoje, texto }).select().single();
   if (error) { console.warn('Erro ao registrar histórico automático da atividade:', error.message); return; }
