@@ -430,6 +430,7 @@
   .kc-footer { display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; }
   .kc-cliente { font-size:10.5px; background:var(--light-bg); color:var(--text-main); padding:3px 8px; border-radius:5px; font-weight:700; }
   .kc-pessoa { font-size:10px; font-weight:700; color:var(--on-navy); background:var(--navy); padding:2px 7px; border-radius:100px; }
+  .kc-idade { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-delete { position:absolute; top:6px; right:8px; font-size:13px; color:var(--gray-text); cursor:pointer; }
   .kc-delete:hover { color:var(--red); }
 
@@ -712,6 +713,7 @@
 <div class="modal-overlay" id="atividade-modal-overlay">
   <div class="modal-box" style="max-width:480px;">
     <h2 id="atividade-modal-title">Nova Atividade</h2>
+    <div id="atividade-modal-criado" style="font-size:12px;color:var(--gray-text);margin:-8px 0 12px;"></div>
     <div class="form-grid">
       <div class="form-field full">
         <label>Cliente</label>
@@ -943,6 +945,17 @@ function formatDate(dateStr) {
   const [y,m,d] = dateStr.split('-');
   return d + '/' + m + '/' + y;
 }
+function formatDataHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+function diasDesde(iso) {
+  if (!iso) return 0;
+  const criado = new Date(iso); criado.setHours(0,0,0,0);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  return Math.round((hoje - criado) / 86400000);
+}
 function uid() { return crypto.randomUUID(); }
 function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0] || { id:'', nome: id || '—', cor:'#6B7280' }; }
 function slugify(str) {
@@ -1037,7 +1050,7 @@ async function loadState() {
     atividades = ativs.map(a => ({
       id: a.id, responsavel: a.responsavel, titulo: a.titulo, clienteNome: a.cliente_nome || '',
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '',
-      concluidoEm: a.concluido_em, ordem: a.ordem,
+      concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at,
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -2070,7 +2083,10 @@ function renderAtividadeCard(a) {
     ` : ''}
     <div class="kc-footer">
       ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
-      <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
+        <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
+      </span>
     </div>
   `;
 
@@ -2111,6 +2127,14 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
   toggleResolucaoField(a.coluna);
+
+  const criadoEl = document.getElementById('atividade-modal-criado');
+  if (!isNew && a.criadoEm) {
+    const dias = diasDesde(a.criadoEm);
+    criadoEl.textContent = `Criado em ${formatDataHora(a.criadoEm)} (${dias === 0 ? 'hoje' : dias === 1 ? 'há 1 dia' : `há ${dias} dias`})`;
+  } else {
+    criadoEl.textContent = '';
+  }
 
   renderAtividadeLabelSwatches();
   renderAtividadeDangerActions(isNew, a.cancelado);
@@ -2275,7 +2299,8 @@ async function saveAtividade(silent) {
     if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
     atividadeSalva = {
       id: row.id, responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna,
-      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: []
+      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
+      criadoEm: row.created_at
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
