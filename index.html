@@ -431,6 +431,7 @@
   .kc-cliente { font-size:10.5px; background:var(--light-bg); color:var(--text-main); padding:3px 8px; border-radius:5px; font-weight:700; }
   .kc-pessoa { font-size:10px; font-weight:700; color:var(--on-navy); background:var(--navy); padding:2px 7px; border-radius:100px; }
   .kc-idade { font-size:10px; font-weight:700; color:var(--gray-text); }
+  .kc-criador { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-delete { position:absolute; top:6px; right:8px; font-size:13px; color:var(--gray-text); cursor:pointer; }
   .kc-delete:hover { color:var(--red); }
 
@@ -723,8 +724,9 @@
         <label>Descrição</label>
         <textarea id="at-titulo" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
+      <div class="form-field"><label>Criado por</label><select id="at-criado-por"></select></div>
       <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
-      <div class="form-field"><label>Coluna</label>
+      <div class="form-field full"><label>Coluna</label>
         <select id="at-coluna">
           <option value="urgencias">Fila de Urgências (Hoje)</option>
           <option value="afazer">A Fazer (Próximos)</option>
@@ -1048,7 +1050,7 @@ async function loadState() {
       imgs = [];
     }
     atividades = ativs.map(a => ({
-      id: a.id, responsavel: a.responsavel, titulo: a.titulo, clienteNome: a.cliente_nome || '',
+      id: a.id, responsavel: a.responsavel, criadoPor: a.criado_por || '', titulo: a.titulo, clienteNome: a.cliente_nome || '',
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '',
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at,
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
@@ -2085,6 +2087,7 @@ function renderAtividadeCard(a) {
       ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
       <span style="display:flex;align-items:center;gap:6px;">
         ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
+        ${a.criadoPor && a.criadoPor !== a.responsavel ? `<span class="kc-criador" title="Solicitado por ${escapeHtml(a.criadoPor)}">${escapeHtml(a.criadoPor)} ➜</span>` : ''}
         <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
       </span>
     </div>
@@ -2115,14 +2118,16 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('atividade-modal-title').textContent = isNew ? 'Nova Atividade' : 'Editar Atividade';
 
   const a = isNew
-    ? { responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], titulo: '', clienteNome: '', label: null, coluna: coluna || 'afazer', resolucao: '', cancelado: false, imagens: [] }
+    ? { responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], criadoPor: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], titulo: '', clienteNome: '', label: null, coluna: coluna || 'afazer', resolucao: '', cancelado: false, imagens: [] }
     : atividades.find(x => x.id === id);
 
   editingAtividadeLabel = a.label;
 
   document.getElementById('at-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('at-criado-por').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('at-titulo').value = a.titulo;
   document.getElementById('at-responsavel').value = a.responsavel;
+  document.getElementById('at-criado-por').value = a.criadoPor || a.responsavel;
   document.getElementById('at-coluna').value = a.coluna;
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
@@ -2276,6 +2281,7 @@ async function saveAtividade(silent) {
   if (!clienteNome) { alert('Selecione o cliente/empresa da atividade.'); return; }
 
   const responsavel = document.getElementById('at-responsavel').value;
+  const criadoPor = document.getElementById('at-criado-por').value;
   const coluna = document.getElementById('at-coluna').value;
   const resolucao = coluna === 'concluida' ? document.getElementById('at-resolucao').value.trim() : '';
 
@@ -2285,7 +2291,7 @@ async function saveAtividade(silent) {
   const clienteAnterior = anterior ? anterior.clienteNome : '';
   const resolucaoAnterior = anterior ? anterior.resolucao : '';
 
-  const payload = { responsavel, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
+  const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
   if (coluna === 'concluida') {
     payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
   } else {
@@ -2298,7 +2304,7 @@ async function saveAtividade(silent) {
     const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
     if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
     atividadeSalva = {
-      id: row.id, responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna,
+      id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
       criadoEm: row.created_at
     };
@@ -2307,7 +2313,7 @@ async function saveAtividade(silent) {
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
-    Object.assign(anterior, { responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, concluidoEm: payload.concluido_em });
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, concluidoEm: payload.concluido_em });
     atividadeSalva = anterior;
   }
 
