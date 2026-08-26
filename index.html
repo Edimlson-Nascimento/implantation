@@ -1413,6 +1413,7 @@ async function registrarContatoModal() {
   document.getElementById('f-proximo').value = proximo;
   document.getElementById('f-nota-contato').value = '';
   renderHistory(currentEditingClient());
+  renderStats();
 }
 
 function moverParaBase() {
@@ -1486,6 +1487,7 @@ async function saveClient(silent) {
     if (!errH) c.historico.unshift({ id: data.id, data: todayStr(), texto });
   }
 
+  renderStats();
   if (!silent) { closeModal(); render(); }
 }
 
@@ -1733,7 +1735,7 @@ function renderCalendario() {
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
     .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
-    .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
+    .sort((a,b) => (b.data + (b.hora||'99:99')).localeCompare(a.data + (a.hora||'99:99')));
 
   if (list.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="big">🗓</div><h3>Nenhum agendamento</h3><p>Marque uma reunião ou ligação com "+ Novo Agendamento".</p></div>`;
@@ -1743,7 +1745,7 @@ function renderCalendario() {
   const grupos = {};
   list.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
 
-  container.innerHTML = Object.keys(grupos).sort().map(data => {
+  container.innerHTML = Object.keys(grupos).sort().reverse().map(data => {
     const isHoje = data === today;
     const label = isHoje ? 'Hoje — ' + formatDate(data) : formatDate(data);
     const itens = grupos[data].map(a => {
