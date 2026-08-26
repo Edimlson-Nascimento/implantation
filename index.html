@@ -1491,45 +1491,33 @@ async function deleteClient() {
 /* ── RESUMO PARA DIRETORIA ── */
 function renderResumo() {
   const today = todayStr();
-  const implantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
-  const baseComTarefaHoje = state.clients.filter(c => (c.fase === 'base') && c.proximoContato && c.proximoContato <= today);
-  const verdes = implantacao.filter(c => (c.saude || 'verde') === 'verde');
-  const amarelos = implantacao.filter(c => c.saude === 'amarelo');
-  const vermelhos = implantacao.filter(c => c.saude === 'vermelho');
-  const contatadosHoje = state.clients.filter(c => c.ultimoContato === today);
-  const atrasados = state.clients
-    .filter(c => c.proximoContato && c.proximoContato < today)
-    .sort((a,b) => a.proximoContato < b.proximoContato ? -1 : 1);
+  const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
 
   document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(today);
 
-  let txt = `📊 Resumo de Implantação — ${formatDate(today)}\n\n`;
-  txt += `Clientes em implantação: ${implantacao.length}\n`;
-  txt += `🟢 Verde: ${verdes.length}   🟡 Amarelo: ${amarelos.length}   🔴 Vermelho: ${vermelhos.length}\n\n`;
+  let txt = `📊 Resumo do Dia — ${formatDate(today)}\n\n`;
+  txt += `✅ ${concluidosHoje.length} atividade${concluidosHoje.length === 1 ? '' : 's'} concluída${concluidosHoje.length === 1 ? '' : 's'} hoje\n\n`;
 
-  txt += `✅ Contatos realizados hoje (${contatadosHoje.length}):\n`;
-  txt += contatadosHoje.length
-    ? contatadosHoje.map(c => `- ${c.nome}${c.historico[0] ? ' — ' + c.historico[0].texto : ''}`).join('\n')
-    : '- Nenhum contato registrado ainda hoje.';
-  txt += '\n\n';
+  if (!concluidosHoje.length) {
+    txt += 'Nenhuma atividade concluída ainda hoje.';
+  } else {
+    const porEmpresa = {};
+    concluidosHoje.forEach(a => {
+      const empresa = a.clienteNome || 'Sem empresa';
+      const porUsuario = porEmpresa[empresa] = porEmpresa[empresa] || {};
+      (porUsuario[a.responsavel] = porUsuario[a.responsavel] || []).push(a);
+    });
 
-  const risco = [...vermelhos, ...amarelos];
-  txt += `⚠️ Em risco — atenção da diretoria (${risco.length}):\n`;
-  txt += risco.length
-    ? risco.map(c => `- ${c.nome} [${c.saude === 'vermelho' ? '🔴' : '🟡'}] (${stageOf(c.etapa).nome})${c.saudeMotivo ? ' — ' + c.saudeMotivo : ''}`).join('\n')
-    : '- Nenhum cliente em risco no momento.';
-  txt += '\n\n';
-
-  txt += `🔺 Atrasados sem contato (${atrasados.length}):\n`;
-  txt += atrasados.length
-    ? atrasados.map(c => `- ${c.nome} — ${daysBetween(c.proximoContato, today)} dia(s) em atraso`).join('\n')
-    : '- Nenhum cliente em atraso.';
-  txt += '\n\n';
-
-  txt += `🛠 Manutenção pontual hoje — clientes da Base (${baseComTarefaHoje.length}):\n`;
-  txt += baseComTarefaHoje.length
-    ? baseComTarefaHoje.map(c => `- ${c.nome}${c.saudeMotivo ? ' — ' + c.saudeMotivo : ''}`).join('\n')
-    : '- Nenhuma manutenção pontual hoje.';
+    const blocos = Object.keys(porEmpresa).sort().map(empresa => {
+      const porUsuario = porEmpresa[empresa];
+      const usuarios = Object.keys(porUsuario).sort().map(usuario => {
+        const itens = porUsuario[usuario].map(a => `    - ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''}`).join('\n');
+        return `  👤 ${usuario}\n${itens}`;
+      }).join('\n');
+      return `🏢 ${empresa}\n${usuarios}`;
+    });
+    txt += blocos.join('\n\n');
+  }
 
   document.getElementById('resumo-texto').textContent = txt;
 }
