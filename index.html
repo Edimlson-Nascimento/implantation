@@ -506,9 +506,6 @@
       <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
       <button class="btn-sidebar" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
       <button class="btn-sidebar" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
-      <button class="btn-sidebar" onclick="exportJSON()">⬇ Exportar backup</button>
-      <button class="btn-sidebar" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
     </div>
   </aside>
 
@@ -607,6 +604,21 @@
           <button class="btn btn-green btn-sm" onclick="addPessoa()">+ Adicionar</button>
         </div>
         <div id="pessoas-list" class="etapas-list"></div>
+      </div>
+    </div>
+
+    <div class="resumo-box config-section" style="margin-top:12px;">
+      <div class="config-section-header" onclick="toggleConfigSection('backup')">
+        <h2>Backup</h2>
+        <span class="config-chevron" id="chevron-backup">▸</span>
+      </div>
+      <div class="config-section-body" id="body-backup" style="display:none">
+        <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Exportar salva um arquivo `.json` com todos os clientes no seu computador. Importar sobrescreve clientes com o mesmo ID a partir de um backup.</p>
+        <div class="etapas-add-row">
+          <button class="btn btn-sm" onclick="exportJSON()">⬇ Exportar backup</button>
+          <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">⬆ Importar backup</button>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
+        </div>
       </div>
     </div>
   </section>
