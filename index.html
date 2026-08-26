@@ -740,6 +740,7 @@
       <h3>Imagens</h3>
       <div id="atividade-imagens-list" class="atividade-imagens-list"></div>
       <button class="btn btn-sm" style="margin-top:8px;" onclick="document.getElementById('at-imagem-input').click()">+ Adicionar imagem</button>
+      <span style="font-size:12px;color:var(--gray-text);margin-left:8px;">ou cole uma captura de tela (Ctrl+V)</span>
       <input type="file" id="at-imagem-input" accept="image/*" style="display:none" onchange="withLock(this, () => addAtividadeImagem(this))">
     </div>
     <div class="modal-footer">
@@ -2172,24 +2173,50 @@ function renderAtividadeImagens(a) {
 async function addAtividadeImagem(input) {
   const file = input.files[0];
   if (!file) return;
+  await uploadAtividadeImagem(file);
+  input.value = '';
+}
+
+async function uploadAtividadeImagem(file) {
   await saveAtividade(true);
-  if (!editingAtividadeId) { input.value = ''; return; }
+  if (!editingAtividadeId) return;
   const atividadeId = editingAtividadeId;
 
-  const path = `${atividadeId}/${Date.now()}-${file.name}`;
+  const path = `${atividadeId}/${Date.now()}-${file.name || 'colada.png'}`;
   const { error: upErr } = await sb.storage.from(ATIVIDADE_IMAGENS_BUCKET).upload(path, file);
-  if (upErr) { alert('Erro ao enviar imagem: ' + upErr.message); input.value = ''; return; }
+  if (upErr) { alert('Erro ao enviar imagem: ' + upErr.message); return; }
 
   const { data: urlData } = sb.storage.from(ATIVIDADE_IMAGENS_BUCKET).getPublicUrl(path);
   const { data, error } = await sb.from('atividade_imagens').insert({ atividade_id: atividadeId, path, url: urlData.publicUrl }).select().single();
-  if (error) { alert('Erro ao salvar imagem: ' + error.message); input.value = ''; return; }
+  if (error) { alert('Erro ao salvar imagem: ' + error.message); return; }
 
   const a = atividades.find(x => x.id === atividadeId);
   a.imagens = a.imagens || [];
   a.imagens.push({ id: data.id, url: data.url, path: data.path });
   renderAtividadeImagens(a);
-  input.value = '';
 }
+
+let colandoImagem = false;
+async function handleAtividadeImagemPaste(e) {
+  if (!document.getElementById('atividade-modal-overlay').classList.contains('open')) return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      e.preventDefault();
+      if (colandoImagem) return;
+      colandoImagem = true;
+      const file = item.getAsFile();
+      try {
+        if (file) await uploadAtividadeImagem(file);
+      } finally {
+        colandoImagem = false;
+      }
+      break;
+    }
+  }
+}
+document.addEventListener('paste', handleAtividadeImagemPaste);
 
 async function removeAtividadeImagem(imagemId) {
   if (!confirm('Remover esta imagem?')) return;
