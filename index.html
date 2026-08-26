@@ -172,8 +172,6 @@
   main { max-width: 1200px; margin: 0 auto; padding: 20px 32px; }
   #view-atividades { display: flex; flex-direction: column; }
 
-  /* ── AGENDA VIEW ── */
-  .agenda-list { display: flex; flex-direction: column; gap: 14px; }
   .empty-state {
     background: var(--white);
     border: 1px dashed var(--border-light);
@@ -185,33 +183,12 @@
   .empty-state .big { font-size: 40px; margin-bottom: 12px; }
   .empty-state h3 { color: var(--text-main); font-size: 18px; margin-bottom: 6px; }
 
-  .agenda-card {
-    background: var(--white);
-    border-radius: 16px;
-    border: 1px solid var(--border-light);
-    border-left: 4px solid var(--amber);
-    padding: 20px 24px;
-  }
-  .agenda-card.overdue { border-left-color: var(--red); }
-  .agenda-card.today { border-left-color: var(--green-mid); }
-
-  .agenda-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 16px; flex-wrap: wrap; }
-  .agenda-name { font-size: 16px; font-weight: 700; color: var(--text-main); }
-  .agenda-meta { font-size: 12.5px; color: var(--gray-text); margin-top: 3px; }
-  .agenda-meta a { color: inherit; }
-
   .stage-badge {
     display:inline-flex; align-items:center; gap:6px;
     font-size:11px; font-weight:700; letter-spacing:.03em;
     padding: 4px 10px; border-radius: 100px;
     color: var(--on-navy);
   }
-  .urgency-badge {
-    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 100px;
-  }
-  .urgency-badge.overdue { background:#FEE2E2; color:var(--red); }
-  .urgency-badge.today { background:#DCFCE7; color:#166534; }
-
   .saude-badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:100px; }
   .saude-badge .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   .saude-badge.verde { background:#DCFCE7; color:#166534; }
@@ -227,7 +204,6 @@
 
   .codigo-tag { font-size: 11.5px; font-weight: 700; color: var(--gray-text); margin-right: 6px; }
 
-  .agenda-pend-preview { margin-top: 12px; display:flex; flex-wrap:wrap; gap:6px; }
   .pend-chip {
     font-size: 12px; color:var(--text-main); background: var(--light-bg);
     border: 1px solid var(--border-light); border-radius: 8px; padding: 4px 10px;
@@ -235,21 +211,6 @@
   .pend-chip.cliente { border-left: 3px solid var(--amber); }
   .pend-chip.rscrm { border-left: 3px solid #3B82F6; }
   .pend-chip.more { color: var(--gray-text); }
-
-  .agenda-actions { display:flex; gap:8px; margin-top: 14px; flex-wrap: wrap; }
-
-  .inline-contato-form {
-    margin-top: 14px; padding: 14px; background: var(--light-bg); border-radius: 12px;
-    display: none;
-  }
-  .inline-contato-form.open { display:block; }
-  .inline-contato-form textarea {
-    width:100%; min-height: 60px; font-family:inherit; font-size: 13px;
-    padding: 10px; border-radius: 8px; border: 1px solid var(--border-light); resize: vertical;
-  }
-  .inline-contato-form .row2 { display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap: wrap; }
-  .inline-contato-form label { font-size: 12px; color: var(--gray-text); font-weight:600; }
-  .inline-contato-form input[type=date] { padding:6px 8px; border-radius:8px; border:1px solid var(--border-light); font-family:inherit; font-size:13px; }
 
   /* ── CLIENTES TABLE ── */
   .toolbar { display:flex; gap:10px; flex-wrap: wrap; margin-bottom: 16px; align-items:center; }
@@ -536,11 +497,10 @@
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" id="tab-agenda" onclick="setTab('agenda')">Agenda de Hoje <span class="badge-count" id="agenda-count">0</span></button>
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
-      <button class="nav-item" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
+      <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
     <div class="sidebar-footer">
       <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
@@ -560,10 +520,6 @@
     </div>
 
     <main>
-  <section id="view-agenda">
-    <div class="agenda-list" id="agenda-list"></div>
-  </section>
-
   <section id="view-clientes" style="display:none">
     <div class="toolbar">
       <input type="text" id="search-input" placeholder="Buscar cliente ou contato..." oninput="renderClientes()">
@@ -820,7 +776,7 @@
       </div>
       <div class="form-field full"><label>Motivo (se amarelo/vermelho)</label><input type="text" id="f-saude-motivo" placeholder="Ex: aguardando definição de fluxo há 5 dias"></div>
     </div>
-    <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só aparecem na Agenda de Hoje quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
+    <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só contam nos indicadores de "Contatos hoje"/"Em atraso" quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
 
     <div class="modal-section">
       <h3>Contatos</h3>
@@ -912,7 +868,7 @@ function toggleTheme() {
 let STAGES = [];
 
 let state = { clients: [] };
-let activeTab = 'agenda';
+let activeTab = 'atividades';
 let clientsView = 'lista';
 let editingClientId = null;
 let agendamentos = [];
@@ -1054,13 +1010,11 @@ async function loadState() {
 
 function setTab(tab) {
   activeTab = tab;
-  document.getElementById('tab-agenda').classList.toggle('active', tab === 'agenda');
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
-  document.getElementById('view-agenda').style.display = tab === 'agenda' ? '' : 'none';
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
@@ -1075,8 +1029,7 @@ function render() {
   populateStageOptions();
   populateClientesDatalist();
   updateCalendarioCount();
-  if (activeTab === 'agenda') renderAgenda();
-  else if (activeTab === 'calendario') renderCalendario();
+  if (activeTab === 'calendario') renderCalendario();
   else if (activeTab === 'clientes') renderClientes();
   else if (activeTab === 'etapas') renderEtapas();
   else if (activeTab === 'atividades') renderAtividades();
@@ -1101,7 +1054,6 @@ function renderStats() {
     <div class="stat-card"><div class="num" style="color:${atrasados.length ? 'var(--red)' : 'var(--text-main)'}">${atrasados.length}</div><div class="lbl">Em atraso</div></div>
     <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco (RAG)</div></div>
   `;
-  document.getElementById('agenda-count').textContent = pendentesHoje.length;
 }
 
 function populateStageOptions() {
@@ -1122,86 +1074,6 @@ function populateStageOptions() {
   filterResp.value = currentFilterVal;
 
   document.getElementById('lista-responsaveis').innerHTML = responsaveis.map(r => `<option value="${escapeHtml(r)}">`).join('');
-}
-
-function renderAgenda() {
-  const today = todayStr();
-  const list = state.clients
-    .filter(c => c.proximoContato && c.proximoContato <= today)
-    .sort((a,b) => (a.proximoContato || '') < (b.proximoContato || '') ? -1 : 1);
-
-  const container = document.getElementById('agenda-list');
-  if (list.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="big">🎉</div><h3>Nenhum contato pendente hoje</h3><p>Todos os clientes estão em dia.</p></div>`;
-    return;
-  }
-
-  container.innerHTML = list.map(c => {
-    const stage = stageOf(c.etapa);
-    const overdue = c.proximoContato && c.proximoContato < today;
-    const diasAtraso = overdue ? daysBetween(c.proximoContato, today) : 0;
-    const cardClass = overdue ? 'overdue' : 'today';
-    const urgencyHtml = overdue
-      ? `<span class="urgency-badge overdue">Atrasado ${diasAtraso} dia${diasAtraso>1?'s':''}</span>`
-      : `<span class="urgency-badge today">Contato hoje</span>`;
-    const diasSemContato = c.ultimoContato ? daysBetween(c.ultimoContato, today) : daysBetween(c.inicio, today);
-
-    const pendAbertas = c.pendencias.filter(p => !p.feito);
-    const pendPreview = pendAbertas.slice(0,3).map(p =>
-      `<span class="pend-chip ${p.responsavel}">${escapeHtml(p.texto)}</span>`
-    ).join('');
-    const pendMore = pendAbertas.length > 3 ? `<span class="pend-chip more">+${pendAbertas.length - 3} outras</span>` : '';
-
-    const saude = c.saude || 'verde';
-    const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
-    const fase = c.fase || 'implantacao';
-    const contatoPrincipal = c.contatos && c.contatos.length
-      ? c.contatos[0].nome + (c.contatos.length > 1 ? ` (+${c.contatos.length - 1})` : '') + (c.contatos[0].telefone ? ' · ' + c.contatos[0].telefone : '')
-      : 'Sem contato definido';
-
-    return `
-      <div class="agenda-card ${cardClass}">
-        <div class="agenda-top">
-          <div>
-            <div class="agenda-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-            <div class="agenda-meta">${escapeHtml(c.responsavel || 'Sem responsável')} · ${escapeHtml(contatoPrincipal)} · ${c.ultimoContato ? diasSemContato + ' dia(s) sem contato' : 'Nunca contatado'}</div>
-            ${saude !== 'verde' && c.saudeMotivo ? `<div class="agenda-meta" style="margin-top:4px;color:${saude === 'vermelho' ? 'var(--red)' : '#B45309'};font-weight:600;">⚠ ${escapeHtml(c.saudeMotivo)}</div>` : ''}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            ${fase === 'base' ? '<span class="fase-pill base">Base</span>' : ''}
-            <span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span>
-            <span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span>
-            ${urgencyHtml}
-          </div>
-        </div>
-        ${pendAbertas.length ? `<div class="agenda-pend-preview">${pendPreview}${pendMore}</div>` : ''}
-        <div class="agenda-actions">
-          <button class="btn btn-green btn-sm" onclick="toggleInlineForm('${c.id}')">✓ Registrar contato</button>
-          <button class="btn btn-sm" onclick="openModal('${c.id}')">Ver detalhes</button>
-        </div>
-        <div class="inline-contato-form" id="inline-form-${c.id}">
-          <textarea id="inline-nota-${c.id}" placeholder="O que foi conversado hoje? (opcional)"></textarea>
-          <div class="row2">
-            <label>Próximo contato:</label>
-            <input type="date" id="inline-proximo-${c.id}" value="${today}">
-            <button class="btn btn-primary btn-sm" onclick="withLock(this, () => registrarContatoInline('${c.id}'))">Salvar</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function toggleInlineForm(id) {
-  const el = document.getElementById('inline-form-' + id);
-  el.classList.toggle('open');
-}
-
-async function registrarContatoInline(id) {
-  const nota = document.getElementById('inline-nota-' + id).value.trim();
-  const proximo = document.getElementById('inline-proximo-' + id).value || todayStr();
-  await registrarContato(id, nota, proximo);
-  render();
 }
 
 async function registrarContato(id, nota, proximo) {
