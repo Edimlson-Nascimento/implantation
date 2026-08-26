@@ -303,6 +303,15 @@
   .add-contato-row { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
   .add-contato-row input { flex:1; min-width:120px; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
 
+  .atividade-imagens-list { display:flex; flex-wrap:wrap; gap:10px; }
+  .atividade-imagem-item { position:relative; width:76px; height:76px; border-radius:10px; overflow:hidden; border:1px solid var(--border-light); }
+  .atividade-imagem-item img { width:100%; height:100%; object-fit:cover; display:block; cursor:pointer; }
+  .atividade-imagem-item .del { position:absolute; top:2px; right:2px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); color:#fff; border-radius:50%; font-size:11px; cursor:pointer; }
+  .atividade-imagem-item .del:hover { background:var(--red); }
+  .kc-imagens { display:flex; gap:4px; margin-top:8px; align-items:center; }
+  .kc-imagens img { width:32px; height:32px; object-fit:cover; border-radius:6px; border:1px solid var(--border-light); }
+  .kc-imagens .kc-imagens-mais { font-size:11px; color:var(--gray-text); font-weight:700; }
+
   .history-list { display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y:auto; }
   .history-item { background: var(--light-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
   .history-item .date { font-size: 11px; font-weight: 700; color: var(--gray-text); margin-bottom: 3px; }
@@ -727,6 +736,12 @@
       </div>
       <div class="form-field full"><label>Etiqueta</label><div class="label-swatches" id="at-label-swatches"></div></div>
     </div>
+    <div class="modal-section">
+      <h3>Imagens</h3>
+      <div id="atividade-imagens-list" class="atividade-imagens-list"></div>
+      <button class="btn btn-sm" style="margin-top:8px;" onclick="document.getElementById('at-imagem-input').click()">+ Adicionar imagem</button>
+      <input type="file" id="at-imagem-input" accept="image/*" style="display:none" onchange="withLock(this, () => addAtividadeImagem(this))">
+    </div>
     <div class="modal-footer">
       <div id="atividade-danger-actions" style="display:flex;gap:8px;"></div>
       <div style="display:flex;gap:8px;margin-left:auto;">
@@ -899,6 +914,7 @@ const KANBAN_COLUMNS = [
   { id:'concluida', nome:'Concluído' }
 ];
 const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', yellow:'Atenção', blue:'Rotina' };
+const ATIVIDADE_IMAGENS_BUCKET = 'atividade-imagens';
 let atividades = [];
 let pessoaFiltro = 'Todos';
 let concluidoFiltroCliente = '';
@@ -1012,10 +1028,16 @@ async function loadState() {
     console.warn('Tabela atividades ainda não disponível:', errT.message);
     atividades = [];
   } else {
+    let { data: imgs, error: errImg } = await sb.from('atividade_imagens').select('*').order('created_at');
+    if (errImg) {
+      console.warn('Tabela atividade_imagens ainda não disponível:', errImg.message);
+      imgs = [];
+    }
     atividades = ativs.map(a => ({
       id: a.id, responsavel: a.responsavel, titulo: a.titulo, clienteNome: a.cliente_nome || '',
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '',
-      concluidoEm: a.concluido_em, ordem: a.ordem
+      concluidoEm: a.concluido_em, ordem: a.ordem,
+      imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
 }
@@ -2039,6 +2061,12 @@ function renderAtividadeCard(a) {
     ${a.label ? `<span class="kc-label ${a.label}" title="${ATIV_LABEL_NAMES[a.label]}"></span>` : ''}
     <span class="kc-delete" title="Excluir">✕</span>
     <div class="kc-titulo">${escapeHtml(a.titulo)}</div>
+    ${a.imagens && a.imagens.length ? `
+      <div class="kc-imagens">
+        ${a.imagens.slice(0,3).map(img => `<img src="${img.url}">`).join('')}
+        ${a.imagens.length > 3 ? `<span class="kc-imagens-mais">+${a.imagens.length - 3}</span>` : ''}
+      </div>
+    ` : ''}
     <div class="kc-footer">
       ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
       <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
@@ -2070,7 +2098,7 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('atividade-modal-title').textContent = isNew ? 'Nova Atividade' : 'Editar Atividade';
 
   const a = isNew
-    ? { responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], titulo: '', clienteNome: '', label: null, coluna: coluna || 'afazer', resolucao: '', cancelado: false }
+    ? { responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], titulo: '', clienteNome: '', label: null, coluna: coluna || 'afazer', resolucao: '', cancelado: false, imagens: [] }
     : atividades.find(x => x.id === id);
 
   editingAtividadeLabel = a.label;
@@ -2085,6 +2113,7 @@ function openAtividadeModal(id, coluna) {
 
   renderAtividadeLabelSwatches();
   renderAtividadeDangerActions(isNew, a.cancelado);
+  renderAtividadeImagens(a);
 
   document.getElementById('atividade-modal-overlay').classList.add('open');
 }
@@ -2129,6 +2158,54 @@ function closeAtividadeModal() {
   editingAtividadeLabel = null;
 }
 
+function renderAtividadeImagens(a) {
+  const wrap = document.getElementById('atividade-imagens-list');
+  const imagens = a.imagens || [];
+  wrap.innerHTML = imagens.length ? imagens.map(img => `
+    <div class="atividade-imagem-item">
+      <img src="${img.url}" onclick="window.open('${img.url}', '_blank')" title="Abrir em tamanho real">
+      <span class="del" onclick="withLock(this, () => removeAtividadeImagem('${img.id}'))">✕</span>
+    </div>
+  `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma imagem anexada.</div>`;
+}
+
+async function addAtividadeImagem(input) {
+  const file = input.files[0];
+  if (!file) return;
+  await saveAtividade(true);
+  if (!editingAtividadeId) { input.value = ''; return; }
+  const atividadeId = editingAtividadeId;
+
+  const path = `${atividadeId}/${Date.now()}-${file.name}`;
+  const { error: upErr } = await sb.storage.from(ATIVIDADE_IMAGENS_BUCKET).upload(path, file);
+  if (upErr) { alert('Erro ao enviar imagem: ' + upErr.message); input.value = ''; return; }
+
+  const { data: urlData } = sb.storage.from(ATIVIDADE_IMAGENS_BUCKET).getPublicUrl(path);
+  const { data, error } = await sb.from('atividade_imagens').insert({ atividade_id: atividadeId, path, url: urlData.publicUrl }).select().single();
+  if (error) { alert('Erro ao salvar imagem: ' + error.message); input.value = ''; return; }
+
+  const a = atividades.find(x => x.id === atividadeId);
+  a.imagens = a.imagens || [];
+  a.imagens.push({ id: data.id, url: data.url, path: data.path });
+  renderAtividadeImagens(a);
+  input.value = '';
+}
+
+async function removeAtividadeImagem(imagemId) {
+  if (!confirm('Remover esta imagem?')) return;
+  const a = atividades.find(x => x.id === editingAtividadeId);
+  if (!a) return;
+  const img = (a.imagens || []).find(i => i.id === imagemId);
+  if (!img) return;
+
+  const { error } = await sb.from('atividade_imagens').delete().eq('id', imagemId);
+  if (error) { alert('Erro ao remover imagem: ' + error.message); return; }
+  await sb.storage.from(ATIVIDADE_IMAGENS_BUCKET).remove([img.path]);
+
+  a.imagens = a.imagens.filter(i => i.id !== imagemId);
+  renderAtividadeImagens(a);
+}
+
 async function registrarHistoricoDeAtividade(a) {
   if (!a.clienteNome) return;
   const cliente = state.clients.find(c => c.nome.toLowerCase() === a.clienteNome.toLowerCase());
@@ -2140,7 +2217,7 @@ async function registrarHistoricoDeAtividade(a) {
   cliente.historico.unshift({ id: data.id, data: hoje, texto });
 }
 
-async function saveAtividade() {
+async function saveAtividade(silent) {
   const titulo = document.getElementById('at-titulo').value.trim();
   if (!titulo) { alert('Descreva a atividade.'); return; }
 
@@ -2171,9 +2248,10 @@ async function saveAtividade() {
     if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
     atividadeSalva = {
       id: row.id, responsavel, titulo, clienteNome, label: editingAtividadeLabel, coluna,
-      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem
+      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: []
     };
     atividades.push(atividadeSalva);
+    editingAtividadeId = row.id;
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
@@ -2186,8 +2264,7 @@ async function saveAtividade() {
     await registrarHistoricoDeAtividade(atividadeSalva);
   }
 
-  closeAtividadeModal();
-  render();
+  if (!silent) { closeAtividadeModal(); render(); }
 }
 
 async function cancelarAtividade() {
