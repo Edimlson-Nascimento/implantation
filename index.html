@@ -1617,7 +1617,7 @@ function renderResumo() {
       const usuarios = Object.keys(porUsuario).sort().map(usuario => {
         const itens = porUsuario[usuario].map(a => `    - ${a.titulo}${a.resolucao ? '\n      ✔ ' + a.resolucao : ''}`).join('\n');
         return `  👤 ${usuario}\n${itens}`;
-      }).join('\n');
+      }).join('\n\n');
       return `🏢 ${empresa}\n${usuarios}`;
     });
     txt += blocos.join('\n\n');
