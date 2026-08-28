@@ -2088,17 +2088,22 @@ function renderAtividades() {
       if (!id) return;
       const a = atividades.find(x => x.id === id);
       if (!a || a.coluna === col.id) return;
-      const payload = { coluna: col.id, concluido_em: col.id === 'concluida' ? (a.concluidoEm || todayStr()) : null };
+
+      if (col.id === 'concluida') {
+        // Não move ainda — exige preencher a resolução no modal antes de salvar (saveAtividade bloqueia sem isso)
+        openAtividadeModal(a.id);
+        document.getElementById('at-coluna').value = 'concluida';
+        toggleResolucaoField('concluida');
+        setTimeout(() => document.getElementById('at-resolucao').focus(), 50);
+        return;
+      }
+
+      const payload = { coluna: col.id, concluido_em: null };
       const { error } = await sb.from('atividades').update(payload).eq('id', a.id);
       if (error) { alert('Erro ao mover atividade: ' + error.message); return; }
       a.coluna = col.id;
-      a.concluidoEm = payload.concluido_em;
+      a.concluidoEm = null;
       render();
-      if (col.id === 'concluida') {
-        await registrarHistoricoDeAtividade(a);
-        openAtividadeModal(a.id);
-        setTimeout(() => document.getElementById('at-resolucao').focus(), 50);
-      }
     });
 
     board.appendChild(colEl);
@@ -2336,6 +2341,7 @@ async function saveAtividade(silent) {
   const criadoPor = document.getElementById('at-criado-por').value;
   const coluna = document.getElementById('at-coluna').value;
   const resolucao = coluna === 'concluida' ? document.getElementById('at-resolucao').value.trim() : '';
+  if (coluna === 'concluida' && !resolucao) { alert('Descreva o que foi feito antes de mover pra Concluído.'); return; }
 
   const isNew = !editingAtividadeId;
   const anterior = isNew ? null : atividades.find(a => a.id === editingAtividadeId);
