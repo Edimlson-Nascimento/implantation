@@ -319,7 +319,7 @@
   .kc-imagens .kc-imagens-mais { font-size:11px; color:var(--gray-text); font-weight:700; }
 
   .history-list { display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y:auto; }
-  .history-item { background: var(--light-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .history-item { background: var(--light-bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; white-space: pre-wrap; }
   .history-item .date { font-size: 11px; font-weight: 700; color: var(--gray-text); margin-bottom: 3px; }
 
   .modal-footer { display:flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
@@ -1615,7 +1615,7 @@ function renderResumo() {
     const blocos = Object.keys(porEmpresa).sort().map(empresa => {
       const porUsuario = porEmpresa[empresa];
       const usuarios = Object.keys(porUsuario).sort().map(usuario => {
-        const itens = porUsuario[usuario].map(a => `    - ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''}`).join('\n');
+        const itens = porUsuario[usuario].map(a => `    - ${a.titulo}${a.resolucao ? '\n      ✔ ' + a.resolucao : ''}`).join('\n');
         return `  👤 ${usuario}\n${itens}`;
       }).join('\n');
       return `🏢 ${empresa}\n${usuarios}`;
@@ -2323,7 +2323,7 @@ async function registrarHistoricoDeAtividade(a) {
   if (!a.clienteNome) return;
   const cliente = state.clients.find(c => c.nome.toLowerCase() === a.clienteNome.toLowerCase());
   if (!cliente) return;
-  const texto = `[Atividades - ${a.responsavel}] ${a.titulo}${a.resolucao ? ' — ' + a.resolucao : ''}`;
+  const texto = `[Atividades - ${a.responsavel}] ${a.titulo}${a.resolucao ? '\n✔ ' + a.resolucao : ''}`;
   const hoje = todayStr();
   const { data, error } = await sb.from('historico').insert({ cliente_id: cliente.id, data: hoje, texto }).select().single();
   if (error) { console.warn('Erro ao registrar histórico automático da atividade:', error.message); return; }
