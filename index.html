@@ -529,8 +529,8 @@
 
     <div id="auth-form-signup" style="display:none;">
       <div class="form-field" style="margin-bottom:12px;">
-        <label>Nome (igual ao já cadastrado em Pessoas da Equipe)</label>
-        <input type="text" id="signup-nome" placeholder="Edimilson">
+        <label>Você é</label>
+        <select id="signup-nome"><option value="">Selecione...</option></select>
       </div>
       <div class="form-field" style="margin-bottom:12px;">
         <label>E-mail</label>
@@ -2610,6 +2610,14 @@ function setAuthTab(tab) {
   document.getElementById('auth-tab-login').classList.toggle('active', tab === 'login');
   document.getElementById('auth-tab-signup').classList.toggle('active', tab === 'signup');
   document.getElementById('auth-msg').textContent = '';
+  if (tab === 'signup') loadPessoasParaSignup();
+}
+
+async function loadPessoasParaSignup() {
+  const sel = document.getElementById('signup-nome');
+  const { data, error } = await sb.from('pessoas').select('nome').order('ordem');
+  const nomes = (!error && data && data.length) ? data.map(p => p.nome) : PESSOAS;
+  sel.innerHTML = '<option value="">Selecione...</option>' + nomes.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
 }
 
 function traduzErroAuth(msg) {
