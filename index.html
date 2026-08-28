@@ -258,6 +258,12 @@
   .clients-table td:first-child { border-radius: 10px 0 0 10px; font-weight: 600; color: var(--text-main); }
   .clients-table td:last-child { border-radius: 0 10px 10px 0; }
 
+  /* ── AUTENTICAÇÃO ── */
+  .auth-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:20px; }
+  .auth-tab { flex:1; }
+  .auth-tab.active { background: var(--green); color: var(--navy); border-color: var(--green); }
+  .auth-logo { display:block; height:36px; margin:0 auto 18px; }
+
   /* ── MODAL ── */
   .modal-overlay {
     display:none; position: fixed; inset: 0; background: rgba(2,31,51,0.55);
@@ -501,7 +507,51 @@
 </head>
 <body>
 
-<div class="app-shell">
+<div id="auth-screen" class="auth-screen" style="display:none;">
+  <div class="modal-box" style="max-width:380px; width:100%;">
+    <img src="logo-intelipulse.png" alt="Intelipulse" class="auth-logo">
+    <div style="display:flex; gap:8px; margin-bottom:18px;">
+      <button class="btn btn-sm auth-tab active" id="auth-tab-login" onclick="setAuthTab('login')">Entrar</button>
+      <button class="btn btn-sm auth-tab" id="auth-tab-signup" onclick="setAuthTab('signup')">Criar conta</button>
+    </div>
+
+    <div id="auth-form-login">
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seuemail@intelipulse.com.br">
+      </div>
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>Senha</label>
+        <input type="password" id="login-senha">
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doLogin)">Entrar</button>
+    </div>
+
+    <div id="auth-form-signup" style="display:none;">
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>Nome (igual ao já cadastrado em Pessoas da Equipe)</label>
+        <input type="text" id="signup-nome" placeholder="Edimilson">
+      </div>
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>E-mail</label>
+        <input type="email" id="signup-email" placeholder="seuemail@intelipulse.com.br">
+      </div>
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>Senha</label>
+        <input type="password" id="signup-senha">
+      </div>
+      <div class="form-field" style="margin-bottom:12px;">
+        <label>Confirmar senha</label>
+        <input type="password" id="signup-senha2">
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doSignup)">Criar conta</button>
+    </div>
+
+    <div id="auth-msg" style="margin-top:14px; font-size:12.5px; text-align:center;"></div>
+  </div>
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="header-tag">Gestão de Implantação</div>
@@ -514,9 +564,11 @@
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
     <div class="sidebar-footer">
+      <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
       <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
       <button class="btn-sidebar" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
       <button class="btn-sidebar" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
+      <button class="btn-sidebar" onclick="withLock(this, doLogout)">🚪 Sair</button>
     </div>
   </aside>
 
@@ -2549,12 +2601,95 @@ document.getElementById('relatorio-modal-overlay').addEventListener('click', e =
   if (e.target.id === 'relatorio-modal-overlay') closeRelatorioModal();
 });
 
-(async function init() {
+let currentPessoaNome = '';
+let appBooted = false;
+
+function setAuthTab(tab) {
+  document.getElementById('auth-form-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('auth-form-signup').style.display = tab === 'signup' ? '' : 'none';
+  document.getElementById('auth-tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('auth-tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('auth-msg').textContent = '';
+}
+
+function traduzErroAuth(msg) {
+  const mapa = {
+    'Invalid login credentials': 'E-mail ou senha incorretos.',
+    'User already registered': 'Já existe uma conta com esse e-mail.',
+    'Email not confirmed': 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada/spam).'
+  };
+  return mapa[msg] || msg;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const msg = document.getElementById('auth-msg');
+  msg.style.color = 'var(--red)';
+  if (!email || !senha) { msg.textContent = 'Preencha e-mail e senha.'; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if (error) { msg.textContent = 'Erro ao entrar: ' + traduzErroAuth(error.message); return; }
+  msg.textContent = '';
+}
+
+async function doSignup() {
+  const nome = document.getElementById('signup-nome').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const senha = document.getElementById('signup-senha').value;
+  const senha2 = document.getElementById('signup-senha2').value;
+  const msg = document.getElementById('auth-msg');
+  msg.style.color = 'var(--red)';
+  if (!nome || !email || !senha) { msg.textContent = 'Preencha todos os campos.'; return; }
+  if (!/@intelipulse\.com\.br$/i.test(email)) { msg.textContent = 'Cadastro permitido apenas para e-mails @intelipulse.com.br.'; return; }
+  if (senha.length < 6) { msg.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; return; }
+  if (senha !== senha2) { msg.textContent = 'As senhas não coincidem.'; return; }
+
+  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome } } });
+  if (error) { msg.textContent = 'Erro ao criar conta: ' + traduzErroAuth(error.message); return; }
+
+  if (!data.session) {
+    msg.style.color = 'var(--text-main)';
+    msg.textContent = `Conta criada! Confira o e-mail ${email} pra confirmar antes de entrar.`;
+    setAuthTab('login');
+  } else {
+    msg.textContent = '';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+}
+
+document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('signup-senha2').addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+
+function showAuthScreen() {
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function showApp(session) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = '';
+
+  const { data: pessoaRow } = await sb.from('pessoas').select('nome').eq('user_id', session.user.id).maybeSingle();
+  currentPessoaNome = (pessoaRow && pessoaRow.nome) || session.user.user_metadata?.nome || '';
+  document.getElementById('auth-user-saudacao').textContent = currentPessoaNome ? `Olá, ${currentPessoaNome}` : '';
+
   await loadState();
   if (window.innerWidth < 720) setClientsView('cards');
   render();
   checkLembretes();
-})();
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    if (!appBooted) { appBooted = true; showApp(session); }
+  } else {
+    appBooted = false;
+    showAuthScreen();
+  }
+});
 </script>
 </body>
 </html>
