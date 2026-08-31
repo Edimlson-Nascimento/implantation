@@ -985,7 +985,7 @@ let PESSOAS_FULL = [];
 const KANBAN_COLUMNS = [
   { id:'urgencias', nome:'Fila de Urgências (Hoje)' },
   { id:'afazer',    nome:'A Fazer (Próximos)' },
-  { id:'andamento', nome:'Em Andamento', limite:3 },
+  { id:'andamento', nome:'Em Andamento' },
   { id:'concluida', nome:'Concluído' }
 ];
 const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', yellow:'Atenção', blue:'Rotina' };
@@ -1021,6 +1021,10 @@ function formatDataHora(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+function formatDataCurta(iso) {
+  const d = new Date(iso);
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
 }
 function diasDesde(iso) {
   if (!iso) return 0;
@@ -2293,7 +2297,7 @@ function renderAtividadeCard(a) {
     <div class="kc-footer">
       ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
       <span style="display:flex;align-items:center;gap:6px;">
-        ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
+        ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
         ${a.criadoPor && a.criadoPor !== a.responsavel ? `<span class="kc-criador" title="Solicitado por ${escapeHtml(a.criadoPor)}">${escapeHtml(a.criadoPor)} ➜</span>` : ''}
         <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
       </span>
