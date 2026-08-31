@@ -265,7 +265,8 @@
   .auth-logo { display:block; height:36px; margin:0 auto 18px; }
   .senha-wrap { position:relative; }
   .senha-wrap input { width:100%; padding-right:38px; }
-  .senha-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:15px; user-select:none; }
+  .senha-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:var(--gray-text); display:flex; }
+  .senha-toggle:hover { color:var(--text-main); }
 
   /* ── MODAL ── */
   .modal-overlay {
@@ -534,7 +535,7 @@
         <label>Senha</label>
         <div class="senha-wrap">
           <input type="password" id="login-senha">
-          <span class="senha-toggle" onclick="toggleSenhaVisivel('login-senha', this)">👁</span>
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('login-senha', this)"></span>
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doLogin)">Entrar</button>
@@ -553,14 +554,14 @@
         <label>Senha</label>
         <div class="senha-wrap">
           <input type="password" id="signup-senha">
-          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha', this)">👁</span>
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha', this)"></span>
         </div>
       </div>
       <div class="form-field" style="margin-bottom:12px;">
         <label>Confirmar senha</label>
         <div class="senha-wrap">
           <input type="password" id="signup-senha2">
-          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha2', this)">👁</span>
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha2', this)"></span>
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doSignup)">Criar conta</button>
@@ -2840,11 +2841,16 @@ async function doLogout() {
   await sb.auth.signOut();
 }
 
+const SVG_EYE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const SVG_EYE_OFF = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.32 21.32 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.32 21.32 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+document.querySelectorAll('.senha-toggle').forEach(el => el.innerHTML = SVG_EYE);
+
 function toggleSenhaVisivel(inputId, btn) {
   const input = document.getElementById(inputId);
   const visivel = input.type === 'text';
   input.type = visivel ? 'password' : 'text';
-  btn.textContent = visivel ? '👁' : '🙈';
+  btn.innerHTML = visivel ? SVG_EYE : SVG_EYE_OFF;
 }
 
 document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
