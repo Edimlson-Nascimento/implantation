@@ -263,6 +263,9 @@
   .auth-tab { flex:1; }
   .auth-tab.active { background: var(--green); color: var(--navy); border-color: var(--green); }
   .auth-logo { display:block; height:36px; margin:0 auto 18px; }
+  .senha-wrap { position:relative; }
+  .senha-wrap input { width:100%; padding-right:38px; }
+  .senha-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:15px; user-select:none; }
 
   /* ── MODAL ── */
   .modal-overlay {
@@ -529,7 +532,10 @@
       </div>
       <div class="form-field" style="margin-bottom:12px;">
         <label>Senha</label>
-        <input type="password" id="login-senha">
+        <div class="senha-wrap">
+          <input type="password" id="login-senha">
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('login-senha', this)">👁</span>
+        </div>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doLogin)">Entrar</button>
     </div>
@@ -545,11 +551,17 @@
       </div>
       <div class="form-field" style="margin-bottom:12px;">
         <label>Senha</label>
-        <input type="password" id="signup-senha">
+        <div class="senha-wrap">
+          <input type="password" id="signup-senha">
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha', this)">👁</span>
+        </div>
       </div>
       <div class="form-field" style="margin-bottom:12px;">
         <label>Confirmar senha</label>
-        <input type="password" id="signup-senha2">
+        <div class="senha-wrap">
+          <input type="password" id="signup-senha2">
+          <span class="senha-toggle" onclick="toggleSenhaVisivel('signup-senha2', this)">👁</span>
+        </div>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doSignup)">Criar conta</button>
     </div>
@@ -2826,6 +2838,13 @@ async function doSignup() {
 
 async function doLogout() {
   await sb.auth.signOut();
+}
+
+function toggleSenhaVisivel(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const visivel = input.type === 'text';
+  input.type = visivel ? 'password' : 'text';
+  btn.textContent = visivel ? '👁' : '🙈';
 }
 
 document.getElementById('login-senha').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
