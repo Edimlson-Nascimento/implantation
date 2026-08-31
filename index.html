@@ -632,6 +632,14 @@
   </section>
 
   <section id="view-pendencias" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="pend-search-input" placeholder="Buscar cliente..." oninput="renderPendencias()">
+      <select id="pend-filter-fase" onchange="renderPendencias()">
+        <option value="implantacao" selected>Em Implantação</option>
+        <option value="base">Na Base</option>
+        <option value="">Todos</option>
+      </select>
+    </div>
     <div class="pendencias-cards-grid" id="pendencias-cards-wrap"></div>
   </section>
 
@@ -1503,7 +1511,14 @@ async function removePendencia(pendId) {
 
 function renderPendencias() {
   const container = document.getElementById('pendencias-cards-wrap');
-  const clientesOrdenados = [...state.clients].sort((a, b) => {
+  const search = document.getElementById('pend-search-input').value.toLowerCase();
+  const filterFase = document.getElementById('pend-filter-fase').value;
+
+  const clientesOrdenados = state.clients.filter(c => {
+    if (filterFase && (c.fase || 'implantacao') !== filterFase) return false;
+    if (search && !c.nome.toLowerCase().includes(search)) return false;
+    return true;
+  }).sort((a, b) => {
     const abertosA = a.pendencias.filter(p => !p.feito).length;
     const abertosB = b.pendencias.filter(p => !p.feito).length;
     if (abertosB !== abertosA) return abertosB - abertosA;
