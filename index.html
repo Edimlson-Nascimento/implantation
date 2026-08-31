@@ -2196,7 +2196,7 @@ function renderCalendario() {
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
     .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
-    .sort((a,b) => (b.data + (b.hora||'99:99')).localeCompare(a.data + (a.hora||'99:99')));
+    .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
 
   if (list.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="big">🗓</div><h3>Nenhum agendamento</h3><p>Marque uma reunião ou ligação com "+ Novo Agendamento".</p></div>`;
@@ -2205,7 +2205,7 @@ function renderCalendario() {
 
   const grupos = {};
   list.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
-  const datasOrdenadas = Object.keys(grupos).sort().reverse();
+  const datasOrdenadas = Object.keys(grupos).sort();
 
   if (calendarioView === 'cards') {
     container.innerHTML = datasOrdenadas.map(data => {
@@ -2234,7 +2234,7 @@ function renderCalendario() {
       const mesKey = data.slice(0, 7);
       (porMes[mesKey] = porMes[mesKey] || []).push(data);
     });
-    container.innerHTML = Object.keys(porMes).sort().reverse().map(mesKey => {
+    container.innerHTML = Object.keys(porMes).sort().map(mesKey => {
       const [y, m] = mesKey.split('-').map(Number);
       const mesLabel = `${MESES_PT[m-1]} ${y}`;
       const dias = porMes[mesKey].map(data => {
@@ -2275,7 +2275,7 @@ function renderCalendario() {
       const mesKey = data.slice(0, 7);
       (porMes[mesKey] = porMes[mesKey] || []).push(data);
     });
-    container.innerHTML = Object.keys(porMes).sort().reverse().map(mesKey => {
+    container.innerHTML = Object.keys(porMes).sort().map(mesKey => {
       const [y, m] = mesKey.split('-').map(Number);
       const mesLabel = `${MESES_PT[m-1]} ${y}`;
       const celulas = porMes[mesKey].map(data => {
