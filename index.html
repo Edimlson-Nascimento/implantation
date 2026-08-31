@@ -616,8 +616,6 @@
           <th class="sortable" id="th-etapa" onclick="sortClientes('etapa')">Etapa</th>
           <th class="sortable" id="th-saude" onclick="sortClientes('saude')">Saúde</th>
           <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável</th>
-          <th class="sortable" id="th-ultimoContato" onclick="sortClientes('ultimoContato')">Último contato</th>
-          <th class="sortable" id="th-proximoContato" onclick="sortClientes('proximoContato')">Próximo contato</th>
           <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
         </tr>
       </thead>
@@ -1276,10 +1274,9 @@ function updateSortIndicators() {
 
 function renderClientesTable(list) {
   updateSortIndicators();
-  const today = todayStr();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -1289,7 +1286,6 @@ function renderClientesTable(list) {
     const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
     const fase = c.fase || 'implantacao';
     const pendAbertas = c.pendencias.filter(p => !p.feito).length;
-    const overdue = c.proximoContato && c.proximoContato < today;
     return `
       <tr onclick="openModal('${c.id}')">
         <td>${escapeHtml(c.codigo || '—')}</td>
@@ -1298,8 +1294,6 @@ function renderClientesTable(list) {
         <td><span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span></td>
         <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
         <td>${escapeHtml(c.responsavel || '—')}</td>
-        <td>${c.ultimoContato ? formatDate(c.ultimoContato) : '—'}</td>
-        <td style="${overdue ? 'color:var(--red);font-weight:700;' : ''}">${c.proximoContato ? formatDate(c.proximoContato) : '—'}</td>
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
       </tr>
     `;
@@ -1307,7 +1301,6 @@ function renderClientesTable(list) {
 }
 
 function renderClientesCards(list) {
-  const today = todayStr();
   const container = document.getElementById('clients-cards-wrap');
   if (list.length === 0) {
     container.innerHTML = `<div class="empty-state">Nenhum cliente encontrado.</div>`;
@@ -1320,7 +1313,6 @@ function renderClientesCards(list) {
     const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
     const fase = c.fase || 'implantacao';
     const pendAbertas = c.pendencias.filter(p => !p.feito);
-    const overdue = c.proximoContato && c.proximoContato < today;
     const pendPreview = pendAbertas.slice(0,2).map(p =>
       `<span class="pend-chip ${p.responsavel}">${escapeHtml(p.texto)}</span>`
     ).join('');
@@ -1340,10 +1332,6 @@ function renderClientesCards(list) {
           <span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span>
         </div>
         ${pendAbertas.length ? `<div class="cc-pend">${pendPreview}${pendMore}</div>` : ''}
-        <div class="cc-dates">
-          <span>Último: ${c.ultimoContato ? formatDate(c.ultimoContato) : '—'}</span>
-          <span class="${overdue ? 'overdue' : ''}">Próximo: ${c.proximoContato ? formatDate(c.proximoContato) : '—'}</span>
-        </div>
       </div>
     `;
   }).join('');
