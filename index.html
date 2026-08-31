@@ -559,7 +559,7 @@
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
-      <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Todos os Clientes</button>
+      <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Clientes</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
@@ -576,7 +576,7 @@
     <div class="topbar">
       <div class="header-sub" id="header-date"></div>
       <div class="stats-row" id="stats-row"></div>
-      <button class="btn btn-green" onclick="openModal(null)">+ Novo Cliente</button>
+      <button class="btn btn-green" id="btn-novo-cliente" onclick="openModal(null)" style="display:none;">+ Novo Cliente</button>
     </div>
 
     <main>
@@ -1125,6 +1125,7 @@ function setTab(tab) {
 
 function render() {
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
+  document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
   renderStats();
   populateStageOptions();
   populateClientesDatalist();
@@ -1145,14 +1146,18 @@ function updateCalendarioCount() {
 function renderStats() {
   const today = todayStr();
   const emImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
-  const pendentesHoje = state.clients.filter(c => c.proximoContato && c.proximoContato <= today);
-  const atrasados = state.clients.filter(c => c.proximoContato && c.proximoContato < today);
   const emRisco = state.clients.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
+  const urgencias = atividades.filter(a => a.coluna === 'urgencias' && !a.cancelado);
+  const afazer = atividades.filter(a => a.coluna === 'afazer' && !a.cancelado);
+  const andamento = atividades.filter(a => a.coluna === 'andamento' && !a.cancelado);
+  const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
-    <div class="stat-card"><div class="num alert">${pendentesHoje.length}</div><div class="lbl">Contatos hoje</div></div>
-    <div class="stat-card"><div class="num" style="color:${atrasados.length ? 'var(--red)' : 'var(--text-main)'}">${atrasados.length}</div><div class="lbl">Em atraso</div></div>
     <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco (RAG)</div></div>
+    <div class="stat-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div></div>
+    <div class="stat-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div></div>
+    <div class="stat-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div></div>
+    <div class="stat-card"><div class="num">${concluidosHoje.length}</div><div class="lbl">Concluídos hoje</div></div>
   `;
 }
 
