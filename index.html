@@ -1147,10 +1147,10 @@ async function loadState() {
   const { data: pessoasRows, error: errPe } = await sb.from('pessoas').select('*').order('ordem');
   if (errPe) {
     console.warn('Tabela pessoas ainda não disponível:', errPe.message);
-    PESSOAS_FULL = PESSOAS.map((nome, i) => ({ id: nome, nome, ordem: i + 1 }));
+    PESSOAS_FULL = PESSOAS.map((nome, i) => ({ id: nome, nome, ordem: i + 1, apenasVisualizacao: false }));
   } else {
-    PESSOAS_FULL = pessoasRows.map(p => ({ id: p.id, nome: p.nome, ordem: p.ordem }));
-    PESSOAS = PESSOAS_FULL.map(p => p.nome);
+    PESSOAS_FULL = pessoasRows.map(p => ({ id: p.id, nome: p.nome, ordem: p.ordem, apenasVisualizacao: p.apenas_visualizacao || false }));
+    refreshPessoasList();
   }
 
   const { data: tiposRows, error: errTipo } = await sb.from('tipos_agendamento').select('*').order('ordem');
@@ -2004,6 +2004,9 @@ function renderPessoasList() {
         <button class="icon-btn" ${i === 0 ? 'disabled' : ''} onclick="movePessoa('${p.id}',-1)" title="Mover para cima">↑</button>
         <button class="icon-btn" ${i === sorted.length - 1 ? 'disabled' : ''} onclick="movePessoa('${p.id}',1)" title="Mover para baixo">↓</button>
         <input type="text" value="${escapeHtml(p.nome)}" onchange="renamePessoa('${p.id}', this.value)">
+        <label class="chk" style="font-size:11.5px;white-space:nowrap;" title="Não aparece nos filtros nem pode ser escolhido como responsável — só visualiza">
+          <input type="checkbox" ${p.apenasVisualizacao ? 'checked' : ''} onchange="toggleApenasVisualizacaoPessoa('${p.id}', this.checked)"> Só visualização
+        </label>
         <span class="etapa-usage">${usage} registro${usage === 1 ? '' : 's'}</span>
         <button class="icon-btn danger" onclick="deletePessoa('${p.id}')" title="Excluir pessoa">✕</button>
       </div>
@@ -2012,7 +2015,7 @@ function renderPessoasList() {
 }
 
 function refreshPessoasList() {
-  PESSOAS = [...PESSOAS_FULL].sort((a,b) => a.ordem - b.ordem).map(p => p.nome);
+  PESSOAS = [...PESSOAS_FULL].sort((a,b) => a.ordem - b.ordem).filter(p => !p.apenasVisualizacao).map(p => p.nome);
 }
 
 async function addPessoa() {
@@ -2023,9 +2026,18 @@ async function addPessoa() {
   const ordem = PESSOAS_FULL.length ? Math.max(...PESSOAS_FULL.map(p => p.ordem)) + 1 : 1;
   const { data, error } = await sb.from('pessoas').insert({ nome, ordem }).select().single();
   if (error) { alert('Erro ao adicionar pessoa: ' + error.message); return; }
-  PESSOAS_FULL.push({ id: data.id, nome, ordem });
+  PESSOAS_FULL.push({ id: data.id, nome, ordem, apenasVisualizacao: false });
   refreshPessoasList();
   nomeInput.value = '';
+  render();
+}
+
+async function toggleApenasVisualizacaoPessoa(id, checked) {
+  const { error } = await sb.from('pessoas').update({ apenas_visualizacao: checked }).eq('id', id);
+  if (error) { alert('Erro ao atualizar pessoa: ' + error.message); renderPessoasList(); return; }
+  const p = PESSOAS_FULL.find(p => p.id === id);
+  if (p) p.apenasVisualizacao = checked;
+  refreshPessoasList();
   render();
 }
 
