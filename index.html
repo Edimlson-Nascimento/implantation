@@ -403,6 +403,16 @@
   .agenda-card-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
   .agenda-card-meta { font-size:12px; color:var(--gray-text); }
 
+  .mensal-mes-titulo { font-size:16px; font-weight:800; color:var(--text-main); margin:24px 0 10px; padding-bottom:8px; border-bottom:2px solid var(--border-light); }
+  .mensal-mes-group:first-child .mensal-mes-titulo { margin-top:0; }
+  .mensal-dia-row { display:flex; gap:14px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border-light); }
+  .mensal-dia-row:last-child { border-bottom:none; }
+  .mensal-dia-badge { display:flex; flex-direction:column; align-items:center; justify-content:center; width:44px; flex-shrink:0; padding-top:2px; }
+  .mensal-dia-num { font-size:16px; font-weight:800; color:var(--text-main); width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+  .mensal-dia-badge.hoje .mensal-dia-num { background:var(--green); color:var(--navy); }
+  .mensal-dia-dow { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--gray-text); margin-top:2px; }
+  .mensal-dia-row .calendario-items { flex:1; margin-top:0; }
+
   .lembrete-toast {
     position: fixed; top: 20px; right: 20px; z-index: 200;
     display:flex; align-items:flex-start; gap:12px;
@@ -760,6 +770,7 @@
           <div class="view-toggle">
             <button class="view-toggle-btn active" id="cal-view-btn-lista" onclick="setCalendarioView('lista')">☰ Lista</button>
             <button class="view-toggle-btn" id="cal-view-btn-cards" onclick="setCalendarioView('cards')">▦ Cards</button>
+            <button class="view-toggle-btn" id="cal-view-btn-mensal" onclick="setCalendarioView('mensal')">📅 Calendário</button>
           </div>
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
@@ -768,6 +779,7 @@
       <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
       <div id="calendario-cards-wrap" style="display:none"></div>
+      <div id="calendario-mensal-wrap" style="display:none"></div>
     </div>
   </section>
 
@@ -2144,15 +2156,20 @@ function setCalendarioView(view) {
   calendarioView = view;
   document.getElementById('cal-view-btn-lista').classList.toggle('active', view === 'lista');
   document.getElementById('cal-view-btn-cards').classList.toggle('active', view === 'cards');
+  document.getElementById('cal-view-btn-mensal').classList.toggle('active', view === 'mensal');
   document.getElementById('calendario-list').style.display = view === 'lista' ? '' : 'none';
   document.getElementById('calendario-cards-wrap').style.display = view === 'cards' ? '' : 'none';
+  document.getElementById('calendario-mensal-wrap').style.display = view === 'mensal' ? '' : 'none';
   renderCalendario();
 }
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function renderCalendario() {
   renderPessoaFilterInto('pessoa-filter-calendario');
   const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
-  const container = document.getElementById(calendarioView === 'cards' ? 'calendario-cards-wrap' : 'calendario-list');
+  const containerId = calendarioView === 'cards' ? 'calendario-cards-wrap' : calendarioView === 'mensal' ? 'calendario-mensal-wrap' : 'calendario-list';
+  const container = document.getElementById(containerId);
   const today = todayStr();
 
   const list = agendamentos
@@ -2212,6 +2229,47 @@ function renderCalendario() {
         `;
       }).join('');
       return `<div><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="calendario-items">${itens}</div></div>`;
+    }).join('');
+  } else if (calendarioView === 'mensal') {
+    const porMes = {};
+    datasOrdenadas.forEach(data => {
+      const mesKey = data.slice(0, 7);
+      (porMes[mesKey] = porMes[mesKey] || []).push(data);
+    });
+    container.innerHTML = Object.keys(porMes).sort().reverse().map(mesKey => {
+      const [y, m] = mesKey.split('-').map(Number);
+      const mesLabel = `${MESES_PT[m-1]} ${y}`;
+      const dias = porMes[mesKey].map(data => {
+        const isHoje = data === today;
+        const dia = data.slice(8, 10);
+        const itens = grupos[data].map(a => {
+          const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+          return `
+            <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
+              <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
+              <div class="ag-hora">${a.hora || '—'}</div>
+              <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
+              <div class="ag-body">
+                <div class="ag-titulo-row">
+                  <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
+                  ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+                </div>
+                <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        return `
+          <div class="mensal-dia-row">
+            <div class="mensal-dia-badge ${isHoje ? 'hoje' : ''}">
+              <span class="mensal-dia-num">${dia}</span>
+              <span class="mensal-dia-dow">${weekdayAbbrAt(data)}</span>
+            </div>
+            <div class="calendario-items">${itens}</div>
+          </div>
+        `;
+      }).join('');
+      return `<div class="mensal-mes-group"><h3 class="mensal-mes-titulo">${mesLabel}</h3>${dias}</div>`;
     }).join('');
   }
 }
