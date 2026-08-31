@@ -429,6 +429,7 @@
     color:var(--text-main); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .cal-evento-chip:hover { background:var(--border-light); }
+  .cal-evento-chip input[type=checkbox] { width:12px; height:12px; vertical-align:middle; margin-right:2px; }
   .cal-evento-chip.feito { opacity:0.5; text-decoration:line-through; }
   .cal-evento-hora { font-weight:700; color:var(--navy); }
   :root[data-theme="dark"] .cal-evento-hora { color: var(--on-navy); }
@@ -2296,7 +2297,8 @@ function renderCalendario() {
         const eventos = grupos[data].map(a => {
           const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
           return `
-          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="event.stopPropagation(); openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${cliente ? ' — ' + escapeHtml(cliente.nome) : ''}">
+          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${cliente ? ' — ' + escapeHtml(cliente.nome) : ''}">
+            <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
             <span class="cal-evento-hora">${a.hora || '—'}</span> ${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}${cliente ? ` <span class="cal-evento-cliente">${escapeHtml(cliente.nome)}</span>` : ''}
           </div>
         `;
