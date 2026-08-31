@@ -381,10 +381,27 @@
   .ag-item .ag-body { flex:1; min-width:0; }
   .ag-item .ag-titulo-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .ag-item .ag-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
-  .ag-item .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
-  :root[data-theme="dark"] .ag-item .ag-cliente-badge { color: var(--green); }
+  .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
+  :root[data-theme="dark"] .ag-cliente-badge { color: var(--green); }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
+
+  .agenda-cards-group { margin-top:0; }
+  .agenda-cards-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px; margin-top:10px; }
+  .agenda-card {
+    background:var(--white); border:1px solid var(--border-light); border-radius:14px;
+    padding:14px 16px; cursor:pointer; display:flex; flex-direction:column; gap:8px;
+  }
+  .agenda-card:hover { border-color:var(--navy); }
+  .agenda-card.feito { opacity:0.55; }
+  .agenda-card.feito .agenda-card-titulo { text-decoration: line-through; }
+  .agenda-card-top { display:flex; align-items:center; gap:8px; }
+  .agenda-card-top input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
+  .agenda-card-hora { font-size:13px; font-weight:800; color:var(--navy); }
+  :root[data-theme="dark"] .agenda-card-hora { color: var(--on-navy); }
+  .agenda-card-tipo { font-size:11.5px; color:var(--gray-text); margin-left:auto; }
+  .agenda-card-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
+  .agenda-card-meta { font-size:12px; color:var(--gray-text); }
 
   .lembrete-toast {
     position: fixed; top: 20px; right: 20px; z-index: 200;
@@ -491,7 +508,7 @@
     .sidebar-footer { margin-top: 0; flex-direction: row; flex-wrap: wrap; margin-left: auto; }
   }
   @media (max-width: 720px) {
-    .form-grid, .pend-cols, .pendencias-cards-grid { grid-template-columns: 1fr; }
+    .form-grid, .pend-cols, .pendencias-cards-grid, .agenda-cards-grid { grid-template-columns: 1fr; }
     .topbar { padding: 20px; }
   }
   @media (max-width: 600px) {
@@ -739,13 +756,18 @@
     <div class="resumo-box">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
         <h2 style="margin-bottom:0;">Agenda de Reuniões e Ligações</h2>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="cal-view-btn-lista" onclick="setCalendarioView('lista')">☰ Lista</button>
+            <button class="view-toggle-btn" id="cal-view-btn-cards" onclick="setCalendarioView('cards')">▦ Cards</button>
+          </div>
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
       <div class="pessoa-filter" id="pessoa-filter-calendario" style="margin-top:14px;"></div>
       <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
+      <div id="calendario-cards-wrap" style="display:none"></div>
     </div>
   </section>
 
@@ -996,6 +1018,7 @@ let STAGES = [];
 let state = { clients: [] };
 let activeTab = 'atividades';
 let clientsView = 'lista';
+let calendarioView = 'lista';
 let editingClientId = null;
 let agendamentos = [];
 let sortColumn = null;
@@ -2117,10 +2140,19 @@ function rebuildTipoMaps() {
   TIPOS_AGENDAMENTO.forEach(t => { TIPO_ICON[t.id] = t.icone; TIPO_LABEL[t.id] = t.nome; });
 }
 
+function setCalendarioView(view) {
+  calendarioView = view;
+  document.getElementById('cal-view-btn-lista').classList.toggle('active', view === 'lista');
+  document.getElementById('cal-view-btn-cards').classList.toggle('active', view === 'cards');
+  document.getElementById('calendario-list').style.display = view === 'lista' ? '' : 'none';
+  document.getElementById('calendario-cards-wrap').style.display = view === 'cards' ? '' : 'none';
+  renderCalendario();
+}
+
 function renderCalendario() {
   renderPessoaFilterInto('pessoa-filter-calendario');
   const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
-  const container = document.getElementById('calendario-list');
+  const container = document.getElementById(calendarioView === 'cards' ? 'calendario-cards-wrap' : 'calendario-list');
   const today = todayStr();
 
   const list = agendamentos
@@ -2135,29 +2167,53 @@ function renderCalendario() {
 
   const grupos = {};
   list.forEach(a => { (grupos[a.data] = grupos[a.data] || []).push(a); });
+  const datasOrdenadas = Object.keys(grupos).sort().reverse();
 
-  container.innerHTML = Object.keys(grupos).sort().reverse().map(data => {
-    const isHoje = data === today;
-    const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
-    const itens = grupos[data].map(a => {
-      const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
-      return `
-        <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
-          <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
-          <div class="ag-hora">${a.hora || '—'}</div>
-          <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
-          <div class="ag-body">
-            <div class="ag-titulo-row">
-              <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
-              ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+  if (calendarioView === 'cards') {
+    container.innerHTML = datasOrdenadas.map(data => {
+      const isHoje = data === today;
+      const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
+      const cards = grupos[data].map(a => {
+        const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+        return `
+          <div class="agenda-card ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
+            <div class="agenda-card-top">
+              <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
+              <span class="agenda-card-hora">${a.hora || '—'}</span>
+              <span class="agenda-card-tipo">${TIPO_ICON[a.tipo] || '📌'} ${TIPO_LABEL[a.tipo] || 'Outro'}</span>
             </div>
-            <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+            <div class="agenda-card-titulo">${escapeHtml(a.titulo)}</div>
+            ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+            <div class="agenda-card-meta">${a.responsavel ? 'Agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? (a.responsavel ? ' · ' : '') + escapeHtml(a.observacao) : ''}</div>
           </div>
-        </div>
-      `;
+        `;
+      }).join('');
+      return `<div class="agenda-cards-group"><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="agenda-cards-grid">${cards}</div></div>`;
     }).join('');
-    return `<div><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="calendario-items">${itens}</div></div>`;
-  }).join('');
+  } else {
+    container.innerHTML = datasOrdenadas.map(data => {
+      const isHoje = data === today;
+      const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
+      const itens = grupos[data].map(a => {
+        const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+        return `
+          <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
+            <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
+            <div class="ag-hora">${a.hora || '—'}</div>
+            <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
+            <div class="ag-body">
+              <div class="ag-titulo-row">
+                <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
+                ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+              </div>
+              <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return `<div><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="calendario-items">${itens}</div></div>`;
+    }).join('');
+  }
 }
 
 function openAgendamentoModal(id) {
