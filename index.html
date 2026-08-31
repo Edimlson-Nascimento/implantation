@@ -284,6 +284,11 @@
   }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
+  .pendencias-cards-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:14px; }
+  .pendencia-card { background:var(--white); border-radius:16px; border:1px solid var(--border-light); padding:18px; }
+  .pendencia-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
+  .pendencia-card-nome { font-size:15px; font-weight:700; color:var(--text-main); }
+  .pendencia-card-count { font-size:11px; font-weight:700; color:#B45309; background:rgba(180,83,9,0.12); padding:3px 9px; border-radius:100px; white-space:nowrap; }
   .pend-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .pend-col h4 { font-size: 11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin-bottom:8px; }
   .pend-col.cliente h4 { color: #B45309; }
@@ -560,6 +565,7 @@
     <nav class="sidebar-nav">
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Clientes</button>
+      <button class="nav-item" id="tab-pendencias" onclick="setTab('pendencias')">Pendências</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
@@ -623,6 +629,10 @@
     </table>
     </div>
     <div class="clients-cards-grid" id="clients-cards-wrap" style="display:none"></div>
+  </section>
+
+  <section id="view-pendencias" style="display:none">
+    <div class="pendencias-cards-grid" id="pendencias-cards-wrap"></div>
   </section>
 
   <section id="view-resumo" style="display:none">
@@ -1112,11 +1122,13 @@ function setTab(tab) {
   activeTab = tab;
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
+  document.getElementById('tab-pendencias').classList.toggle('active', tab === 'pendencias');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
+  document.getElementById('view-pendencias').style.display = tab === 'pendencias' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
   document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
   document.getElementById('view-atividades').style.display = tab === 'atividades' ? '' : 'none';
@@ -1132,6 +1144,7 @@ function render() {
   updateCalendarioCount();
   if (activeTab === 'calendario') renderCalendario();
   else if (activeTab === 'clientes') renderClientes();
+  else if (activeTab === 'pendencias') renderPendencias();
   else if (activeTab === 'etapas') renderEtapas();
   else if (activeTab === 'atividades') renderAtividades();
   else renderResumo();
@@ -1153,7 +1166,7 @@ function renderStats() {
   const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
-    <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco (RAG)</div></div>
+    <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco</div></div>
     <div class="stat-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div></div>
     <div class="stat-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div></div>
     <div class="stat-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div></div>
@@ -1486,6 +1499,101 @@ async function removePendencia(pendId) {
   if (error) { alert('Erro ao remover pendência: ' + error.message); return; }
   c.pendencias = c.pendencias.filter(p => p.id !== pendId);
   renderPendList(c);
+}
+
+function renderPendencias() {
+  const container = document.getElementById('pendencias-cards-wrap');
+  const clientesOrdenados = [...state.clients].sort((a, b) => {
+    const abertosA = a.pendencias.filter(p => !p.feito).length;
+    const abertosB = b.pendencias.filter(p => !p.feito).length;
+    if (abertosB !== abertosA) return abertosB - abertosA;
+    return a.nome.localeCompare(b.nome);
+  });
+
+  container.innerHTML = clientesOrdenados.map(c => `
+    <div class="pendencia-card">
+      <div class="pendencia-card-header">
+        <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+        <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
+      </div>
+      <div class="pend-cols">
+        <div class="pend-col cliente">
+          <h4>⚠ Do Cliente</h4>
+          <div id="pgeral-list-cliente-${c.id}"></div>
+          <div class="add-pend-row">
+            <input type="text" id="pgeral-new-cliente-${c.id}" placeholder="Nova pendência do cliente...">
+            <button class="btn btn-sm" onclick="withLock(this, () => addPendenciaGeral('${c.id}','cliente'))">+</button>
+          </div>
+        </div>
+        <div class="pend-col rscrm">
+          <h4>🔧 Da Intelipulse</h4>
+          <div id="pgeral-list-rscrm-${c.id}"></div>
+          <div class="add-pend-row">
+            <input type="text" id="pgeral-new-rscrm-${c.id}" placeholder="Nova pendência interna...">
+            <button class="btn btn-sm" onclick="withLock(this, () => addPendenciaGeral('${c.id}','rscrm'))">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  clientesOrdenados.forEach(c => renderPendListGeral(c));
+}
+
+function renderPendListGeral(c) {
+  ['cliente','rscrm'].forEach(tipo => {
+    const container = document.getElementById(`pgeral-list-${tipo}-${c.id}`);
+    if (!container) return;
+    const items = c.pendencias.filter(p => p.responsavel === tipo);
+    container.innerHTML = items.length ? items.map(p => `
+      <div class="pend-item ${p.feito ? 'done' : ''}">
+        <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendenciaGeral('${c.id}','${p.id}')">
+        <span>${escapeHtml(p.texto)}</span>
+        <span class="del" onclick="removePendenciaGeral('${c.id}','${p.id}')">✕</span>
+      </div>
+    `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+  });
+
+  const abertos = c.pendencias.filter(p => !p.feito).length;
+  const countEl = document.getElementById(`pgeral-count-${c.id}`);
+  if (countEl) {
+    countEl.textContent = `${abertos} aberta${abertos === 1 ? '' : 's'}`;
+    countEl.style.display = abertos ? '' : 'none';
+  }
+}
+
+async function addPendenciaGeral(clienteId, tipo) {
+  const input = document.getElementById(`pgeral-new-${tipo}-${clienteId}`);
+  const texto = input.value.trim();
+  if (!texto) return;
+  const c = state.clients.find(x => x.id === clienteId);
+  if (!c) return;
+  const { data, error } = await sb.from('pendencias').insert({ cliente_id: clienteId, texto, responsavel: tipo, feito: false }).select().single();
+  if (error) { alert('Erro ao adicionar pendência: ' + error.message); return; }
+  c.pendencias.push({ id: data.id, texto, responsavel: tipo, feito: false });
+  input.value = '';
+  renderPendListGeral(c);
+}
+
+async function togglePendenciaGeral(clienteId, pendId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  if (!c) return;
+  const p = c.pendencias.find(p => p.id === pendId);
+  if (!p) return;
+  const novoFeito = !p.feito;
+  const { error } = await sb.from('pendencias').update({ feito: novoFeito }).eq('id', pendId);
+  if (error) { alert('Erro ao atualizar pendência: ' + error.message); return; }
+  p.feito = novoFeito;
+  renderPendListGeral(c);
+}
+
+async function removePendenciaGeral(clienteId, pendId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  if (!c) return;
+  const { error } = await sb.from('pendencias').delete().eq('id', pendId);
+  if (error) { alert('Erro ao remover pendência: ' + error.message); return; }
+  c.pendencias = c.pendencias.filter(p => p.id !== pendId);
+  renderPendListGeral(c);
 }
 
 async function registrarContatoModal() {
