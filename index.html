@@ -413,6 +413,26 @@
   .mensal-dia-dow { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--gray-text); margin-top:2px; }
   .mensal-dia-row .calendario-items { flex:1; margin-top:0; }
 
+  .cal-grid-dias { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; margin-top:10px; }
+  .cal-dia-cell { border:1px solid var(--border-light); border-radius:12px; background:var(--white); padding:10px; display:flex; flex-direction:column; gap:6px; min-height:100px; }
+  .cal-dia-cell.hoje { border-color: var(--green-mid); border-width:2px; }
+  .cal-dia-cell-header { display:flex; align-items:baseline; gap:6px; padding-bottom:6px; border-bottom:1px solid var(--border-light); }
+  .cal-dia-cell-num { font-size:18px; font-weight:800; color:var(--text-main); }
+  .cal-dia-cell.hoje .cal-dia-cell-num {
+    color:var(--navy); background:var(--green); border-radius:50%; width:26px; height:26px;
+    display:inline-flex; align-items:center; justify-content:center; font-size:13px;
+  }
+  .cal-dia-cell-dow { font-size:10.5px; font-weight:700; text-transform:uppercase; color:var(--gray-text); }
+  .cal-dia-cell-eventos { display:flex; flex-direction:column; gap:4px; }
+  .cal-evento-chip {
+    font-size:11px; line-height:1.35; padding:5px 7px; border-radius:6px; background:var(--light-bg);
+    color:var(--text-main); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .cal-evento-chip:hover { background:var(--border-light); }
+  .cal-evento-chip.feito { opacity:0.5; text-decoration:line-through; }
+  .cal-evento-hora { font-weight:700; color:var(--navy); }
+  :root[data-theme="dark"] .cal-evento-hora { color: var(--on-navy); }
+
   .lembrete-toast {
     position: fixed; top: 20px; right: 20px; z-index: 200;
     display:flex; align-items:flex-start; gap:12px;
@@ -518,7 +538,7 @@
     .sidebar-footer { margin-top: 0; flex-direction: row; flex-wrap: wrap; margin-left: auto; }
   }
   @media (max-width: 720px) {
-    .form-grid, .pend-cols, .pendencias-cards-grid, .agenda-cards-grid { grid-template-columns: 1fr; }
+    .form-grid, .pend-cols, .pendencias-cards-grid, .agenda-cards-grid, .cal-grid-dias { grid-template-columns: 1fr; }
     .topbar { padding: 20px; }
   }
   @media (max-width: 600px) {
@@ -2208,29 +2228,6 @@ function renderCalendario() {
       return `<div class="agenda-cards-group"><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="agenda-cards-grid">${cards}</div></div>`;
     }).join('');
   } else if (calendarioView === 'lista') {
-    container.innerHTML = datasOrdenadas.map(data => {
-      const isHoje = data === today;
-      const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
-      const itens = grupos[data].map(a => {
-        const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
-        return `
-          <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
-            <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
-            <div class="ag-hora">${a.hora || '—'}</div>
-            <div class="ag-tipo-icon">${TIPO_ICON[a.tipo] || '📌'}</div>
-            <div class="ag-body">
-              <div class="ag-titulo-row">
-                <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
-                ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
-              </div>
-              <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-      return `<div><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="calendario-items">${itens}</div></div>`;
-    }).join('');
-  } else if (calendarioView === 'mensal') {
     const porMes = {};
     datasOrdenadas.forEach(data => {
       const mesKey = data.slice(0, 7);
@@ -2270,6 +2267,35 @@ function renderCalendario() {
         `;
       }).join('');
       return `<div class="mensal-mes-group"><h3 class="mensal-mes-titulo">${mesLabel}</h3>${dias}</div>`;
+    }).join('');
+  } else if (calendarioView === 'mensal') {
+    const porMes = {};
+    datasOrdenadas.forEach(data => {
+      const mesKey = data.slice(0, 7);
+      (porMes[mesKey] = porMes[mesKey] || []).push(data);
+    });
+    container.innerHTML = Object.keys(porMes).sort().reverse().map(mesKey => {
+      const [y, m] = mesKey.split('-').map(Number);
+      const mesLabel = `${MESES_PT[m-1]} ${y}`;
+      const celulas = porMes[mesKey].map(data => {
+        const isHoje = data === today;
+        const dia = data.slice(8, 10);
+        const eventos = grupos[data].map(a => `
+          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="event.stopPropagation(); openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}">
+            <span class="cal-evento-hora">${a.hora || '—'}</span> ${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}
+          </div>
+        `).join('');
+        return `
+          <div class="cal-dia-cell ${isHoje ? 'hoje' : ''}">
+            <div class="cal-dia-cell-header">
+              <span class="cal-dia-cell-num">${dia}</span>
+              <span class="cal-dia-cell-dow">${weekdayAbbrAt(data)}</span>
+            </div>
+            <div class="cal-dia-cell-eventos">${eventos}</div>
+          </div>
+        `;
+      }).join('');
+      return `<div class="mensal-mes-group"><h3 class="mensal-mes-titulo">${mesLabel}</h3><div class="cal-grid-dias">${celulas}</div></div>`;
     }).join('');
   }
 }
