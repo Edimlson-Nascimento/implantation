@@ -2527,7 +2527,7 @@ function shortDateAt(iso) {
 }
 
 function abrirRelatorioAtividades() {
-  relatorioFiltroData = todayStr();
+  relatorioFiltroData = concluidoFiltroData;
   renderRelatorioFilterDays();
   renderRelatorioVisual();
   document.getElementById('relatorio-modal-overlay').classList.add('open');
