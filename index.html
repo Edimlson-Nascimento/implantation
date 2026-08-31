@@ -615,7 +615,7 @@
           <th class="sortable" id="th-fase" onclick="sortClientes('fase')">Fase</th>
           <th class="sortable" id="th-etapa" onclick="sortClientes('etapa')">Etapa</th>
           <th class="sortable" id="th-saude" onclick="sortClientes('saude')">Saúde</th>
-          <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável</th>
+          <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável Projeto</th>
           <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
         </tr>
       </thead>
@@ -1261,7 +1261,7 @@ function sortClientes(col) {
 function updateSortIndicators() {
   const labels = {
     codigo: 'Código', nome: 'Cliente', fase: 'Fase', etapa: 'Etapa', saude: 'Saúde',
-    responsavel: 'Responsável', ultimoContato: 'Último contato', proximoContato: 'Próximo contato', pendencias: 'Pendências'
+    responsavel: 'Responsável Projeto', ultimoContato: 'Último contato', proximoContato: 'Próximo contato', pendencias: 'Pendências'
   };
   Object.keys(labels).forEach(col => {
     const th = document.getElementById('th-' + col);
