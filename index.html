@@ -298,7 +298,9 @@
   }
   .pend-item.done { color: var(--gray-text); text-decoration: line-through; }
   .pend-item input[type=checkbox] { margin-top: 3px; }
-  .pend-item .del { margin-left:auto; cursor:pointer; color:var(--gray-text); font-size:12px; }
+  .pend-item .edit { margin-left:auto; cursor:pointer; color:var(--gray-text); font-size:12px; }
+  .pend-item .edit:hover { color: var(--navy); }
+  .pend-item .del { margin-left:6px; cursor:pointer; color:var(--gray-text); font-size:12px; }
   .pend-item .del:hover { color: var(--red); }
   .add-pend-row { display:flex; gap:6px; margin-top:8px; }
   .add-pend-row input { flex:1; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
@@ -1460,6 +1462,7 @@ function renderPendList(c) {
       <div class="pend-item ${p.feito ? 'done' : ''}">
         <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendencia('${p.id}')">
         <span>${escapeHtml(p.texto)}</span>
+        <span class="edit" onclick="editarPendencia('${p.id}')" title="Editar">✎</span>
         <span class="del" onclick="removePendencia('${p.id}')">✕</span>
       </div>
     `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
@@ -1506,6 +1509,21 @@ async function removePendencia(pendId) {
   const { error } = await sb.from('pendencias').delete().eq('id', pendId);
   if (error) { alert('Erro ao remover pendência: ' + error.message); return; }
   c.pendencias = c.pendencias.filter(p => p.id !== pendId);
+  renderPendList(c);
+}
+
+async function editarPendencia(pendId) {
+  const c = currentEditingClient();
+  if (!c) return;
+  const p = c.pendencias.find(p => p.id === pendId);
+  if (!p) return;
+  const novoTexto = prompt('Editar pendência:', p.texto);
+  if (novoTexto === null) return;
+  const textoFinal = novoTexto.trim();
+  if (!textoFinal) return;
+  const { error } = await sb.from('pendencias').update({ texto: textoFinal }).eq('id', pendId);
+  if (error) { alert('Erro ao editar pendência: ' + error.message); return; }
+  p.texto = textoFinal;
   renderPendList(c);
 }
 
@@ -1564,6 +1582,7 @@ function renderPendListGeral(c) {
       <div class="pend-item ${p.feito ? 'done' : ''}">
         <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendenciaGeral('${c.id}','${p.id}')">
         <span>${escapeHtml(p.texto)}</span>
+        <span class="edit" onclick="editarPendenciaGeral('${c.id}','${p.id}')" title="Editar">✎</span>
         <span class="del" onclick="removePendenciaGeral('${c.id}','${p.id}')">✕</span>
       </div>
     `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
@@ -1608,6 +1627,21 @@ async function removePendenciaGeral(clienteId, pendId) {
   const { error } = await sb.from('pendencias').delete().eq('id', pendId);
   if (error) { alert('Erro ao remover pendência: ' + error.message); return; }
   c.pendencias = c.pendencias.filter(p => p.id !== pendId);
+  renderPendListGeral(c);
+}
+
+async function editarPendenciaGeral(clienteId, pendId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  if (!c) return;
+  const p = c.pendencias.find(p => p.id === pendId);
+  if (!p) return;
+  const novoTexto = prompt('Editar pendência:', p.texto);
+  if (novoTexto === null) return;
+  const textoFinal = novoTexto.trim();
+  if (!textoFinal) return;
+  const { error } = await sb.from('pendencias').update({ texto: textoFinal }).eq('id', pendId);
+  if (error) { alert('Erro ao editar pendência: ' + error.message); return; }
+  p.texto = textoFinal;
   renderPendListGeral(c);
 }
 
