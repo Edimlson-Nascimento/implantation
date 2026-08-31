@@ -339,7 +339,8 @@
   .resumo-box h2 { font-size: 17px; color: var(--text-main); margin-bottom: 4px; }
   .resumo-box .resumo-sub { font-size: 12.5px; color: var(--gray-text); margin-bottom: 4px; }
   .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--text-main); background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
-  .resumo-actions { display:flex; gap:8px; margin-top:14px; }
+  .resumo-actions { display:flex; align-items:center; gap:8px; margin-top:14px; }
+  .resumo-actions input[type=date] { font-family:inherit; font-size:13px; padding:8px 10px; border-radius:8px; border:1px solid var(--border-light); background:var(--white); color:var(--text-main); }
 
   .config-section { padding: 18px 24px; }
   .config-section-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
@@ -663,6 +664,7 @@
       <h2>Resumo para a Diretoria</h2>
       <div class="resumo-sub" id="resumo-data"></div>
       <div class="resumo-actions">
+        <input type="date" id="resumo-filtro-data" onchange="setResumoFiltroData(this.value)">
         <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
       </div>
       <div class="resumo-pre" id="resumo-texto"></div>
@@ -1007,6 +1009,7 @@ let atividades = [];
 let pessoaFiltro = 'Todos';
 let concluidoFiltroCliente = '';
 let concluidoFiltroData = todayStr();
+let resumoFiltroData = todayStr();
 let draggedAtividadeId = null;
 let editingAtividadeId = null;
 let editingAtividadeLabel = null;
@@ -1760,17 +1763,24 @@ async function deleteClient() {
 }
 
 /* ── RESUMO PARA DIRETORIA ── */
+function setResumoFiltroData(v) {
+  resumoFiltroData = v || todayStr();
+  renderResumo();
+}
+
 function renderResumo() {
-  const today = todayStr();
-  const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
+  const dia = resumoFiltroData;
+  const ehHoje = dia === todayStr();
+  const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === dia);
 
-  document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(today);
+  document.getElementById('resumo-filtro-data').value = dia;
+  document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(dia);
 
-  let txt = `📊 Resumo do Dia — ${formatDate(today)}\n\n`;
-  txt += `✅ ${concluidosHoje.length} atividade${concluidosHoje.length === 1 ? '' : 's'} concluída${concluidosHoje.length === 1 ? '' : 's'} hoje\n\n`;
+  let txt = `📊 Resumo do Dia — ${formatDate(dia)}\n\n`;
+  txt += `✅ ${concluidosHoje.length} atividade${concluidosHoje.length === 1 ? '' : 's'} concluída${concluidosHoje.length === 1 ? '' : 's'}${ehHoje ? ' hoje' : ''}\n\n`;
 
   if (!concluidosHoje.length) {
-    txt += 'Nenhuma atividade concluída ainda hoje.';
+    txt += ehHoje ? 'Nenhuma atividade concluída ainda hoje.' : 'Nenhuma atividade concluída nesse dia.';
   } else {
     const porEmpresa = {};
     concluidosHoje.forEach(a => {
