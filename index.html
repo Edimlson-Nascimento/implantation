@@ -2207,7 +2207,7 @@ function renderCalendario() {
       }).join('');
       return `<div class="agenda-cards-group"><div class="calendario-group-label ${isHoje ? 'hoje' : ''}">${label}</div><div class="agenda-cards-grid">${cards}</div></div>`;
     }).join('');
-  } else {
+  } else if (calendarioView === 'lista') {
     container.innerHTML = datasOrdenadas.map(data => {
       const isHoje = data === today;
       const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
