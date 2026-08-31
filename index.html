@@ -2138,7 +2138,7 @@ function renderCalendario() {
 
   container.innerHTML = Object.keys(grupos).sort().reverse().map(data => {
     const isHoje = data === today;
-    const label = isHoje ? 'Hoje — ' + formatDate(data) : formatDate(data);
+    const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
     const itens = grupos[data].map(a => {
       const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
       return `
