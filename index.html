@@ -307,9 +307,15 @@
   .trein-progresso-pct { font-size:12px; font-weight:700; color:var(--gray-text); white-space:nowrap; }
   .trein-etapas-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
   .trein-etapa-card {
-    background:var(--light-bg); border:1px solid var(--border-light); border-radius:12px; padding:12px;
+    position:relative; background:var(--light-bg); border:1px solid var(--border-light); border-radius:12px; padding:12px 12px 16px;
     min-width:200px; max-width:220px; flex-shrink:0; cursor:pointer; display:flex; flex-direction:column; gap:4px;
   }
+  .trein-etapa-add-mini {
+    position:absolute; bottom:-9px; right:-9px; width:22px; height:22px; border-radius:50%;
+    background:var(--green); color:var(--navy); font-size:15px; font-weight:800; line-height:22px; text-align:center;
+    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.35);
+  }
+  .trein-etapa-add-mini:hover { background:var(--green-mid); }
   .trein-etapa-card:hover { border-color:var(--navy); }
   .trein-etapa-card.concluido { opacity:0.6; }
   .trein-etapa-card.concluido .trein-etapa-titulo { text-decoration: line-through; }
@@ -753,6 +759,7 @@
     <div class="toolbar">
       <input type="text" id="trein-search-input" placeholder="Buscar cliente..." oninput="renderTreinamentos()">
       <div class="spacer"></div>
+      <button class="btn btn-sm" onclick="withLock(this, sincronizarEtapasPadrao)">🔄 Sincronizar Etapas Padrão</button>
       <button class="btn btn-green btn-sm" onclick="novaEtapaTreinamento()">+ Nova Etapa de Treinamento</button>
     </div>
     <div id="treinamentos-clientes-wrap" class="treinamentos-clientes-wrap"></div>
@@ -815,6 +822,21 @@
           <button class="btn btn-green btn-sm" onclick="addTipoAgendamento()">+ Adicionar</button>
         </div>
         <div id="tipos-agenda-list" class="etapas-list"></div>
+      </div>
+    </div>
+
+    <div class="resumo-box config-section" style="margin-top:12px;">
+      <div class="config-section-header" onclick="toggleConfigSection('treinamentos-padrao')">
+        <h2>Etapas Padrão de Treinamento</h2>
+        <span class="config-chevron" id="chevron-treinamentos-padrao">▸</span>
+      </div>
+      <div class="config-section-body" id="body-treinamentos-padrao" style="display:none">
+        <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">Lista padrão de etapas que todo cliente em Implantação deve ter na aba Treinamentos. Use "🔄 Sincronizar Etapas Padrão" (na aba Treinamentos) pra criar as que faltarem e ajustar nomes/ordem das que já existem.</p>
+        <div class="etapas-add-row">
+          <input type="text" id="new-treinamento-padrao-nome" placeholder="Nome da nova etapa padrão...">
+          <button class="btn btn-green btn-sm" onclick="addTreinamentoPadrao()">+ Adicionar</button>
+        </div>
+        <div id="treinamentos-padrao-list" class="etapas-list"></div>
       </div>
     </div>
 
@@ -1146,6 +1168,7 @@ let editingAgendamentoId = null;
 let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
 let treinamentosEtapas = [];
+let TREINAMENTOS_PADRAO = [];
 let notifiedTreinamentoIds = new Set();
 let editingTreinamentoId = null;
 
@@ -1302,6 +1325,14 @@ async function loadState() {
       usuarioChave: t.usuario_chave || '', link: t.link_reuniao || '', data: t.data, hora: t.hora ? t.hora.slice(0,5) : '',
       dataTermino: t.data_termino || '', concluido: t.concluido, lembreteAtivo: t.lembrete_ativo, ordem: t.ordem
     }));
+  }
+
+  const { data: padroesRows, error: errPad } = await sb.from('treinamentos_padrao').select('*').order('ordem');
+  if (errPad) {
+    console.warn('Tabela treinamentos_padrao ainda não disponível:', errPad.message);
+    TREINAMENTOS_PADRAO = [];
+  } else {
+    TREINAMENTOS_PADRAO = padroesRows.map(p => ({ id: p.id, nome: p.nome, ordem: p.ordem }));
   }
 
   const { data: ativs, error: errT } = await sb.from('atividades').select('*').order('ordem');
@@ -1934,6 +1965,11 @@ async function saveClient(silent) {
     if (!errH) c.historico.unshift({ id: data.id, data: todayStr(), texto });
   }
 
+  // Cliente entrando em Implantação (novo ou reativado da Base) ganha automaticamente as Etapas Padrão de Treinamento
+  if (novaFase === 'implantacao' && (isNew || novaFase !== faseAnterior)) {
+    await sincronizarEtapasParaCliente(c);
+  }
+
   renderStats();
   if (!silent) { closeModal(); render(); }
 }
@@ -2033,6 +2069,7 @@ function renderEtapas() {
   }).join('');
   renderPessoasList();
   renderTiposAgendamento();
+  renderTreinamentosPadrao();
 }
 
 async function addEtapa() {
@@ -2273,6 +2310,114 @@ async function deleteTipoAgendamento(id) {
   TIPOS_AGENDAMENTO = TIPOS_AGENDAMENTO.filter(t => t.id !== id);
   rebuildTipoMaps();
   render();
+}
+
+/* ── ETAPAS PADRÃO DE TREINAMENTO ── */
+function renderTreinamentosPadrao() {
+  const container = document.getElementById('treinamentos-padrao-list');
+  if (!container) return;
+  const sorted = [...TREINAMENTOS_PADRAO].sort((a,b) => a.ordem - b.ordem);
+  container.innerHTML = sorted.map((p, i) => `
+    <div class="etapa-row">
+      <button class="icon-btn" ${i === 0 ? 'disabled' : ''} onclick="moveTreinamentoPadrao('${p.id}',-1)" title="Mover para cima">↑</button>
+      <button class="icon-btn" ${i === sorted.length - 1 ? 'disabled' : ''} onclick="moveTreinamentoPadrao('${p.id}',1)" title="Mover para baixo">↓</button>
+      <input type="text" value="${escapeHtml(p.nome)}" onchange="renameTreinamentoPadrao('${p.id}', this.value)">
+      <button class="icon-btn danger" onclick="deleteTreinamentoPadrao('${p.id}')" title="Excluir etapa padrão">✕</button>
+    </div>
+  `).join('');
+}
+
+async function addTreinamentoPadrao() {
+  const nomeInput = document.getElementById('new-treinamento-padrao-nome');
+  const nome = nomeInput.value.trim();
+  if (!nome) return;
+  const base = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || ('padrao_' + Date.now());
+  let id = base, n = 2;
+  while (TREINAMENTOS_PADRAO.some(p => p.id === id)) { id = base + '_' + n; n++; }
+  const ordem = TREINAMENTOS_PADRAO.length ? Math.max(...TREINAMENTOS_PADRAO.map(p => p.ordem)) + 1 : 1;
+  const { error } = await sb.from('treinamentos_padrao').insert({ id, nome, ordem });
+  if (error) { alert('Erro ao adicionar etapa padrão: ' + error.message); return; }
+  TREINAMENTOS_PADRAO.push({ id, nome, ordem });
+  nomeInput.value = '';
+  render();
+}
+
+async function renameTreinamentoPadrao(id, novoNome) {
+  novoNome = novoNome.trim();
+  if (!novoNome) { renderTreinamentosPadrao(); return; }
+  const { error } = await sb.from('treinamentos_padrao').update({ nome: novoNome }).eq('id', id);
+  if (error) { alert('Erro ao renomear etapa padrão: ' + error.message); renderTreinamentosPadrao(); return; }
+  const p = TREINAMENTOS_PADRAO.find(p => p.id === id);
+  if (p) p.nome = novoNome;
+  render();
+}
+
+async function moveTreinamentoPadrao(id, direction) {
+  const sorted = [...TREINAMENTOS_PADRAO].sort((a,b) => a.ordem - b.ordem);
+  const idx = sorted.findIndex(p => p.id === id);
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return;
+  const a = sorted[idx], b = sorted[swapIdx];
+  const ordemA = a.ordem, ordemB = b.ordem;
+  const { error: e1 } = await sb.from('treinamentos_padrao').update({ ordem: ordemB }).eq('id', a.id);
+  const { error: e2 } = await sb.from('treinamentos_padrao').update({ ordem: ordemA }).eq('id', b.id);
+  if (e1 || e2) { alert('Erro ao reordenar etapas padrão.'); return; }
+  a.ordem = ordemB;
+  b.ordem = ordemA;
+  render();
+}
+
+async function deleteTreinamentoPadrao(id) {
+  const p = TREINAMENTOS_PADRAO.find(p => p.id === id);
+  if (!confirm(`Excluir a etapa padrão "${p ? p.nome : id}"? Isso não afeta etapas já criadas em clientes, só a lista padrão pra sincronizações futuras.`)) return;
+  const { error } = await sb.from('treinamentos_padrao').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir etapa padrão: ' + error.message); return; }
+  TREINAMENTOS_PADRAO = TREINAMENTOS_PADRAO.filter(p => p.id !== id);
+  render();
+}
+
+function normalizarTituloTreinamento(t) {
+  return (t || '').replace(/^\s*\d+\s*[-–.]\s*/, '').trim().toLowerCase();
+}
+
+async function sincronizarEtapasParaCliente(cliente) {
+  const padrao = [...TREINAMENTOS_PADRAO].sort((a,b) => a.ordem - b.ordem);
+  if (!padrao.length) return { criadas: 0, atualizadas: 0 };
+  const existentes = treinamentosEtapas.filter(e => e.clienteId === cliente.id);
+  let criadas = 0, atualizadas = 0;
+
+  for (const modelo of padrao) {
+    const match = existentes.find(e => normalizarTituloTreinamento(e.titulo) === normalizarTituloTreinamento(modelo.nome));
+    if (match) {
+      if (match.titulo !== modelo.nome || match.ordem !== modelo.ordem) {
+        const { error } = await sb.from('treinamentos_etapas').update({ titulo: modelo.nome, ordem: modelo.ordem }).eq('id', match.id);
+        if (!error) { match.titulo = modelo.nome; match.ordem = modelo.ordem; atualizadas++; }
+      }
+    } else {
+      const { data: row, error } = await sb.from('treinamentos_etapas').insert({ cliente_id: cliente.id, titulo: modelo.nome, ordem: modelo.ordem }).select().single();
+      if (!error) {
+        treinamentosEtapas.push({
+          id: row.id, clienteId: cliente.id, titulo: modelo.nome, analista: '', usuarioChave: '', link: '',
+          data: null, hora: '', dataTermino: '', concluido: false, lembreteAtivo: false, ordem: modelo.ordem
+        });
+        criadas++;
+      }
+    }
+  }
+  return { criadas, atualizadas };
+}
+
+async function sincronizarEtapasPadrao() {
+  if (!TREINAMENTOS_PADRAO.length) { alert('Cadastre pelo menos uma etapa padrão em Configurações antes de sincronizar.'); return; }
+  const clientesImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
+  let criadas = 0, atualizadas = 0;
+  for (const cliente of clientesImplantacao) {
+    const r = await sincronizarEtapasParaCliente(cliente);
+    criadas += r.criadas;
+    atualizadas += r.atualizadas;
+  }
+  render();
+  alert(`Sincronização concluída (${clientesImplantacao.length} cliente(s) em Implantação): ${criadas} etapa(s) criada(s), ${atualizadas} atualizada(s).`);
 }
 
 /* ── AGENDA (AGENDAMENTOS) ── */
@@ -2638,6 +2783,7 @@ function renderTreinamentos() {
         ${e.usuarioChave ? `<div class="trein-etapa-meta">Replicador: ${escapeHtml(e.usuarioChave)}</div>` : ''}
         ${e.dataTermino ? `<div class="trein-etapa-meta">Término previsto: ${formatDate(e.dataTermino)}</div>` : ''}
         ${e.link ? `<a class="trein-etapa-link" href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Link da reunião</a>` : ''}
+        <span class="trein-etapa-add-mini" onclick="event.stopPropagation(); novaEtapaTreinamento('${g.clienteId}')" title="Adicionar etapa manual para este cliente">+</span>
       </div>
     `).join('');
     return `
@@ -2691,9 +2837,8 @@ function closeTreinamentoModal() {
   document.getElementById('treinamento-modal-overlay').classList.remove('open');
   editingTreinamentoId = null;
 }
-document.getElementById('treinamento-modal-overlay').addEventListener('click', e => {
-  if (e.target.id === 'treinamento-modal-overlay') closeTreinamentoModal();
-});
+// Diferente dos outros modais, este não fecha ao clicar fora — a pedido do usuário,
+// pra não perder o preenchimento de uma etapa de treinamento por engano.
 
 async function saveTreinamentoEtapa() {
   const nomeCliente = document.getElementById('trein-cliente-nome').value.trim();
