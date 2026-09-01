@@ -222,6 +222,8 @@
   #search-agenda { font-family: inherit; font-size: 13px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); display:block; }
   .toolbar .spacer { flex: 1; }
   .toolbar label.chk { font-size: 12.5px; color: var(--gray-text); display:flex; align-items:center; gap:6px; }
+  .checklist-inline { display:flex; flex-wrap:wrap; gap:10px; }
+  .checklist-inline label { display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--text-main); cursor:pointer; }
 
   .view-toggle { display:flex; gap:4px; background:var(--light-bg); padding:4px; border-radius:10px; }
   .view-toggle-btn {
@@ -311,9 +313,13 @@
   .trein-etapa-card:hover { border-color:var(--navy); }
   .trein-etapa-card.concluido { opacity:0.6; }
   .trein-etapa-card.concluido .trein-etapa-titulo { text-decoration: line-through; }
-  .trein-etapa-top { display:flex; align-items:center; justify-content:space-between; }
+  .trein-etapa-top { display:flex; align-items:center; gap:8px; }
   .trein-etapa-top input[type=checkbox] { width:16px; height:16px; }
-  .trein-sino { cursor:pointer; font-size:15px; opacity:0.35; filter:grayscale(1); }
+  .trein-etapa-num {
+    font-size:11px; font-weight:800; color:var(--on-navy); background:var(--navy);
+    width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .trein-sino { cursor:pointer; font-size:15px; opacity:0.35; filter:grayscale(1); margin-left:auto; }
   .trein-sino.ativo { opacity:1; filter:none; }
   .trein-etapa-titulo { font-size:13px; font-weight:700; color:var(--text-main); }
   .trein-etapa-meta { font-size:11px; color:var(--gray-text); }
@@ -532,6 +538,7 @@
   .kc-pessoa { font-size:10px; font-weight:700; color:var(--on-navy); background:var(--navy); padding:2px 7px; border-radius:100px; }
   .kc-idade { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-criador { font-size:10px; font-weight:700; color:var(--gray-text); }
+  .kc-participantes { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-delete { position:absolute; top:6px; right:8px; font-size:13px; color:var(--gray-text); cursor:pointer; }
   .kc-delete:hover { color:var(--red); }
 
@@ -932,6 +939,10 @@
         <label>Resolução (o que foi feito)</label>
         <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
+      <div class="form-field full">
+        <label>Participantes (se foi feito em conjunto)</label>
+        <div class="checklist-inline" id="at-participantes-list"></div>
+      </div>
       <div class="form-field full"><label>Etiqueta</label><div class="label-swatches" id="at-label-swatches"></div></div>
     </div>
     <div class="modal-section">
@@ -969,6 +980,7 @@
       <div class="form-field full"><label>Link da Reunião</label><input type="text" id="trein-link" placeholder="https://..."></div>
       <div class="form-field"><label>Data</label><input type="date" id="trein-data"></div>
       <div class="form-field"><label>Hora</label><input type="time" id="trein-hora"></div>
+      <div class="form-field full"><label>Previsão de Término da Etapa</label><input type="date" id="trein-data-termino"></div>
     </div>
     <div class="modal-footer">
       <div id="treinamento-danger-actions" style="display:flex;gap:8px;"></div>
@@ -1288,7 +1300,7 @@ async function loadState() {
     treinamentosEtapas = treinos.map(t => ({
       id: t.id, clienteId: t.cliente_id, titulo: t.titulo, analista: t.analista || '',
       usuarioChave: t.usuario_chave || '', link: t.link_reuniao || '', data: t.data, hora: t.hora ? t.hora.slice(0,5) : '',
-      concluido: t.concluido, lembreteAtivo: t.lembrete_ativo, ordem: t.ordem
+      dataTermino: t.data_termino || '', concluido: t.concluido, lembreteAtivo: t.lembrete_ativo, ordem: t.ordem
     }));
   }
 
@@ -1304,7 +1316,7 @@ async function loadState() {
     }
     atividades = ativs.map(a => ({
       id: a.id, responsavel: a.responsavel, criadoPor: a.criado_por || '', titulo: a.titulo, clienteNome: a.cliente_nome || '',
-      label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '',
+      label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at,
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
@@ -1961,7 +1973,8 @@ function renderResumo() {
     concluidosHoje.forEach(a => {
       const empresa = a.clienteNome || 'Sem empresa';
       const porUsuario = porEmpresa[empresa] = porEmpresa[empresa] || {};
-      (porUsuario[a.responsavel] = porUsuario[a.responsavel] || []).push(a);
+      const nomes = (a.participantes && a.participantes.length) ? a.participantes : [a.responsavel];
+      nomes.forEach(nome => (porUsuario[nome] = porUsuario[nome] || []).push(a));
     });
 
     const blocos = Object.keys(porEmpresa).sort().map(empresa => {
@@ -2612,9 +2625,10 @@ function renderTreinamentos() {
 
   container.innerHTML = grupos.map(g => {
     const pct = progressoTreinamento(g.etapas);
-    const etapasHtml = g.etapas.map(e => `
+    const etapasHtml = g.etapas.map((e, i) => `
       <div class="trein-etapa-card ${e.concluido ? 'concluido' : ''}" onclick="openTreinamentoModal('${e.id}')">
         <div class="trein-etapa-top">
+          <span class="trein-etapa-num">${i + 1}</span>
           <input type="checkbox" ${e.concluido ? 'checked' : ''} onclick="event.stopPropagation(); toggleTreinamentoConcluido('${e.id}')" title="Marcar como concluído">
           <span class="trein-sino ${e.lembreteAtivo ? 'ativo' : ''}" onclick="event.stopPropagation(); toggleTreinamentoLembrete('${e.id}')" title="${e.lembreteAtivo ? 'Lembrete ativo (1h antes) — clique para desativar' : 'Ativar lembrete 1h antes do treinamento'}">🔔</span>
         </div>
@@ -2622,6 +2636,7 @@ function renderTreinamentos() {
         <div class="trein-etapa-meta">${e.analista ? escapeHtml(e.analista) : 'Sem analista'}</div>
         <div class="trein-etapa-meta">${e.data ? formatDate(e.data) : '—'}${e.hora ? ' às ' + e.hora : ''}</div>
         ${e.usuarioChave ? `<div class="trein-etapa-meta">Replicador: ${escapeHtml(e.usuarioChave)}</div>` : ''}
+        ${e.dataTermino ? `<div class="trein-etapa-meta">Término previsto: ${formatDate(e.dataTermino)}</div>` : ''}
         ${e.link ? `<a class="trein-etapa-link" href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Link da reunião</a>` : ''}
       </div>
     `).join('');
@@ -2665,6 +2680,7 @@ function openTreinamentoModal(id, clienteIdPreset) {
   document.getElementById('trein-link').value = e.link;
   document.getElementById('trein-data').value = e.data || '';
   document.getElementById('trein-hora').value = e.hora || '';
+  document.getElementById('trein-data-termino').value = e.dataTermino || '';
 
   document.getElementById('treinamento-danger-actions').innerHTML = isNew ? '' : `<button class="btn btn-danger btn-sm" onclick="withLock(this, deleteTreinamentoEtapa)">🗑 Excluir etapa</button>`;
 
@@ -2694,21 +2710,23 @@ async function saveTreinamentoEtapa() {
     usuario_chave: document.getElementById('trein-usuario-chave').value.trim(),
     link_reuniao: document.getElementById('trein-link').value.trim(),
     data: document.getElementById('trein-data').value || null,
-    hora: document.getElementById('trein-hora').value || null
+    hora: document.getElementById('trein-hora').value || null,
+    data_termino: document.getElementById('trein-data-termino').value || null
   };
 
   if (editingTreinamentoId) {
     const { error } = await sb.from('treinamentos_etapas').update(payload).eq('id', editingTreinamentoId);
     if (error) { alert('Erro ao salvar etapa: ' + error.message); return; }
     const e = treinamentosEtapas.find(x => x.id === editingTreinamentoId);
-    Object.assign(e, { clienteId: payload.cliente_id, titulo, analista: payload.analista, usuarioChave: payload.usuario_chave, link: payload.link_reuniao, data: payload.data, hora: payload.hora || '' });
+    Object.assign(e, { clienteId: payload.cliente_id, titulo, analista: payload.analista, usuarioChave: payload.usuario_chave, link: payload.link_reuniao, data: payload.data, hora: payload.hora || '', dataTermino: payload.data_termino || '' });
   } else {
     payload.ordem = treinamentosEtapas.filter(x => x.clienteId === cliente.id).length;
     const { data: row, error } = await sb.from('treinamentos_etapas').insert(payload).select().single();
     if (error) { alert('Erro ao criar etapa: ' + error.message); return; }
     treinamentosEtapas.push({
       id: row.id, clienteId: cliente.id, titulo, analista: payload.analista, usuarioChave: payload.usuario_chave,
-      link: payload.link_reuniao, data: payload.data, hora: payload.hora || '', concluido: false, lembreteAtivo: false, ordem: payload.ordem
+      link: payload.link_reuniao, data: payload.data, hora: payload.hora || '', dataTermino: payload.data_termino || '',
+      concluido: false, lembreteAtivo: false, ordem: payload.ordem
     });
   }
 
@@ -2905,6 +2923,7 @@ function renderAtividadeCard(a) {
         ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
         ${a.criadoPor && a.criadoPor !== a.responsavel ? `<span class="kc-criador" title="Solicitado por ${escapeHtml(a.criadoPor)}">${escapeHtml(a.criadoPor)} ➜</span>` : ''}
         <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
+        ${a.participantes && a.participantes.length > 1 ? `<span class="kc-participantes" title="Feito em conjunto: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length - 1}</span>` : ''}
       </span>
     </div>
   `;
@@ -2956,6 +2975,10 @@ function openAtividadeModal(id, coluna) {
   } else {
     criadoEl.textContent = '';
   }
+
+  document.getElementById('at-participantes-list').innerHTML = PESSOAS.map(p =>
+    `<label><input type="checkbox" value="${escapeHtml(p)}" ${(a.participantes || []).includes(p) ? 'checked' : ''}> ${escapeHtml(p)}</label>`
+  ).join('');
 
   renderAtividadeLabelSwatches();
   renderAtividadeDangerActions(isNew, a.cancelado);
@@ -3101,6 +3124,7 @@ async function saveAtividade(silent) {
   const coluna = document.getElementById('at-coluna').value;
   const resolucao = coluna === 'concluida' ? document.getElementById('at-resolucao').value.trim() : '';
   if (coluna === 'concluida' && !resolucao) { alert('Descreva o que foi feito antes de mover pra Concluído.'); return; }
+  const participantes = [...document.querySelectorAll('#at-participantes-list input:checked')].map(el => el.value);
 
   const isNew = !editingAtividadeId;
   const anterior = isNew ? null : atividades.find(a => a.id === editingAtividadeId);
@@ -3108,7 +3132,7 @@ async function saveAtividade(silent) {
   const clienteAnterior = anterior ? anterior.clienteNome : '';
   const resolucaoAnterior = anterior ? anterior.resolucao : '';
 
-  const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao };
+  const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes };
   if (coluna === 'concluida') {
     payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
   } else {
@@ -3122,7 +3146,7 @@ async function saveAtividade(silent) {
     if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
     atividadeSalva = {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
-      cancelado: false, resolucao, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
+      cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
       criadoEm: row.created_at
     };
     atividades.push(atividadeSalva);
@@ -3130,7 +3154,7 @@ async function saveAtividade(silent) {
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
-    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, concluidoEm: payload.concluido_em });
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em });
     atividadeSalva = anterior;
   }
 
@@ -3221,11 +3245,16 @@ document.getElementById('relatorio-filter-custom').addEventListener('change', e 
 });
 
 function atividadesConcluidasFiltradas() {
-  return atividades.filter(a =>
+  const base = atividades.filter(a =>
     a.coluna === 'concluida' && !a.cancelado &&
-    (relatorioFiltroData === null || a.concluidoEm === relatorioFiltroData) &&
-    (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
+    (relatorioFiltroData === null || a.concluidoEm === relatorioFiltroData)
   );
+  const expandido = [];
+  base.forEach(a => {
+    const nomes = (a.participantes && a.participantes.length) ? a.participantes : [a.responsavel];
+    nomes.forEach(nome => expandido.push({ ...a, responsavelExibicao: nome }));
+  });
+  return expandido.filter(a => pessoaFiltro === 'Todos' || a.responsavelExibicao === pessoaFiltro);
 }
 
 function renderRelatorioVisual() {
@@ -3250,7 +3279,7 @@ function renderRelatorioVisual() {
       html += `<div class="rv-cliente">${escapeHtml(cliente)}</div>`;
       grupos[cliente].forEach(a => {
         const tag = relatorioFiltroData === null && a.concluidoEm ? `<span class="rv-date-tag">${formatDate(a.concluidoEm)}</span>` : '';
-        const pessoaTag = pessoaFiltro === 'Todos' ? `<span class="rv-date-tag">· ${escapeHtml(a.responsavel)}</span>` : '';
+        const pessoaTag = pessoaFiltro === 'Todos' ? `<span class="rv-date-tag">· ${escapeHtml(a.responsavelExibicao)}</span>` : '';
         const resolucaoHtml = a.resolucao ? `<div class="rv-resolucao">↳ ${escapeHtml(a.resolucao)}</div>` : '';
         html += `<div class="rv-tarefa">${escapeHtml(a.titulo)}${tag}${pessoaTag}${resolucaoHtml}</div>`;
       });
@@ -3276,7 +3305,7 @@ function baixarRelatorioTexto() {
       texto += `${cliente} (${grupos[cliente].length}):\n`;
       grupos[cliente].forEach(a => {
         const dataTag = relatorioFiltroData === null && a.concluidoEm ? ` [${formatDate(a.concluidoEm)}]` : '';
-        const pessoaTag = pessoaFiltro === 'Todos' ? ` (${a.responsavel})` : '';
+        const pessoaTag = pessoaFiltro === 'Todos' ? ` (${a.responsavelExibicao})` : '';
         texto += `  - ${a.titulo}${dataTag}${pessoaTag}\n`;
         if (a.resolucao) texto += `      Resolução: ${a.resolucao}\n`;
       });
