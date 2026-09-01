@@ -219,6 +219,7 @@
     border: 1px solid var(--border-light); background: var(--white);
   }
   .toolbar input[type=text] { min-width: 220px; }
+  #search-agenda { font-family: inherit; font-size: 13px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); display:block; }
   .toolbar .spacer { flex: 1; }
   .toolbar label.chk { font-size: 12.5px; color: var(--gray-text); display:flex; align-items:center; gap:6px; }
 
@@ -798,6 +799,7 @@
         </div>
       </div>
       <div class="pessoa-filter" id="pessoa-filter-calendario" style="margin-top:14px;"></div>
+      <input type="text" id="search-agenda" placeholder="Buscar por empresa ou assunto..." style="margin-top:10px;width:100%;max-width:360px;" oninput="renderCalendario()">
       <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
       <div id="calendario-cards-wrap" style="display:none"></div>
@@ -2206,9 +2208,17 @@ function renderCalendario() {
   const container = document.getElementById(containerId);
   const today = todayStr();
 
+  const busca = document.getElementById('search-agenda').value.toLowerCase();
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
     .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
+    .filter(a => {
+      if (!busca) return true;
+      const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+      return a.titulo.toLowerCase().includes(busca) ||
+        (a.observacao || '').toLowerCase().includes(busca) ||
+        (cliente && cliente.nome.toLowerCase().includes(busca));
+    })
     .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
 
   if (list.length === 0) {
