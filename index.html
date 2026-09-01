@@ -322,8 +322,9 @@
     cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.35); white-space:nowrap;
   }
   .trein-etapa-atividades-icon:hover { background:var(--green-mid); }
-  .trein-colapsar-btn { cursor:pointer; font-size:13px; color:var(--gray-text); margin-right:2px; user-select:none; }
-  .trein-colapsar-btn:hover { color:var(--text-main); }
+  .trein-cliente-titulo-wrap { display:flex; align-items:center; gap:8px; }
+  .trein-colapsar-btn { cursor:pointer; font-size:22px; line-height:1; color:var(--green-mid); user-select:none; }
+  .trein-colapsar-btn:hover { color:var(--green); }
   .trein-etapa-card:hover { border-color:var(--navy); }
   .trein-etapa-card.concluido { opacity:0.6; }
   .trein-etapa-card.concluido .trein-etapa-titulo { text-decoration: line-through; }
@@ -2933,8 +2934,10 @@ function renderTreinamentos() {
     return `
       <div class="trein-cliente-card">
         <div class="trein-cliente-header">
-          <span class="trein-colapsar-btn" onclick="toggleTreinamentoColapso('${g.clienteId}')" title="${colapsado ? 'Expandir' : 'Recolher'}">${colapsado ? '▸' : '▾'}</span>
-          <div class="trein-cliente-nome">${g.cliente.codigo ? `<span class="codigo-tag">${escapeHtml(g.cliente.codigo)}</span>` : ''}${escapeHtml(g.cliente.nome)}</div>
+          <div class="trein-cliente-titulo-wrap">
+            <span class="trein-colapsar-btn" onclick="toggleTreinamentoColapso('${g.clienteId}')" title="${colapsado ? 'Expandir' : 'Recolher'}">${colapsado ? '▸' : '▾'}</span>
+            <div class="trein-cliente-nome">${g.cliente.codigo ? `<span class="codigo-tag">${escapeHtml(g.cliente.codigo)}</span>` : ''}${escapeHtml(g.cliente.nome)}</div>
+          </div>
           <div class="trein-progresso">
             <div class="trein-progresso-bar"><div class="trein-progresso-fill" style="width:${pct}%"></div></div>
             <span class="trein-progresso-pct">${pct}%</span>
