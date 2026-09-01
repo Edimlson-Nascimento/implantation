@@ -2802,7 +2802,7 @@ function renderAtividades() {
 
   KANBAN_COLUMNS.forEach(col => {
     let cards = atividades.filter(a => a.coluna === col.id);
-    if (pessoaFiltro !== 'Todos') cards = cards.filter(a => a.responsavel === pessoaFiltro);
+    if (pessoaFiltro !== 'Todos') cards = cards.filter(a => a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)));
 
     let filtrosHtml = '';
     if (col.id === 'concluida') {
