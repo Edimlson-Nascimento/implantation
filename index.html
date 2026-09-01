@@ -305,7 +305,7 @@
   .trein-progresso-bar { flex:1; height:8px; background:var(--light-bg); border-radius:100px; overflow:hidden; }
   .trein-progresso-fill { height:100%; background:var(--green); border-radius:100px; }
   .trein-progresso-pct { font-size:12px; font-weight:700; color:var(--gray-text); white-space:nowrap; }
-  .trein-etapas-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
+  .trein-etapas-row { display:flex; flex-wrap:wrap; gap:12px; }
   .trein-etapa-card {
     position:relative; background:var(--light-bg); border:1px solid var(--border-light); border-radius:12px; padding:12px 12px 16px;
     min-width:200px; max-width:220px; flex-shrink:0; cursor:pointer; display:flex; flex-direction:column; gap:4px;
@@ -316,6 +316,14 @@
     cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.35);
   }
   .trein-etapa-add-mini:hover { background:var(--green-mid); }
+  .trein-etapa-atividades-icon {
+    position:absolute; bottom:-9px; left:-9px; min-width:22px; height:22px; border-radius:11px; padding:0 6px;
+    background:var(--green); color:var(--navy); font-size:12px; font-weight:800; line-height:22px; text-align:center;
+    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.35); white-space:nowrap;
+  }
+  .trein-etapa-atividades-icon:hover { background:var(--green-mid); }
+  .trein-colapsar-btn { cursor:pointer; font-size:13px; color:var(--gray-text); margin-right:2px; user-select:none; }
+  .trein-colapsar-btn:hover { color:var(--text-main); }
   .trein-etapa-card:hover { border-color:var(--navy); }
   .trein-etapa-card.concluido { opacity:0.6; }
   .trein-etapa-card.concluido .trein-etapa-titulo { text-decoration: line-through; }
@@ -760,6 +768,7 @@
       <input type="text" id="trein-search-input" placeholder="Buscar cliente..." oninput="renderTreinamentos()">
       <div class="spacer"></div>
       <button class="btn btn-sm" onclick="withLock(this, sincronizarEtapasPadrao)">🔄 Sincronizar Etapas Padrão</button>
+      <button class="btn btn-sm" onclick="withLock(this, limparNumerosManuaisTreinamento)">🧹 Remover Números Manuais</button>
       <button class="btn btn-green btn-sm" onclick="novaEtapaTreinamento()">+ Nova Etapa de Treinamento</button>
     </div>
     <div id="treinamentos-clientes-wrap" class="treinamentos-clientes-wrap"></div>
@@ -916,6 +925,10 @@
       </div>
       <div class="form-field"><label>Título</label><input type="text" id="ag-titulo" placeholder="Ex: Alinhamento de fluxo"></div>
       <div class="form-field"><label>Agendado por</label><select id="ag-responsavel"></select></div>
+      <div class="form-field full">
+        <label>Participantes (se for com mais de uma pessoa)</label>
+        <div class="checklist-inline" id="ag-participantes-list"></div>
+      </div>
       <div class="form-field"><label>Data</label><input type="date" id="ag-data"></div>
       <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
       <div class="form-field full">
@@ -1009,6 +1022,24 @@
       <div style="display:flex;gap:8px;margin-left:auto;">
         <button class="btn" onclick="closeTreinamentoModal()">Fechar</button>
         <button class="btn btn-primary" onclick="withLock(this, saveTreinamentoEtapa)">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ATIVIDADES DA ETAPA DE TREINAMENTO ══ -->
+<div class="modal-overlay" id="trein-atividades-modal-overlay">
+  <div class="modal-box" style="max-width:420px;">
+    <h2 id="trein-atividades-modal-title">Atividades da Etapa</h2>
+    <div id="trein-atividades-list" style="margin-top:6px;"></div>
+    <div class="add-pend-row" style="margin-top:10px;">
+      <input type="text" id="new-trein-atividade-texto" placeholder="Nova atividade...">
+      <button class="btn btn-sm" onclick="withLock(this, addAtividadeEtapa)">+</button>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" onclick="closeAtividadesEtapaModal()">Fechar</button>
       </div>
     </div>
   </div>
@@ -1169,6 +1200,15 @@ let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
 let treinamentosEtapas = [];
 let TREINAMENTOS_PADRAO = [];
+let treinamentoAtividades = [];
+let treinamentosColapsados = new Set();
+let editingEtapaAtividadesId = null;
+
+function toggleTreinamentoColapso(clienteId) {
+  if (treinamentosColapsados.has(clienteId)) treinamentosColapsados.delete(clienteId);
+  else treinamentosColapsados.add(clienteId);
+  renderTreinamentos();
+}
 let notifiedTreinamentoIds = new Set();
 let editingTreinamentoId = null;
 
@@ -1311,7 +1351,7 @@ async function loadState() {
     agendamentos = ags.map(a => ({
       id: a.id, clienteId: a.cliente_id, clienteNome: a.cliente_nome || '', titulo: a.titulo, tipo: a.tipo,
       data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito,
-      responsavel: a.responsavel || ''
+      responsavel: a.responsavel || '', participantes: a.participantes || []
     }));
   }
 
@@ -1333,6 +1373,14 @@ async function loadState() {
     TREINAMENTOS_PADRAO = [];
   } else {
     TREINAMENTOS_PADRAO = padroesRows.map(p => ({ id: p.id, nome: p.nome, ordem: p.ordem }));
+  }
+
+  const { data: treinAtivRows, error: errTa } = await sb.from('treinamento_etapa_atividades').select('*').order('ordem');
+  if (errTa) {
+    console.warn('Tabela treinamento_etapa_atividades ainda não disponível:', errTa.message);
+    treinamentoAtividades = [];
+  } else {
+    treinamentoAtividades = treinAtivRows.map(a => ({ id: a.id, etapaId: a.etapa_id, texto: a.texto, feito: a.feito, ordem: a.ordem }));
   }
 
   const { data: ativs, error: errT } = await sb.from('atividades').select('*').order('ordem');
@@ -2420,6 +2468,91 @@ async function sincronizarEtapasPadrao() {
   alert(`Sincronização concluída (${clientesImplantacao.length} cliente(s) em Implantação): ${criadas} etapa(s) criada(s), ${atualizadas} atualizada(s).`);
 }
 
+async function limparNumerosManuaisTreinamento() {
+  let alterados = 0;
+  for (const e of treinamentosEtapas) {
+    const m = e.titulo.match(/^\s*(\d+)\s*[-–.]\s*(.+)$/);
+    if (!m) continue;
+    const novoTitulo = m[2].trim();
+    const novaOrdem = parseInt(m[1], 10);
+    const { error } = await sb.from('treinamentos_etapas').update({ titulo: novoTitulo, ordem: novaOrdem }).eq('id', e.id);
+    if (!error) { e.titulo = novoTitulo; e.ordem = novaOrdem; alterados++; }
+  }
+  render();
+  alert(`Limpeza concluída: ${alterados} etapa(s) tiveram o número manual removido do título (o número agora só aparece automático no card).`);
+}
+
+/* ── ATIVIDADES DE UMA ETAPA DE TREINAMENTO ── */
+function abrirAtividadesEtapa(etapaId) {
+  editingEtapaAtividadesId = etapaId;
+  const etapa = treinamentosEtapas.find(e => e.id === etapaId);
+  document.getElementById('trein-atividades-modal-title').textContent = 'Atividades — ' + (etapa ? etapa.titulo : '');
+  renderAtividadesEtapaModal();
+  document.getElementById('trein-atividades-modal-overlay').classList.add('open');
+}
+
+function closeAtividadesEtapaModal() {
+  document.getElementById('trein-atividades-modal-overlay').classList.remove('open');
+  editingEtapaAtividadesId = null;
+  renderTreinamentos();
+}
+
+function renderAtividadesEtapaModal() {
+  const container = document.getElementById('trein-atividades-list');
+  const itens = treinamentoAtividades.filter(a => a.etapaId === editingEtapaAtividadesId).sort((a,b) => (a.ordem||0) - (b.ordem||0));
+  container.innerHTML = itens.length ? itens.map(a => `
+    <div class="pend-item ${a.feito ? 'done' : ''}">
+      <input type="checkbox" ${a.feito ? 'checked' : ''} onchange="toggleAtividadeEtapa('${a.id}')">
+      <span>${escapeHtml(a.texto)}</span>
+      <span class="edit" onclick="editarAtividadeEtapa('${a.id}')" title="Editar">✎</span>
+      <span class="del" onclick="removeAtividadeEtapa('${a.id}')">✕</span>
+    </div>
+  `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma atividade ainda.</div>`;
+}
+
+async function addAtividadeEtapa() {
+  const input = document.getElementById('new-trein-atividade-texto');
+  const texto = input.value.trim();
+  if (!texto || !editingEtapaAtividadesId) return;
+  const ordem = treinamentoAtividades.filter(a => a.etapaId === editingEtapaAtividadesId).length;
+  const { data, error } = await sb.from('treinamento_etapa_atividades').insert({ etapa_id: editingEtapaAtividadesId, texto, ordem }).select().single();
+  if (error) { alert('Erro ao adicionar atividade: ' + error.message); return; }
+  treinamentoAtividades.push({ id: data.id, etapaId: editingEtapaAtividadesId, texto, feito: false, ordem });
+  input.value = '';
+  renderAtividadesEtapaModal();
+}
+
+async function toggleAtividadeEtapa(id) {
+  const a = treinamentoAtividades.find(a => a.id === id);
+  if (!a) return;
+  const novo = !a.feito;
+  const { error } = await sb.from('treinamento_etapa_atividades').update({ feito: novo }).eq('id', id);
+  if (error) { alert('Erro ao atualizar atividade: ' + error.message); return; }
+  a.feito = novo;
+  renderAtividadesEtapaModal();
+}
+
+async function editarAtividadeEtapa(id) {
+  const a = treinamentoAtividades.find(a => a.id === id);
+  if (!a) return;
+  const novoTexto = prompt('Editar atividade:', a.texto);
+  if (novoTexto === null) return;
+  const textoFinal = novoTexto.trim();
+  if (!textoFinal) return;
+  const { error } = await sb.from('treinamento_etapa_atividades').update({ texto: textoFinal }).eq('id', id);
+  if (error) { alert('Erro ao editar atividade: ' + error.message); return; }
+  a.texto = textoFinal;
+  renderAtividadesEtapaModal();
+}
+
+async function removeAtividadeEtapa(id) {
+  if (!confirm('Remover esta atividade?')) return;
+  const { error } = await sb.from('treinamento_etapa_atividades').delete().eq('id', id);
+  if (error) { alert('Erro ao remover atividade: ' + error.message); return; }
+  treinamentoAtividades = treinamentoAtividades.filter(a => a.id !== id);
+  renderAtividadesEtapaModal();
+}
+
 /* ── AGENDA (AGENDAMENTOS) ── */
 function populateClientesDatalist() {
   document.getElementById('lista-clientes-nomes').innerHTML =
@@ -2458,7 +2591,7 @@ function renderCalendario() {
   const busca = document.getElementById('search-agenda').value.toLowerCase();
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
-    .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
+    .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)))
     .filter(a => {
       if (!busca) return true;
       return a.titulo.toLowerCase().includes(busca) ||
@@ -2492,7 +2625,7 @@ function renderCalendario() {
             </div>
             <div class="agenda-card-titulo">${escapeHtml(a.titulo)}</div>
             ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
-            <div class="agenda-card-meta">${a.responsavel ? 'Agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? (a.responsavel ? ' · ' : '') + escapeHtml(a.observacao) : ''}</div>
+            <div class="agenda-card-meta">${a.responsavel ? 'Agendado por ' + escapeHtml(a.responsavel) : ''}${a.participantes && a.participantes.length ? ` <span class="kc-participantes" title="Participantes: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length}</span>` : ''}${a.observacao ? (a.responsavel ? ' · ' : '') + escapeHtml(a.observacao) : ''}</div>
           </div>
         `;
       }).join('');
@@ -2523,7 +2656,7 @@ function renderCalendario() {
                   <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
                   ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
                 </div>
-                <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
+                <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.participantes && a.participantes.length ? ` <span class="kc-participantes" title="Participantes: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length}</span>` : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
               </div>
             </div>
           `;
@@ -2592,6 +2725,9 @@ function openAgendamentoModal(id) {
   document.getElementById('ag-titulo').value = a.titulo;
   document.getElementById('ag-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('ag-responsavel').value = a.responsavel || PESSOAS[0];
+  document.getElementById('ag-participantes-list').innerHTML = PESSOAS.map(p =>
+    `<label><input type="checkbox" value="${escapeHtml(p)}" ${(a.participantes || []).includes(p) ? 'checked' : ''}> ${escapeHtml(p)}</label>`
+  ).join('');
   document.getElementById('ag-data').value = a.data;
   document.getElementById('ag-hora').value = a.hora;
   document.getElementById('ag-obs').value = a.observacao;
@@ -2613,6 +2749,8 @@ async function saveAgendamento() {
   const nomeCliente = document.getElementById('ag-cliente-nome').value.trim();
   const clienteMatch = nomeCliente ? state.clients.find(c => c.nome.toLowerCase() === nomeCliente.toLowerCase()) : null;
 
+  const participantes = [...document.querySelectorAll('#ag-participantes-list input:checked')].map(el => el.value);
+
   const payload = {
     cliente_id: clienteMatch ? clienteMatch.id : null,
     cliente_nome: nomeCliente,
@@ -2621,18 +2759,19 @@ async function saveAgendamento() {
     data,
     hora: document.getElementById('ag-hora').value || null,
     observacao: document.getElementById('ag-obs').value.trim(),
-    responsavel: document.getElementById('ag-responsavel').value
+    responsavel: document.getElementById('ag-responsavel').value,
+    participantes
   };
 
   if (editingAgendamentoId) {
     const { error } = await sb.from('agendamentos').update(payload).eq('id', editingAgendamentoId);
     if (error) { alert('Erro ao salvar agendamento: ' + error.message); return; }
     const a = agendamentos.find(a => a.id === editingAgendamentoId);
-    Object.assign(a, { clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel });
+    Object.assign(a, { clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes });
   } else {
     const { data: row, error } = await sb.from('agendamentos').insert(payload).select().single();
     if (error) { alert('Erro ao criar agendamento: ' + error.message); return; }
-    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, feito: false });
+    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes, feito: false });
   }
 
   closeAgendamentoModal();
@@ -2770,7 +2909,10 @@ function renderTreinamentos() {
 
   container.innerHTML = grupos.map(g => {
     const pct = progressoTreinamento(g.etapas);
-    const etapasHtml = g.etapas.map((e, i) => `
+    const colapsado = treinamentosColapsados.has(g.clienteId);
+    const etapasHtml = g.etapas.map((e, i) => {
+      const numAtividades = treinamentoAtividades.filter(a => a.etapaId === e.id).length;
+      return `
       <div class="trein-etapa-card ${e.concluido ? 'concluido' : ''}" onclick="openTreinamentoModal('${e.id}')">
         <div class="trein-etapa-top">
           <span class="trein-etapa-num">${i + 1}</span>
@@ -2783,22 +2925,27 @@ function renderTreinamentos() {
         ${e.usuarioChave ? `<div class="trein-etapa-meta">Replicador: ${escapeHtml(e.usuarioChave)}</div>` : ''}
         ${e.dataTermino ? `<div class="trein-etapa-meta">Término previsto: ${formatDate(e.dataTermino)}</div>` : ''}
         ${e.link ? `<a class="trein-etapa-link" href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Link da reunião</a>` : ''}
+        <span class="trein-etapa-atividades-icon" onclick="event.stopPropagation(); abrirAtividadesEtapa('${e.id}')" title="Atividades desta etapa${numAtividades ? ' (' + numAtividades + ')' : ''}">📗${numAtividades ? ' ' + numAtividades : ''}</span>
         <span class="trein-etapa-add-mini" onclick="event.stopPropagation(); novaEtapaTreinamento('${g.clienteId}')" title="Adicionar etapa manual para este cliente">+</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
     return `
       <div class="trein-cliente-card">
         <div class="trein-cliente-header">
+          <span class="trein-colapsar-btn" onclick="toggleTreinamentoColapso('${g.clienteId}')" title="${colapsado ? 'Expandir' : 'Recolher'}">${colapsado ? '▸' : '▾'}</span>
           <div class="trein-cliente-nome">${g.cliente.codigo ? `<span class="codigo-tag">${escapeHtml(g.cliente.codigo)}</span>` : ''}${escapeHtml(g.cliente.nome)}</div>
           <div class="trein-progresso">
             <div class="trein-progresso-bar"><div class="trein-progresso-fill" style="width:${pct}%"></div></div>
             <span class="trein-progresso-pct">${pct}%</span>
           </div>
         </div>
+        ${colapsado ? '' : `
         <div class="trein-etapas-row">
           ${etapasHtml}
           <button class="trein-add-etapa" onclick="novaEtapaTreinamento('${g.clienteId}')">+ Etapa</button>
         </div>
+        `}
       </div>
     `;
   }).join('');
