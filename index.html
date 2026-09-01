@@ -1055,6 +1055,7 @@
     <div class="modal-footer">
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="baixarRelatorioTexto()">📄 Baixar Texto</button>
+        <button class="btn" onclick="withLock(this, copiarRelatorioImagem)">📋 Copiar Imagem</button>
         <button class="btn btn-primary" onclick="baixarRelatorioImagem()">📸 Baixar Imagem</button>
       </div>
       <button class="btn" onclick="closeRelatorioModal()" style="margin-left:auto;">Fechar</button>
@@ -3634,6 +3635,18 @@ function baixarRelatorioImagem() {
     link.href = imgData;
     link.click();
   });
+}
+
+async function copiarRelatorioImagem() {
+  const el = document.getElementById('relatorio-visual');
+  try {
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    alert('Imagem copiada! Agora é só colar (Ctrl+V) no WhatsApp ou onde precisar.');
+  } catch (err) {
+    alert('Não foi possível copiar a imagem automaticamente neste navegador. Use "Baixar Imagem" e anexe o arquivo. (' + err.message + ')');
+  }
 }
 
 /* ── EXPORT / IMPORT ── */
