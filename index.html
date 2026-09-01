@@ -310,12 +310,6 @@
     position:relative; background:var(--light-bg); border:1px solid var(--border-light); border-radius:12px; padding:12px 12px 16px;
     min-width:200px; max-width:220px; flex-shrink:0; cursor:pointer; display:flex; flex-direction:column; gap:4px;
   }
-  .trein-etapa-add-mini {
-    position:absolute; bottom:-9px; right:-9px; width:22px; height:22px; border-radius:50%;
-    background:var(--green); color:var(--navy); font-size:15px; font-weight:800; line-height:22px; text-align:center;
-    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.35);
-  }
-  .trein-etapa-add-mini:hover { background:var(--green-mid); }
   .trein-etapa-atividades-icon {
     position:absolute; bottom:-9px; left:-9px; min-width:22px; height:22px; border-radius:11px; padding:0 6px;
     background:var(--green); color:var(--navy); font-size:12px; font-weight:800; line-height:22px; text-align:center;
@@ -2940,7 +2934,6 @@ function renderTreinamentos() {
         ${e.dataTermino ? `<div class="trein-etapa-meta">Término previsto: ${formatDate(e.dataTermino)}</div>` : ''}
         ${e.link ? `<a class="trein-etapa-link" href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Link da reunião</a>` : ''}
         <span class="trein-etapa-atividades-icon" onclick="event.stopPropagation(); abrirAtividadesEtapa('${e.id}')" title="Atividades desta etapa${numAtividades ? ' (' + numAtividades + ')' : ''}">📗${numAtividades ? ' ' + numAtividades : ''}</span>
-        <span class="trein-etapa-add-mini" onclick="event.stopPropagation(); novaEtapaTreinamento('${g.clienteId}')" title="Adicionar etapa manual para este cliente">+</span>
       </div>
     `;
     }).join('');
