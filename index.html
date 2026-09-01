@@ -768,6 +768,7 @@
     <div class="toolbar">
       <input type="text" id="trein-search-input" placeholder="Buscar cliente..." oninput="renderTreinamentos()">
       <div class="spacer"></div>
+      <button class="btn btn-sm" id="btn-toggle-todos-trein" onclick="toggleTodosTreinamentos()">▸ Recolher Todos</button>
       <button class="btn btn-sm" onclick="withLock(this, sincronizarEtapasPadrao)">🔄 Sincronizar Etapas Padrão</button>
       <button class="btn btn-sm" onclick="withLock(this, limparNumerosManuaisTreinamento)">🧹 Remover Números Manuais</button>
       <button class="btn btn-green btn-sm" onclick="novaEtapaTreinamento()">+ Nova Etapa de Treinamento</button>
@@ -1208,6 +1209,14 @@ let editingEtapaAtividadesId = null;
 function toggleTreinamentoColapso(clienteId) {
   if (treinamentosColapsados.has(clienteId)) treinamentosColapsados.delete(clienteId);
   else treinamentosColapsados.add(clienteId);
+  renderTreinamentos();
+}
+
+function toggleTodosTreinamentos() {
+  const clienteIds = [...new Set(treinamentosEtapas.map(e => e.clienteId))];
+  const todosColapsados = clienteIds.length > 0 && clienteIds.every(id => treinamentosColapsados.has(id));
+  if (todosColapsados) treinamentosColapsados.clear();
+  else clienteIds.forEach(id => treinamentosColapsados.add(id));
   renderTreinamentos();
 }
 let notifiedTreinamentoIds = new Set();
@@ -2886,6 +2895,10 @@ function progressoTreinamento(etapas) {
 function renderTreinamentos() {
   const container = document.getElementById('treinamentos-clientes-wrap');
   const busca = document.getElementById('trein-search-input').value.toLowerCase();
+
+  const clienteIdsTodos = [...new Set(treinamentosEtapas.map(e => e.clienteId))];
+  const todosColapsados = clienteIdsTodos.length > 0 && clienteIdsTodos.every(id => treinamentosColapsados.has(id));
+  document.getElementById('btn-toggle-todos-trein').textContent = todosColapsados ? '▾ Expandir Todos' : '▸ Recolher Todos';
 
   const porCliente = {};
   treinamentosEtapas.forEach(e => { (porCliente[e.clienteId] = porCliente[e.clienteId] || []).push(e); });
