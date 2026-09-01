@@ -384,6 +384,7 @@
   .ag-item .ag-titulo { font-size:13.5px; font-weight:700; color:var(--text-main); }
   .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
   :root[data-theme="dark"] .ag-cliente-badge { color: var(--green); }
+  .ag-cliente-badge.lead { color:#B45309; background:rgba(180,83,9,0.14); }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
 
@@ -837,7 +838,7 @@
     <div class="form-grid">
       <div class="form-field full">
         <label>Cliente (opcional)</label>
-        <input type="text" id="ag-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
+        <input type="text" id="ag-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente ou digitar nome de um lead...">
         <datalist id="lista-clientes-nomes"></datalist>
       </div>
       <div class="form-field"><label>Tipo</label>
@@ -1200,7 +1201,7 @@ async function loadState() {
     agendamentos = [];
   } else {
     agendamentos = ags.map(a => ({
-      id: a.id, clienteId: a.cliente_id, titulo: a.titulo, tipo: a.tipo,
+      id: a.id, clienteId: a.cliente_id, clienteNome: a.cliente_nome || '', titulo: a.titulo, tipo: a.tipo,
       data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito,
       responsavel: a.responsavel || ''
     }));
@@ -2214,10 +2215,9 @@ function renderCalendario() {
     .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro)
     .filter(a => {
       if (!busca) return true;
-      const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
       return a.titulo.toLowerCase().includes(busca) ||
         (a.observacao || '').toLowerCase().includes(busca) ||
-        (cliente && cliente.nome.toLowerCase().includes(busca));
+        (a.clienteNome || '').toLowerCase().includes(busca);
     })
     .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
 
@@ -2236,6 +2236,7 @@ function renderCalendario() {
       const label = isHoje ? `Hoje — ${weekdayAbbrAt(data)}, ${formatDate(data)}` : `${weekdayAbbrAt(data)}, ${formatDate(data)}`;
       const cards = grupos[data].map(a => {
         const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+        const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
         return `
           <div class="agenda-card ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
             <div class="agenda-card-top">
@@ -2244,7 +2245,7 @@ function renderCalendario() {
               <span class="agenda-card-tipo">${TIPO_ICON[a.tipo] || '📌'} ${TIPO_LABEL[a.tipo] || 'Outro'}</span>
             </div>
             <div class="agenda-card-titulo">${escapeHtml(a.titulo)}</div>
-            ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+            ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
             <div class="agenda-card-meta">${a.responsavel ? 'Agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? (a.responsavel ? ' · ' : '') + escapeHtml(a.observacao) : ''}</div>
           </div>
         `;
@@ -2265,6 +2266,7 @@ function renderCalendario() {
         const dia = data.slice(8, 10);
         const itens = grupos[data].map(a => {
           const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+          const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
           return `
             <div class="ag-item ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')">
               <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
@@ -2273,7 +2275,7 @@ function renderCalendario() {
               <div class="ag-body">
                 <div class="ag-titulo-row">
                   <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
-                  ${cliente ? `<span class="ag-cliente-badge">${escapeHtml(cliente.nome)}</span>` : ''}
+                  ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
                 </div>
                 <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
               </div>
@@ -2306,10 +2308,11 @@ function renderCalendario() {
         const dia = data.slice(8, 10);
         const eventos = grupos[data].map(a => {
           const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+          const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
           return `
-          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${cliente ? ' — ' + escapeHtml(cliente.nome) : ''}">
+          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${nomeExibicao ? ' — ' + escapeHtml(nomeExibicao) : ''}">
             <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
-            <span class="cal-evento-hora">${a.hora || '—'}</span> ${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}${cliente ? ` <span class="cal-evento-cliente">${escapeHtml(cliente.nome)}</span>` : ''}
+            <span class="cal-evento-hora">${a.hora || '—'}</span> ${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}${nomeExibicao ? ` <span class="cal-evento-cliente">${escapeHtml(nomeExibicao)}</span>` : ''}
           </div>
         `;
         }).join('');
@@ -2334,11 +2337,11 @@ function openAgendamentoModal(id) {
   document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
   document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
 
-  const a = isNew ? { clienteId: null, titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0] }
+  const a = isNew ? { clienteId: null, clienteNome: '', titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0] }
                   : agendamentos.find(a => a.id === id);
   const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
 
-  document.getElementById('ag-cliente-nome').value = cliente ? cliente.nome : '';
+  document.getElementById('ag-cliente-nome').value = a.clienteNome || (cliente ? cliente.nome : '');
   document.getElementById('ag-tipo').value = a.tipo;
   document.getElementById('ag-titulo').value = a.titulo;
   document.getElementById('ag-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
@@ -2366,6 +2369,7 @@ async function saveAgendamento() {
 
   const payload = {
     cliente_id: clienteMatch ? clienteMatch.id : null,
+    cliente_nome: nomeCliente,
     titulo,
     tipo: document.getElementById('ag-tipo').value,
     data,
@@ -2378,11 +2382,11 @@ async function saveAgendamento() {
     const { error } = await sb.from('agendamentos').update(payload).eq('id', editingAgendamentoId);
     if (error) { alert('Erro ao salvar agendamento: ' + error.message); return; }
     const a = agendamentos.find(a => a.id === editingAgendamentoId);
-    Object.assign(a, { clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel });
+    Object.assign(a, { clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel });
   } else {
     const { data: row, error } = await sb.from('agendamentos').insert(payload).select().single();
     if (error) { alert('Erro ao criar agendamento: ' + error.message); return; }
-    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, feito: false });
+    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, feito: false });
   }
 
   closeAgendamentoModal();
@@ -2425,9 +2429,10 @@ function ativarLembretes() {
 
 function showLembreteToast(a) {
   const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+  const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
   document.getElementById('lembrete-toast-title').textContent = `${TIPO_ICON[a.tipo] || '📌'} ${a.titulo}`;
   document.getElementById('lembrete-toast-sub').textContent =
-    `${a.hora || ''}${cliente ? ' · ' + cliente.nome : ''}${a.responsavel ? ' · ' + a.responsavel : ''}`.trim();
+    `${a.hora || ''}${nomeExibicao ? ' · ' + nomeExibicao : ''}${a.responsavel ? ' · ' + a.responsavel : ''}`.trim();
   document.getElementById('lembrete-toast').style.display = 'flex';
 }
 
@@ -2446,8 +2451,9 @@ function checkLembretes() {
       showLembreteToast(a);
       if (lembretesAtivos && 'Notification' in window && Notification.permission === 'granted') {
         const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+        const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
         new Notification((TIPO_ICON[a.tipo] || '') + ' ' + a.titulo, {
-          body: `${a.hora}${cliente ? ' · ' + cliente.nome : ''}`,
+          body: `${a.hora}${nomeExibicao ? ' · ' + nomeExibicao : ''}`,
           icon: 'logo-intelipulse.png'
         });
       }
