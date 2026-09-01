@@ -294,6 +294,37 @@
   .pendencia-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
   .pendencia-card-nome { font-size:15px; font-weight:700; color:var(--text-main); }
   .pendencia-card-count { font-size:11px; font-weight:700; color:#B45309; background:rgba(180,83,9,0.12); padding:3px 9px; border-radius:100px; white-space:nowrap; }
+
+  .treinamentos-clientes-wrap { display:flex; flex-direction:column; gap:16px; margin-top:16px; }
+  .trein-cliente-card { background:var(--white); border:1px solid var(--border-light); border-radius:16px; padding:18px; }
+  .trein-cliente-header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .trein-cliente-nome { font-size:15px; font-weight:700; color:var(--text-main); }
+  .trein-progresso { display:flex; align-items:center; gap:8px; min-width:160px; }
+  .trein-progresso-bar { flex:1; height:8px; background:var(--light-bg); border-radius:100px; overflow:hidden; }
+  .trein-progresso-fill { height:100%; background:var(--green); border-radius:100px; }
+  .trein-progresso-pct { font-size:12px; font-weight:700; color:var(--gray-text); white-space:nowrap; }
+  .trein-etapas-row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
+  .trein-etapa-card {
+    background:var(--light-bg); border:1px solid var(--border-light); border-radius:12px; padding:12px;
+    min-width:200px; max-width:220px; flex-shrink:0; cursor:pointer; display:flex; flex-direction:column; gap:4px;
+  }
+  .trein-etapa-card:hover { border-color:var(--navy); }
+  .trein-etapa-card.concluido { opacity:0.6; }
+  .trein-etapa-card.concluido .trein-etapa-titulo { text-decoration: line-through; }
+  .trein-etapa-top { display:flex; align-items:center; justify-content:space-between; }
+  .trein-etapa-top input[type=checkbox] { width:16px; height:16px; }
+  .trein-sino { cursor:pointer; font-size:15px; opacity:0.35; filter:grayscale(1); }
+  .trein-sino.ativo { opacity:1; filter:none; }
+  .trein-etapa-titulo { font-size:13px; font-weight:700; color:var(--text-main); }
+  .trein-etapa-meta { font-size:11px; color:var(--gray-text); }
+  .trein-etapa-link { font-size:11px; color:var(--navy); font-weight:700; text-decoration:none; margin-top:2px; }
+  :root[data-theme="dark"] .trein-etapa-link { color: var(--green); }
+  .trein-etapa-link:hover { text-decoration:underline; }
+  .trein-add-etapa {
+    min-width:100px; flex-shrink:0; border:1px dashed var(--border-light); border-radius:12px; background:none;
+    color:var(--gray-text); cursor:pointer; font-size:12.5px; font-weight:700;
+  }
+  .trein-add-etapa:hover { border-color:var(--navy); color:var(--text-main); }
   .pend-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .pend-col h4 { font-size: 11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; margin-bottom:8px; }
   .pend-col.cliente h4 { color: #B45309; }
@@ -633,6 +664,7 @@
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Clientes</button>
       <button class="nav-item" id="tab-pendencias" onclick="setTab('pendencias')">Pendências</button>
+      <button class="nav-item" id="tab-treinamentos" onclick="setTab('treinamentos')">Treinamentos</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
     </nav>
@@ -708,6 +740,15 @@
       </select>
     </div>
     <div class="pendencias-cards-grid" id="pendencias-cards-wrap"></div>
+  </section>
+
+  <section id="view-treinamentos" style="display:none">
+    <div class="toolbar">
+      <input type="text" id="trein-search-input" placeholder="Buscar cliente..." oninput="renderTreinamentos()">
+      <div class="spacer"></div>
+      <button class="btn btn-green btn-sm" onclick="novaEtapaTreinamento()">+ Nova Etapa de Treinamento</button>
+    </div>
+    <div id="treinamentos-clientes-wrap" class="treinamentos-clientes-wrap"></div>
   </section>
 
   <section id="view-resumo" style="display:none">
@@ -910,6 +951,35 @@
   </div>
 </div>
 
+<!-- ══ MODAL ETAPA DE TREINAMENTO ══ -->
+<div class="modal-overlay" id="treinamento-modal-overlay">
+  <div class="modal-box" style="max-width:480px;">
+    <h2 id="treinamento-modal-title">Nova Etapa de Treinamento</h2>
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>Cliente</label>
+        <input type="text" id="trein-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
+      </div>
+      <div class="form-field full">
+        <label>Treinamento que será dado</label>
+        <input type="text" id="trein-titulo" placeholder="Ex: Treinamento de Dashboard">
+      </div>
+      <div class="form-field"><label>Analista Responsável</label><select id="trein-analista"></select></div>
+      <div class="form-field"><label>Usuário Chave (replicador)</label><input type="text" id="trein-usuario-chave" placeholder="Nome do contato do cliente"></div>
+      <div class="form-field full"><label>Link da Reunião</label><input type="text" id="trein-link" placeholder="https://..."></div>
+      <div class="form-field"><label>Data</label><input type="date" id="trein-data"></div>
+      <div class="form-field"><label>Hora</label><input type="time" id="trein-hora"></div>
+    </div>
+    <div class="modal-footer">
+      <div id="treinamento-danger-actions" style="display:flex;gap:8px;"></div>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" onclick="closeTreinamentoModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="withLock(this, saveTreinamentoEtapa)">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL RELATÓRIO DE ATIVIDADES ══ -->
 <div class="modal-overlay" id="relatorio-modal-overlay">
   <div class="modal-box" style="max-width:560px;">
@@ -1063,6 +1133,9 @@ let sortDirection = 'asc';
 let editingAgendamentoId = null;
 let lembretesAtivos = false;
 let notifiedAgendamentoIds = new Set();
+let treinamentosEtapas = [];
+let notifiedTreinamentoIds = new Set();
+let editingTreinamentoId = null;
 
 let PESSOAS = ['Edimilson', 'Jefferson', 'Leandro'];
 let PESSOAS_FULL = [];
@@ -1207,6 +1280,18 @@ async function loadState() {
     }));
   }
 
+  const { data: treinos, error: errTr } = await sb.from('treinamentos_etapas').select('*').order('created_at');
+  if (errTr) {
+    console.warn('Tabela treinamentos_etapas ainda não disponível:', errTr.message);
+    treinamentosEtapas = [];
+  } else {
+    treinamentosEtapas = treinos.map(t => ({
+      id: t.id, clienteId: t.cliente_id, titulo: t.titulo, analista: t.analista || '',
+      usuarioChave: t.usuario_chave || '', link: t.link_reuniao || '', data: t.data, hora: t.hora ? t.hora.slice(0,5) : '',
+      concluido: t.concluido, lembreteAtivo: t.lembrete_ativo, ordem: t.ordem
+    }));
+  }
+
   const { data: ativs, error: errT } = await sb.from('atividades').select('*').order('ordem');
   if (errT) {
     console.warn('Tabela atividades ainda não disponível:', errT.message);
@@ -1231,12 +1316,14 @@ function setTab(tab) {
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-pendencias').classList.toggle('active', tab === 'pendencias');
+  document.getElementById('tab-treinamentos').classList.toggle('active', tab === 'treinamentos');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-pendencias').style.display = tab === 'pendencias' ? '' : 'none';
+  document.getElementById('view-treinamentos').style.display = tab === 'treinamentos' ? '' : 'none';
   document.getElementById('view-resumo').style.display = tab === 'resumo' ? '' : 'none';
   document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
   document.getElementById('view-atividades').style.display = tab === 'atividades' ? '' : 'none';
@@ -1254,6 +1341,7 @@ function render() {
   if (activeTab === 'calendario') renderCalendario();
   else if (activeTab === 'clientes') renderClientes();
   else if (activeTab === 'pendencias') renderPendencias();
+  else if (activeTab === 'treinamentos') renderTreinamentos();
   else if (activeTab === 'etapas') renderEtapas();
   else if (activeTab === 'atividades') renderAtividades();
   else renderResumo();
@@ -2462,6 +2550,202 @@ function checkLembretes() {
 }
 setInterval(checkLembretes, 30000);
 
+function checkLembretesTreinamento() {
+  if (!treinamentosEtapas.length) return;
+  const now = new Date();
+  const hojeStr = todayStr();
+  treinamentosEtapas.forEach(e => {
+    if (e.concluido || !e.lembreteAtivo || !e.hora || e.data !== hojeStr || notifiedTreinamentoIds.has(e.id)) return;
+    const [h, m] = e.hora.split(':').map(Number);
+    const treinoTime = new Date();
+    treinoTime.setHours(h, m, 0, 0);
+    const diffMin = (treinoTime - now) / 60000;
+    if (diffMin <= 65 && diffMin >= 55) {
+      notifiedTreinamentoIds.add(e.id);
+      const cliente = state.clients.find(c => c.id === e.clienteId);
+      document.getElementById('lembrete-toast-title').textContent = `🎓 ${e.titulo}`;
+      document.getElementById('lembrete-toast-sub').textContent =
+        `Treinamento em 1 hora · ${e.hora}${cliente ? ' · ' + cliente.nome : ''}`.trim();
+      document.getElementById('lembrete-toast').style.display = 'flex';
+      if (lembretesAtivos && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('🎓 ' + e.titulo, {
+          body: `Treinamento em 1 hora (${e.hora})${cliente ? ' · ' + cliente.nome : ''}`,
+          icon: 'logo-intelipulse.png'
+        });
+      }
+    }
+  });
+}
+setInterval(checkLembretesTreinamento, 30000);
+
+/* ── TREINAMENTOS ── */
+function progressoTreinamento(etapas) {
+  if (!etapas.length) return 0;
+  const feitas = etapas.filter(e => e.concluido).length;
+  return Math.round((feitas / etapas.length) * 100);
+}
+
+function renderTreinamentos() {
+  const container = document.getElementById('treinamentos-clientes-wrap');
+  const busca = document.getElementById('trein-search-input').value.toLowerCase();
+
+  const porCliente = {};
+  treinamentosEtapas.forEach(e => { (porCliente[e.clienteId] = porCliente[e.clienteId] || []).push(e); });
+
+  let grupos = Object.keys(porCliente).map(clienteId => {
+    const cliente = state.clients.find(c => c.id === clienteId);
+    return { clienteId, cliente, etapas: porCliente[clienteId].sort((a,b) => (a.ordem||0) - (b.ordem||0)) };
+  }).filter(g => g.cliente);
+
+  if (busca) grupos = grupos.filter(g => g.cliente.nome.toLowerCase().includes(busca));
+
+  grupos.sort((a, b) => {
+    const pa = progressoTreinamento(a.etapas), pb = progressoTreinamento(b.etapas);
+    if (pa !== pb) return pa - pb;
+    return a.cliente.nome.localeCompare(b.cliente.nome);
+  });
+
+  if (!grupos.length) {
+    container.innerHTML = `<div class="empty-state"><div class="big">🎓</div><h3>Nenhum treinamento cadastrado</h3><p>Clique em "+ Nova Etapa de Treinamento" para começar.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = grupos.map(g => {
+    const pct = progressoTreinamento(g.etapas);
+    const etapasHtml = g.etapas.map(e => `
+      <div class="trein-etapa-card ${e.concluido ? 'concluido' : ''}" onclick="openTreinamentoModal('${e.id}')">
+        <div class="trein-etapa-top">
+          <input type="checkbox" ${e.concluido ? 'checked' : ''} onclick="event.stopPropagation(); toggleTreinamentoConcluido('${e.id}')" title="Marcar como concluído">
+          <span class="trein-sino ${e.lembreteAtivo ? 'ativo' : ''}" onclick="event.stopPropagation(); toggleTreinamentoLembrete('${e.id}')" title="${e.lembreteAtivo ? 'Lembrete ativo (1h antes) — clique para desativar' : 'Ativar lembrete 1h antes do treinamento'}">🔔</span>
+        </div>
+        <div class="trein-etapa-titulo">${escapeHtml(e.titulo)}</div>
+        <div class="trein-etapa-meta">${e.analista ? escapeHtml(e.analista) : 'Sem analista'}</div>
+        <div class="trein-etapa-meta">${e.data ? formatDate(e.data) : '—'}${e.hora ? ' às ' + e.hora : ''}</div>
+        ${e.usuarioChave ? `<div class="trein-etapa-meta">Replicador: ${escapeHtml(e.usuarioChave)}</div>` : ''}
+        ${e.link ? `<a class="trein-etapa-link" href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗 Link da reunião</a>` : ''}
+      </div>
+    `).join('');
+    return `
+      <div class="trein-cliente-card">
+        <div class="trein-cliente-header">
+          <div class="trein-cliente-nome">${g.cliente.codigo ? `<span class="codigo-tag">${escapeHtml(g.cliente.codigo)}</span>` : ''}${escapeHtml(g.cliente.nome)}</div>
+          <div class="trein-progresso">
+            <div class="trein-progresso-bar"><div class="trein-progresso-fill" style="width:${pct}%"></div></div>
+            <span class="trein-progresso-pct">${pct}%</span>
+          </div>
+        </div>
+        <div class="trein-etapas-row">
+          ${etapasHtml}
+          <button class="trein-add-etapa" onclick="novaEtapaTreinamento('${g.clienteId}')">+ Etapa</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function novaEtapaTreinamento(clienteIdPreset) {
+  openTreinamentoModal(null, typeof clienteIdPreset === 'string' ? clienteIdPreset : null);
+}
+
+function openTreinamentoModal(id, clienteIdPreset) {
+  editingTreinamentoId = id;
+  const isNew = !id;
+  document.getElementById('treinamento-modal-title').textContent = isNew ? 'Nova Etapa de Treinamento' : 'Editar Etapa de Treinamento';
+
+  const e = isNew
+    ? { clienteId: clienteIdPreset || null, titulo: '', analista: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], usuarioChave: '', link: '', data: todayStr(), hora: '' }
+    : treinamentosEtapas.find(x => x.id === id);
+
+  const clientePreset = e.clienteId ? state.clients.find(c => c.id === e.clienteId) : null;
+  document.getElementById('trein-cliente-nome').value = clientePreset ? clientePreset.nome : '';
+  document.getElementById('trein-titulo').value = e.titulo;
+  document.getElementById('trein-analista').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('trein-analista').value = e.analista || PESSOAS[0];
+  document.getElementById('trein-usuario-chave').value = e.usuarioChave;
+  document.getElementById('trein-link').value = e.link;
+  document.getElementById('trein-data').value = e.data || '';
+  document.getElementById('trein-hora').value = e.hora || '';
+
+  document.getElementById('treinamento-danger-actions').innerHTML = isNew ? '' : `<button class="btn btn-danger btn-sm" onclick="withLock(this, deleteTreinamentoEtapa)">🗑 Excluir etapa</button>`;
+
+  document.getElementById('treinamento-modal-overlay').classList.add('open');
+}
+
+function closeTreinamentoModal() {
+  document.getElementById('treinamento-modal-overlay').classList.remove('open');
+  editingTreinamentoId = null;
+}
+document.getElementById('treinamento-modal-overlay').addEventListener('click', e => {
+  if (e.target.id === 'treinamento-modal-overlay') closeTreinamentoModal();
+});
+
+async function saveTreinamentoEtapa() {
+  const nomeCliente = document.getElementById('trein-cliente-nome').value.trim();
+  const cliente = state.clients.find(c => c.nome.toLowerCase() === nomeCliente.toLowerCase());
+  if (!cliente) { alert('Selecione um cliente já cadastrado.'); return; }
+
+  const titulo = document.getElementById('trein-titulo').value.trim();
+  if (!titulo) { alert('Descreva o treinamento que será dado.'); return; }
+
+  const payload = {
+    cliente_id: cliente.id,
+    titulo,
+    analista: document.getElementById('trein-analista').value,
+    usuario_chave: document.getElementById('trein-usuario-chave').value.trim(),
+    link_reuniao: document.getElementById('trein-link').value.trim(),
+    data: document.getElementById('trein-data').value || null,
+    hora: document.getElementById('trein-hora').value || null
+  };
+
+  if (editingTreinamentoId) {
+    const { error } = await sb.from('treinamentos_etapas').update(payload).eq('id', editingTreinamentoId);
+    if (error) { alert('Erro ao salvar etapa: ' + error.message); return; }
+    const e = treinamentosEtapas.find(x => x.id === editingTreinamentoId);
+    Object.assign(e, { clienteId: payload.cliente_id, titulo, analista: payload.analista, usuarioChave: payload.usuario_chave, link: payload.link_reuniao, data: payload.data, hora: payload.hora || '' });
+  } else {
+    payload.ordem = treinamentosEtapas.filter(x => x.clienteId === cliente.id).length;
+    const { data: row, error } = await sb.from('treinamentos_etapas').insert(payload).select().single();
+    if (error) { alert('Erro ao criar etapa: ' + error.message); return; }
+    treinamentosEtapas.push({
+      id: row.id, clienteId: cliente.id, titulo, analista: payload.analista, usuarioChave: payload.usuario_chave,
+      link: payload.link_reuniao, data: payload.data, hora: payload.hora || '', concluido: false, lembreteAtivo: false, ordem: payload.ordem
+    });
+  }
+
+  closeTreinamentoModal();
+  render();
+}
+
+async function deleteTreinamentoEtapa() {
+  if (!editingTreinamentoId) return;
+  if (!confirm('Excluir esta etapa de treinamento?')) return;
+  const { error } = await sb.from('treinamentos_etapas').delete().eq('id', editingTreinamentoId);
+  if (error) { alert('Erro ao excluir etapa: ' + error.message); return; }
+  treinamentosEtapas = treinamentosEtapas.filter(x => x.id !== editingTreinamentoId);
+  closeTreinamentoModal();
+  render();
+}
+
+async function toggleTreinamentoConcluido(id) {
+  const e = treinamentosEtapas.find(x => x.id === id);
+  if (!e) return;
+  const novo = !e.concluido;
+  const { error } = await sb.from('treinamentos_etapas').update({ concluido: novo }).eq('id', id);
+  if (error) { alert('Erro ao atualizar etapa: ' + error.message); return; }
+  e.concluido = novo;
+  render();
+}
+
+async function toggleTreinamentoLembrete(id) {
+  const e = treinamentosEtapas.find(x => x.id === id);
+  if (!e) return;
+  const novo = !e.lembreteAtivo;
+  const { error } = await sb.from('treinamentos_etapas').update({ lembrete_ativo: novo }).eq('id', id);
+  if (error) { alert('Erro ao atualizar lembrete: ' + error.message); return; }
+  e.lembreteAtivo = novo;
+  render();
+}
+
 /* ── ATIVIDADES (KANBAN) ── */
 function renderPessoaFilterInto(elId) {
   const wrap = document.getElementById(elId);
@@ -3181,6 +3465,7 @@ async function showApp(session) {
   if (window.innerWidth < 720) setClientsView('cards');
   render();
   checkLembretes();
+  checkLembretesTreinamento();
 }
 
 sb.auth.onAuthStateChange((event, session) => {
