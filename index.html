@@ -1830,9 +1830,11 @@ function renderPendencias() {
     if (search && !c.nome.toLowerCase().includes(search)) return false;
     return true;
   }).sort((a, b) => {
-    const abertosA = a.pendencias.filter(p => !p.feito).length;
-    const abertosB = b.pendencias.filter(p => !p.feito).length;
-    if (abertosB !== abertosA) return abertosB - abertosA;
+    const codA = parseInt(a.codigo, 10);
+    const codB = parseInt(b.codigo, 10);
+    if (!isNaN(codA) && !isNaN(codB)) return codA - codB;
+    if (!isNaN(codA)) return -1;
+    if (!isNaN(codB)) return 1;
     return a.nome.localeCompare(b.nome);
   });
 
