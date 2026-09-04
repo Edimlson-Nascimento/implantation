@@ -431,6 +431,7 @@
   .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
   :root[data-theme="dark"] .ag-cliente-badge { color: var(--green); }
   .ag-cliente-badge.lead { color:#B45309; background:rgba(180,83,9,0.14); }
+  .ag-reagendado-badge { font-size:11px; font-weight:700; color:#7C3AED; background:rgba(124,58,237,0.14); padding:2px 9px; border-radius:100px; }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
 
@@ -910,6 +911,7 @@
 <div class="modal-overlay" id="agendamento-modal-overlay">
   <div class="modal-box" style="max-width:480px;">
     <h2 id="agendamento-modal-title">Novo Agendamento</h2>
+    <div id="agendamento-modal-reagendado" style="font-size:12px;color:var(--gray-text);margin:-8px 0 12px;"></div>
     <div class="form-grid">
       <div class="form-field full">
         <label>Cliente (opcional)</label>
@@ -1356,7 +1358,7 @@ async function loadState() {
     agendamentos = ags.map(a => ({
       id: a.id, clienteId: a.cliente_id, clienteNome: a.cliente_nome || '', titulo: a.titulo, tipo: a.tipo,
       data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito,
-      responsavel: a.responsavel || '', participantes: a.participantes || []
+      responsavel: a.responsavel || '', participantes: a.participantes || [], reagendadoDe: a.reagendado_de || null
     }));
   }
 
@@ -2630,6 +2632,7 @@ function renderCalendario() {
             </div>
             <div class="agenda-card-titulo">${escapeHtml(a.titulo)}</div>
             ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
+            ${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
             <div class="agenda-card-meta">${a.responsavel ? 'Agendado por ' + escapeHtml(a.responsavel) : ''}${a.participantes && a.participantes.length ? ` <span class="kc-participantes" title="Participantes: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length}</span>` : ''}${a.observacao ? (a.responsavel ? ' · ' : '') + escapeHtml(a.observacao) : ''}</div>
           </div>
         `;
@@ -2660,6 +2663,7 @@ function renderCalendario() {
                 <div class="ag-titulo-row">
                   <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
                   ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
+                  ${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
                 </div>
                 <div class="ag-meta">${TIPO_LABEL[a.tipo] || 'Outro'}${a.responsavel ? ' · agendado por ' + escapeHtml(a.responsavel) : ''}${a.participantes && a.participantes.length ? ` <span class="kc-participantes" title="Participantes: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length}</span>` : ''}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
               </div>
@@ -2694,9 +2698,9 @@ function renderCalendario() {
           const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
           const nomeExibicao = a.clienteNome || (cliente ? cliente.nome : '');
           return `
-          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${nomeExibicao ? ' — ' + escapeHtml(nomeExibicao) : ''}">
+          <div class="cal-evento-chip ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${nomeExibicao ? ' — ' + escapeHtml(nomeExibicao) : ''}${a.reagendadoDe ? ' — Reagendado, era ' + formatDate(a.reagendadoDe) : ''}">
             <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')">
-            <span class="cal-evento-hora">${a.hora || '—'}</span> ${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}${nomeExibicao ? ` <span class="cal-evento-cliente">${escapeHtml(nomeExibicao)}</span>` : ''}
+            <span class="cal-evento-hora">${a.hora || '—'}</span> ${a.reagendadoDe ? '🔁 ' : ''}${TIPO_ICON[a.tipo] || '📌'} ${escapeHtml(a.titulo)}${nomeExibicao ? ` <span class="cal-evento-cliente">${escapeHtml(nomeExibicao)}</span>` : ''}
           </div>
         `;
         }).join('');
@@ -2721,9 +2725,10 @@ function openAgendamentoModal(id) {
   document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
   document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
 
-  const a = isNew ? { clienteId: null, clienteNome: '', titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0] }
+  const a = isNew ? { clienteId: null, clienteNome: '', titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], reagendadoDe: null }
                   : agendamentos.find(a => a.id === id);
   const cliente = a.clienteId ? state.clients.find(c => c.id === a.clienteId) : null;
+  document.getElementById('agendamento-modal-reagendado').textContent = a.reagendadoDe ? `🔁 Reagendado — era ${formatDate(a.reagendadoDe)}` : '';
 
   document.getElementById('ag-cliente-nome').value = a.clienteNome || (cliente ? cliente.nome : '');
   document.getElementById('ag-tipo').value = a.tipo;
@@ -2756,6 +2761,9 @@ async function saveAgendamento() {
 
   const participantes = [...document.querySelectorAll('#ag-participantes-list input:checked')].map(el => el.value);
 
+  const existente = editingAgendamentoId ? agendamentos.find(a => a.id === editingAgendamentoId) : null;
+  const reagendadoDe = existente && data !== existente.data ? existente.data : (existente ? existente.reagendadoDe : null);
+
   const payload = {
     cliente_id: clienteMatch ? clienteMatch.id : null,
     cliente_nome: nomeCliente,
@@ -2765,18 +2773,18 @@ async function saveAgendamento() {
     hora: document.getElementById('ag-hora').value || null,
     observacao: document.getElementById('ag-obs').value.trim(),
     responsavel: document.getElementById('ag-responsavel').value,
-    participantes
+    participantes,
+    reagendado_de: reagendadoDe
   };
 
   if (editingAgendamentoId) {
     const { error } = await sb.from('agendamentos').update(payload).eq('id', editingAgendamentoId);
     if (error) { alert('Erro ao salvar agendamento: ' + error.message); return; }
-    const a = agendamentos.find(a => a.id === editingAgendamentoId);
-    Object.assign(a, { clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes });
+    Object.assign(existente, { clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes, reagendadoDe });
   } else {
     const { data: row, error } = await sb.from('agendamentos').insert(payload).select().single();
     if (error) { alert('Erro ao criar agendamento: ' + error.message); return; }
-    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes, feito: false });
+    agendamentos.push({ id: row.id, clienteId: payload.cliente_id, clienteNome: nomeCliente, titulo, tipo: payload.tipo, data, hora: payload.hora || '', observacao: payload.observacao, responsavel: payload.responsavel, participantes, feito: false, reagendadoDe: null });
   }
 
   closeAgendamentoModal();
