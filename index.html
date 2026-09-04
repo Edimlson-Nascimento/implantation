@@ -1094,6 +1094,10 @@
         </select>
       </div>
       <div class="form-field full"><label>Motivo (se amarelo/vermelho)</label><input type="text" id="f-saude-motivo" placeholder="Ex: aguardando definição de fluxo há 5 dias"></div>
+      <div class="form-field full">
+        <label>Observação (particularidades do cliente)</label>
+        <textarea id="f-observacao" placeholder="Ex: sempre confirmar horário por WhatsApp, prefere contato só à tarde..." style="width:100%;min-height:80px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+      </div>
     </div>
     <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só contam nos indicadores de "Contatos hoje"/"Em atraso" quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
 
@@ -1342,6 +1346,7 @@ async function loadState() {
     fase: c.fase || 'implantacao',
     saude: c.saude || 'verde',
     saudeMotivo: c.saude_motivo || '',
+    observacao: c.observacao || '',
     inicio: c.inicio,
     ultimoContato: c.ultimo_contato,
     proximoContato: c.proximo_contato,
@@ -1668,7 +1673,7 @@ function openModal(id) {
 
   const c = isNew ? {
     codigo:'', nome:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
-    saude: 'verde', saudeMotivo: '',
+    saude: 'verde', saudeMotivo: '', observacao: '',
     inicio: todayStr(), proximoContato: todayStr(),
     contatos: [], pendencias: [], historico: []
   } : state.clients.find(c => c.id === id);
@@ -1680,6 +1685,7 @@ function openModal(id) {
   document.getElementById('f-fase').value = c.fase || 'implantacao';
   document.getElementById('f-saude').value = c.saude || 'verde';
   document.getElementById('f-saude-motivo').value = c.saudeMotivo || '';
+  document.getElementById('f-observacao').value = c.observacao || '';
   document.getElementById('f-inicio').value = c.inicio;
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
@@ -1979,6 +1985,7 @@ async function saveClient(silent) {
     fase: novaFase,
     saude: novaSaude,
     saude_motivo: novoMotivo,
+    observacao: document.getElementById('f-observacao').value.trim(),
     inicio: document.getElementById('f-inicio').value || todayStr(),
     proximo_contato: document.getElementById('f-proximo').value || null
   };
@@ -1991,7 +1998,7 @@ async function saveClient(silent) {
     c = {
       id: clientId, codigo: payload.codigo || '', nome: payload.nome,
       responsavel: payload.responsavel, etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
-      saudeMotivo: payload.saude_motivo, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
+      saudeMotivo: payload.saude_motivo, observacao: payload.observacao, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
       contatos: [], pendencias: [], historico: []
     };
     state.clients.push(c);
@@ -2007,6 +2014,7 @@ async function saveClient(silent) {
   }
   c.saude = novaSaude;
   c.saudeMotivo = novoMotivo;
+  c.observacao = payload.observacao;
   c.fase = novaFase;
 
   const eventos = [];
@@ -3683,7 +3691,7 @@ function importJSON(file) {
         const payload = {
           id: c.id, codigo: c.codigo || null, nome: c.nome,
           responsavel: c.responsavel || '', etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
-          saude_motivo: c.saudeMotivo || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
+          saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
         await sb.from('clientes').upsert(payload, { onConflict: 'id' });
         for (const ct of (c.contatos || [])) {
