@@ -1447,7 +1447,7 @@ function render() {
 
 function updateCalendarioCount() {
   const today = todayStr();
-  const pendentes = agendamentos.filter(a => !a.feito && a.data <= today);
+  const pendentes = agendamentos.filter(a => !a.feito && a.data === today);
   document.getElementById('calendario-count').textContent = pendentes.length;
 }
 
