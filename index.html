@@ -2758,7 +2758,7 @@ function openAgendamentoModal(id) {
   const isNew = !id;
   document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
   document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
-  document.getElementById('btn-virar-atividade').style.display = isNew ? 'none' : 'inline-block';
+  document.getElementById('btn-virar-atividade').style.display = 'inline-block';
 
   const a = isNew ? { clienteId: null, clienteNome: '', titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], reagendadoDe: null }
                   : agendamentos.find(a => a.id === id);
@@ -2852,7 +2852,8 @@ async function deleteAgendamento() {
 }
 
 function converterAgendamentoEmAtividade() {
-  if (!editingAgendamentoId) return;
+  // editingAgendamentoId pode ser null (agendamento novo, ainda não salvo) —
+  // nesse caso o rascunho é descartado e vira direto uma Atividade
   const agendamentoId = editingAgendamentoId;
 
   // lê direto dos campos do formulário (não do array salvo), pra pegar o que
