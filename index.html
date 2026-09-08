@@ -936,7 +936,10 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
+        <button class="btn" id="btn-virar-atividade" onclick="converterAgendamentoEmAtividade()" style="display:none" title="Cria uma Atividade com os mesmos dados desta reunião, sem precisar digitar tudo de novo">➜ Virar Atividade</button>
+      </div>
       <div style="display:flex;gap:8px;margin-left:auto;">
         <button class="btn" onclick="closeAgendamentoModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="withLock(this, saveAgendamento)">Salvar</button>
@@ -2735,6 +2738,7 @@ function openAgendamentoModal(id) {
   const isNew = !id;
   document.getElementById('agendamento-modal-title').textContent = isNew ? 'Novo Agendamento' : 'Editar Agendamento';
   document.getElementById('btn-delete-agendamento').style.display = isNew ? 'none' : 'inline-block';
+  document.getElementById('btn-virar-atividade').style.display = isNew ? 'none' : 'inline-block';
 
   const a = isNew ? { clienteId: null, clienteNome: '', titulo: '', tipo: 'reuniao', data: todayStr(), hora: '', observacao: '', responsavel: pessoaFiltro !== 'Todos' ? pessoaFiltro : PESSOAS[0], reagendadoDe: null }
                   : agendamentos.find(a => a.id === id);
@@ -2825,6 +2829,25 @@ async function deleteAgendamento() {
   agendamentos = agendamentos.filter(a => a.id !== editingAgendamentoId);
   closeAgendamentoModal();
   render();
+}
+
+function converterAgendamentoEmAtividade() {
+  if (!editingAgendamentoId) return;
+  const a = agendamentos.find(a => a.id === editingAgendamentoId);
+  if (!a) return;
+  const agendamentoId = a.id;
+  closeAgendamentoModal();
+  openAtividadeModal(null, 'afazer');
+  document.getElementById('at-cliente-nome').value = a.clienteNome || '';
+  document.getElementById('at-titulo').value = a.titulo + (a.observacao ? '\n\n' + a.observacao : '');
+  if (a.responsavel) {
+    document.getElementById('at-responsavel').value = a.responsavel;
+    document.getElementById('at-criado-por').value = a.responsavel;
+  }
+  document.querySelectorAll('#at-participantes-list input').forEach(el => {
+    el.checked = (a.participantes || []).includes(el.value);
+  });
+  if (!a.feito) toggleAgendamentoFeito(agendamentoId);
 }
 
 async function toggleAgendamentoFeito(id) {
