@@ -938,7 +938,7 @@
     <div class="modal-footer">
       <div style="display:flex;gap:8px;">
         <button class="btn btn-danger" id="btn-delete-agendamento" onclick="deleteAgendamento()" style="display:none">Excluir</button>
-        <button class="btn" id="btn-virar-atividade" onclick="converterAgendamentoEmAtividade()" style="display:none" title="Cria uma Atividade com os mesmos dados desta reunião, sem precisar digitar tudo de novo">➜ Virar Atividade</button>
+        <button class="btn" id="btn-virar-atividade" onclick="withLock(this, converterAgendamentoEmAtividade)" style="display:none" title="Salva o agendamento e cria uma Atividade com os mesmos dados, sem precisar digitar tudo de novo">➜ Virar Atividade</button>
       </div>
       <div style="display:flex;gap:8px;margin-left:auto;">
         <button class="btn" onclick="closeAgendamentoModal()">Cancelar</button>
@@ -2851,20 +2851,22 @@ async function deleteAgendamento() {
   render();
 }
 
-function converterAgendamentoEmAtividade() {
-  // editingAgendamentoId pode ser null (agendamento novo, ainda não salvo) —
-  // nesse caso o rascunho é descartado e vira direto uma Atividade
-  const agendamentoId = editingAgendamentoId;
+async function converterAgendamentoEmAtividade() {
+  const wasEditingId = editingAgendamentoId; // null se for "Novo Agendamento" ainda não salvo
 
-  // lê direto dos campos do formulário (não do array salvo), pra pegar o que
-  // está digitado na tela mesmo que ainda não tenha sido salvo
   const titulo = document.getElementById('ag-titulo').value.trim();
+  if (!titulo) { alert('Informe um título para o agendamento.'); return; }
+  if (!document.getElementById('ag-data').value) { alert('Informe a data.'); return; }
+
   const observacao = document.getElementById('ag-obs').value.trim();
   const clienteNome = document.getElementById('ag-cliente-nome').value.trim();
   const responsavel = document.getElementById('ag-responsavel').value;
   const participantes = [...document.querySelectorAll('#ag-participantes-list input:checked')].map(el => el.value);
 
-  closeAgendamentoModal();
+  // salva o agendamento normalmente primeiro — ele continua existindo na Agenda
+  await saveAgendamento();
+
+  // e abre a Atividade já preenchida com os mesmos dados, sem precisar digitar de novo
   openAtividadeModal(null, 'afazer');
   document.getElementById('at-cliente-nome').value = clienteNome;
   document.getElementById('at-titulo').value = titulo + (observacao ? '\n\n' + observacao : '');
@@ -2876,8 +2878,13 @@ function converterAgendamentoEmAtividade() {
     el.checked = participantes.includes(el.value);
   });
 
-  const a = agendamentos.find(a => a.id === agendamentoId);
-  if (a && !a.feito) toggleAgendamentoFeito(agendamentoId);
+  // se já era um agendamento existente (reunião que já tinha sido marcada antes),
+  // marca como feito — pra um agendamento recém-criado agora, não mexe nisso,
+  // já que ele pode ser pra uma data futura
+  if (wasEditingId) {
+    const a = agendamentos.find(a => a.id === wasEditingId);
+    if (a && !a.feito) toggleAgendamentoFeito(wasEditingId);
+  }
 }
 
 async function toggleAgendamentoFeito(id) {
