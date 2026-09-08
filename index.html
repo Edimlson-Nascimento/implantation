@@ -2853,21 +2853,30 @@ async function deleteAgendamento() {
 
 function converterAgendamentoEmAtividade() {
   if (!editingAgendamentoId) return;
-  const a = agendamentos.find(a => a.id === editingAgendamentoId);
-  if (!a) return;
-  const agendamentoId = a.id;
+  const agendamentoId = editingAgendamentoId;
+
+  // lê direto dos campos do formulário (não do array salvo), pra pegar o que
+  // está digitado na tela mesmo que ainda não tenha sido salvo
+  const titulo = document.getElementById('ag-titulo').value.trim();
+  const observacao = document.getElementById('ag-obs').value.trim();
+  const clienteNome = document.getElementById('ag-cliente-nome').value.trim();
+  const responsavel = document.getElementById('ag-responsavel').value;
+  const participantes = [...document.querySelectorAll('#ag-participantes-list input:checked')].map(el => el.value);
+
   closeAgendamentoModal();
   openAtividadeModal(null, 'afazer');
-  document.getElementById('at-cliente-nome').value = a.clienteNome || '';
-  document.getElementById('at-titulo').value = a.titulo + (a.observacao ? '\n\n' + a.observacao : '');
-  if (a.responsavel) {
-    document.getElementById('at-responsavel').value = a.responsavel;
-    document.getElementById('at-criado-por').value = a.responsavel;
+  document.getElementById('at-cliente-nome').value = clienteNome;
+  document.getElementById('at-titulo').value = titulo + (observacao ? '\n\n' + observacao : '');
+  if (responsavel) {
+    document.getElementById('at-responsavel').value = responsavel;
+    document.getElementById('at-criado-por').value = responsavel;
   }
   document.querySelectorAll('#at-participantes-list input').forEach(el => {
-    el.checked = (a.participantes || []).includes(el.value);
+    el.checked = participantes.includes(el.value);
   });
-  if (!a.feito) toggleAgendamentoFeito(agendamentoId);
+
+  const a = agendamentos.find(a => a.id === agendamentoId);
+  if (a && !a.feito) toggleAgendamentoFeito(agendamentoId);
 }
 
 async function toggleAgendamentoFeito(id) {
