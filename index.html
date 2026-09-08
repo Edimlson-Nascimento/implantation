@@ -915,8 +915,9 @@
     <div class="form-grid">
       <div class="form-field full">
         <label>Cliente (opcional)</label>
-        <input type="text" id="ag-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente ou digitar nome de um lead...">
+        <input type="text" id="ag-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente ou digitar nome de um lead..." oninput="renderAgClienteContatos()">
         <datalist id="lista-clientes-nomes"></datalist>
+        <div id="ag-cliente-contatos" class="contatos-list" style="margin-top:8px;"></div>
       </div>
       <div class="form-field"><label>Tipo</label>
         <select id="ag-tipo"></select>
@@ -2751,8 +2752,23 @@ function openAgendamentoModal(id) {
   document.getElementById('ag-data').value = a.data;
   document.getElementById('ag-hora').value = a.hora;
   document.getElementById('ag-obs').value = a.observacao;
+  renderAgClienteContatos();
 
   document.getElementById('agendamento-modal-overlay').classList.add('open');
+}
+
+function renderAgClienteContatos() {
+  const nome = document.getElementById('ag-cliente-nome').value.trim();
+  const container = document.getElementById('ag-cliente-contatos');
+  const cliente = nome ? state.clients.find(c => c.nome.toLowerCase() === nome.toLowerCase()) : null;
+  if (!cliente || !cliente.contatos.length) { container.innerHTML = ''; return; }
+  container.innerHTML = cliente.contatos.map(ct => `
+    <div class="contato-item">
+      <span class="ci-nome">${escapeHtml(ct.nome)}</span>
+      ${ct.cargo ? `<span class="ci-cargo">${escapeHtml(ct.cargo)}</span>` : ''}
+      ${ct.telefone ? `<span class="ci-telefone">${escapeHtml(ct.telefone)}</span>` : ''}
+    </div>
+  `).join('');
 }
 
 function closeAgendamentoModal() {
