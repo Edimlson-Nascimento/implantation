@@ -1464,6 +1464,7 @@ function renderStats() {
   const today = todayStr();
   const emImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
   const emRisco = state.clients.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
+  const contatadosHoje = emImplantacao.filter(c => c.ultimoContato === today);
   const urgencias = atividades.filter(a => a.coluna === 'urgencias' && !a.cancelado);
   const afazer = atividades.filter(a => a.coluna === 'afazer' && !a.cancelado);
   const andamento = atividades.filter(a => a.coluna === 'andamento' && !a.cancelado);
@@ -1471,6 +1472,7 @@ function renderStats() {
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
     <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco</div></div>
+    <div class="stat-card"><div class="num">${contatadosHoje.length}/${emImplantacao.length}</div><div class="lbl">Contatados hoje</div></div>
     <div class="stat-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div></div>
     <div class="stat-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div></div>
     <div class="stat-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div></div>
@@ -1522,6 +1524,19 @@ async function registrarContato(id, nota, proximo) {
   c.historico.unshift({ id: histRow.id, data: today, texto });
   c.ultimoContato = today;
   c.proximoContato = proximoFinal;
+}
+
+async function toggleContatoHoje(clienteId, checked) {
+  const c = state.clients.find(c => c.id === clienteId);
+  if (!c) return;
+  if (checked) {
+    await registrarContato(clienteId, 'Contato registrado via Pendências.', null);
+  } else {
+    const { error } = await sb.from('clientes').update({ ultimo_contato: null }).eq('id', clienteId);
+    if (error) { alert('Erro ao desmarcar contato: ' + error.message); return; }
+    c.ultimoContato = null;
+  }
+  renderStats();
 }
 
 function setClientsView(view) {
@@ -1848,12 +1863,17 @@ function renderPendencias() {
     return a.nome.localeCompare(b.nome);
   });
 
+  const today = todayStr();
   container.innerHTML = clientesOrdenados.map(c => `
     <div class="pendencia-card">
       <div class="pendencia-card-header">
         <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
         <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
       </div>
+      <label class="chk" style="margin:6px 0 2px;">
+        <input type="checkbox" ${c.ultimoContato === today ? 'checked' : ''} onchange="toggleContatoHoje('${c.id}', this.checked)">
+        📞 Falei com o cliente hoje
+      </label>
       <div class="pend-cols">
         <div class="pend-col cliente">
           <h4>⚠ Do Cliente</h4>
