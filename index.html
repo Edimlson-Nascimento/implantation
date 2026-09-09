@@ -1892,7 +1892,10 @@ function renderPendencias() {
     <div class="pendencia-card">
       <div class="pendencia-card-header">
         <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-        <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
+          <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
+        </div>
       </div>
       <label class="chk contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
         <input type="checkbox" ${c.ultimoContato === today ? 'checked' : ''} onchange="toggleContatoHoje('${c.id}', this.checked)">
@@ -1956,6 +1959,29 @@ async function addPendenciaGeral(clienteId, tipo) {
   c.pendencias.push({ id: data.id, texto, responsavel: tipo, feito: false });
   input.value = '';
   renderPendListGeral(c);
+}
+
+function copiarPendenciasCliente(clienteId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  if (!c) return;
+
+  const doCliente = c.pendencias.filter(p => p.responsavel === 'cliente' && !p.feito);
+  const daIntelipulse = c.pendencias.filter(p => p.responsavel === 'rscrm' && !p.feito);
+
+  let texto = `📋 Pendências — ${c.nome}\n\n`;
+  texto += `⚠ Do Cliente:\n`;
+  texto += doCliente.length ? doCliente.map(p => `- ${p.texto}`).join('\n') : 'Nenhuma pendência.';
+  texto += `\n\n🔧 Da Intelipulse:\n`;
+  texto += daIntelipulse.length ? daIntelipulse.map(p => `- ${p.texto}`).join('\n') : 'Nenhuma pendência.';
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(
+      () => alert('Pendências copiadas! Já pode colar no WhatsApp ou e-mail.'),
+      () => promptFallbackCopy(texto)
+    );
+  } else {
+    promptFallbackCopy(texto);
+  }
 }
 
 async function togglePendenciaGeral(clienteId, pendId) {
