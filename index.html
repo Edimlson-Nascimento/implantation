@@ -593,13 +593,29 @@
   .rv-empty { text-align:center; color:#7a8399; font-size:13px; padding:10px 0; }
   .rv-date-tag { font-size:10.5px; color:#8a94aa; font-weight:400; margin-left:6px; }
 
-  .lamina-etapa-tag { font-weight:400; font-size:11px; color:#5e6c84; margin-left:6px; }
-  .lam-item { font-size:13px; line-height:1.5; margin:0 0 8px; padding:9px 12px; color:#1a2029; background:#f6f8fb; border:1px solid #e3e6ee; border-left:3px solid #9aa4b8; border-radius:8px; white-space:pre-wrap; }
-  .lam-item.concluida { border-left-color:#1f9d63; }
-  .lam-item.atrasada { border-left-color:#F59E0B; }
-  .lam-item.pend-cliente { border-left-color:#B45309; }
-  .lam-item.pend-rscrm { border-left-color:#3B82F6; }
-  .lamina-pend-subtitulo { font-size:11px; font-weight:700; color:#5e6c84; margin:10px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .lamina-doc { background:#fff; border-radius:18px; overflow:hidden; margin-top:14px; box-shadow:0 8px 30px rgba(2,31,51,0.12); border:1px solid #e3e6ee; }
+  .lamina-doc-header { background:linear-gradient(135deg, #021F33 0%, #063A5E 100%); padding:30px 32px 26px; color:#fff; position:relative; }
+  .lamina-doc-header::after { content:''; position:absolute; left:0; right:0; bottom:0; height:4px; background:linear-gradient(90deg, #00FF7A, #00E676 60%, transparent); }
+  .lamina-doc-header img { height:26px; display:block; margin-bottom:18px; }
+  .lamina-doc-header h1 { margin:0; font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .lamina-doc-header p { margin:7px 0 0; font-size:12.5px; color:#7FE8B4; font-weight:700; letter-spacing:.02em; }
+  .lamina-doc-body { padding:26px 28px 28px; background:#fafbfd; }
+  .lamina-cliente-card { background:#fff; border:1px solid #e6e9f0; border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 10px rgba(2,31,51,0.05); }
+  .lamina-cliente-card:last-child { margin-bottom:0; }
+  .lamina-cliente-topbar { height:5px; }
+  .lamina-cliente-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:13px 18px; background:#f5f7fb; border-bottom:1px solid #eceff5; flex-wrap:wrap; }
+  .lamina-cliente-nome { font-size:15px; font-weight:800; color:#0e1c2b; }
+  .lamina-etapa-badge { font-size:10.5px; font-weight:800; padding:4px 12px; border-radius:100px; color:#fff; white-space:nowrap; letter-spacing:.02em; }
+  .lamina-cliente-body { padding:14px 18px 16px; }
+  .lamina-secao-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8891a3; margin:12px 0 7px; display:flex; align-items:center; gap:5px; }
+  .lamina-secao-label:first-child { margin-top:0; }
+  .lam-item { font-size:13px; line-height:1.5; margin:0 0 7px; padding:10px 14px; color:#20293a; background:#f9fafc; border:1px solid #edf0f5; border-left:4px solid #9aa4b8; border-radius:9px; white-space:pre-wrap; }
+  .lam-item:last-child { margin-bottom:0; }
+  .lam-item.concluida { border-left-color:#1f9d63; background:#f1fbf6; }
+  .lam-item.atrasada { border-left-color:#F59E0B; background:#fef9ef; }
+  .lam-item.pend-cliente { border-left-color:#B45309; background:#fef7ee; }
+  .lam-item.pend-rscrm { border-left-color:#3B82F6; background:#eff5ff; }
+  .lamina-cliente-ok { font-size:12.5px; color:#1f9d63; font-weight:700; padding:4px 2px 2px; }
 
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
@@ -942,7 +958,7 @@
         </div>
       </div>
       <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Mostra clientes em fase de Implantação: atividades criadas hoje (qualquer raia), atividades antigas ainda não concluídas, e pendências marcadas pra aparecer aqui (✎ em cada pendência, aba Pendências ou modal do cliente).</p>
-      <div id="lamina-visual" class="relatorio-visual"></div>
+      <div id="lamina-visual"></div>
     </div>
   </section>
     </main>
@@ -2312,51 +2328,70 @@ function renderLamina() {
     });
 
   let html = `
-    <div class="rv-brand"><img src="logo-intelipulse-light.png" alt="Intelipulse"></div>
-    <div class="rv-header">
-      <h3>Lâmina — Andamento dos Clientes em Implantação</h3>
-      <p>${formatDate(today)} · ${clientesImplantacao.length} cliente${clientesImplantacao.length === 1 ? '' : 's'} em implantação</p>
-    </div>
+    <div class="lamina-doc">
+      <div class="lamina-doc-header">
+        <img src="logo-intelipulse.png" alt="Intelipulse">
+        <h1>Lâmina — Andamento dos Clientes em Implantação</h1>
+        <p>${formatDate(today)} · ${clientesImplantacao.length} cliente${clientesImplantacao.length === 1 ? '' : 's'} em implantação</p>
+      </div>
+      <div class="lamina-doc-body">
   `;
 
   if (!clientesImplantacao.length) {
     html += `<div class="rv-empty">Nenhum cliente em implantação no momento.</div>`;
   } else {
     clientesImplantacao.forEach(c => {
-      const etapa = stageOf(c.etapa).nome;
+      const etapaObj = stageOf(c.etapa);
       const atividadesCliente = atividades.filter(a => !a.cancelado && a.clienteNome === c.nome);
       const atividadesHoje = atividadesCliente.filter(a => (a.criadoEm || '').slice(0, 10) === today);
       const atividadesAntigasAbertas = atividadesCliente.filter(a => a.coluna !== 'concluida' && (a.criadoEm || '').slice(0, 10) !== today);
       const pendenciasLamina = c.pendencias.filter(p => !p.feito && p.mostrarLamina);
       const pendDoCliente = pendenciasLamina.filter(p => p.responsavel === 'cliente');
       const pendIntelipulse = pendenciasLamina.filter(p => p.responsavel === 'rscrm');
-
-      html += `<div class="rv-cliente">${escapeHtml(c.nome)}<span class="lamina-etapa-tag">${escapeHtml(etapa)}</span></div>`;
-
       const temAlgo = atividadesHoje.length || atividadesAntigasAbertas.length || pendDoCliente.length || pendIntelipulse.length;
+
+      html += `
+        <div class="lamina-cliente-card">
+          <div class="lamina-cliente-topbar" style="background:${etapaObj.cor}"></div>
+          <div class="lamina-cliente-head">
+            <span class="lamina-cliente-nome">${escapeHtml(c.nome)}</span>
+            <span class="lamina-etapa-badge" style="background:${etapaObj.cor}">${escapeHtml(etapaObj.nome)}</span>
+          </div>
+          <div class="lamina-cliente-body">
+      `;
+
       if (!temAlgo) {
-        html += `<div class="rv-empty">✅ Sem pendências ou atividades em aberto no momento.</div>`;
+        html += `<div class="lamina-cliente-ok">✅ Sem pendências ou atividades em aberto no momento</div>`;
       } else {
-        atividadesHoje.forEach(a => {
-          const feitaHoje = a.coluna === 'concluida';
-          html += `<div class="lam-item ${feitaHoje ? 'concluida' : ''}">${feitaHoje ? '✓ ' : ''}${escapeHtml(a.titulo)}${a.resolucao ? `<div class="rv-resolucao">↳ ${escapeHtml(a.resolucao)}</div>` : ''}</div>`;
-        });
-        atividadesAntigasAbertas.forEach(a => {
-          const dias = diasDesde(a.criadoEm);
-          html += `<div class="lam-item atrasada">${escapeHtml(a.titulo)}<span class="rv-date-tag">⏳ em aberto há ${dias} dia${dias === 1 ? '' : 's'}</span></div>`;
-        });
+        if (atividadesHoje.length) {
+          html += `<div class="lamina-secao-label">📌 Hoje</div>`;
+          atividadesHoje.forEach(a => {
+            const feitaHoje = a.coluna === 'concluida';
+            html += `<div class="lam-item ${feitaHoje ? 'concluida' : ''}">${feitaHoje ? '✓ ' : ''}${escapeHtml(a.titulo)}${a.resolucao ? `<div class="rv-resolucao">↳ ${escapeHtml(a.resolucao)}</div>` : ''}</div>`;
+          });
+        }
+        if (atividadesAntigasAbertas.length) {
+          html += `<div class="lamina-secao-label">⏳ Em aberto</div>`;
+          atividadesAntigasAbertas.forEach(a => {
+            const dias = diasDesde(a.criadoEm);
+            html += `<div class="lam-item atrasada">${escapeHtml(a.titulo)}<span class="rv-date-tag">há ${dias} dia${dias === 1 ? '' : 's'}</span></div>`;
+          });
+        }
         if (pendDoCliente.length) {
-          html += `<div class="lamina-pend-subtitulo">⚠ Pendências do Cliente</div>`;
+          html += `<div class="lamina-secao-label">⚠ Pendências do Cliente</div>`;
           pendDoCliente.forEach(p => { html += `<div class="lam-item pend-cliente">${escapeHtml(p.texto)}</div>`; });
         }
         if (pendIntelipulse.length) {
-          html += `<div class="lamina-pend-subtitulo">🔧 Pendências da Intelipulse</div>`;
+          html += `<div class="lamina-secao-label">🔧 Pendências da Intelipulse</div>`;
           pendIntelipulse.forEach(p => { html += `<div class="lam-item pend-rscrm">${escapeHtml(p.texto)}</div>`; });
         }
       }
+
+      html += `</div></div>`;
     });
   }
 
+  html += `</div></div>`;
   document.getElementById('lamina-visual').innerHTML = html;
 }
 
