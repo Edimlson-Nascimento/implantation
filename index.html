@@ -956,7 +956,8 @@
         <div style="display:flex;gap:8px;">
           <button class="btn btn-sm" id="btn-toggle-todos-lamina" onclick="toggleTodosLamina()">▸ Recolher Todos</button>
           <button class="btn" onclick="withLock(this, copiarLaminaImagem)">📋 Copiar Imagem</button>
-          <button class="btn btn-primary" onclick="baixarLaminaImagem()">📸 Baixar Imagem</button>
+          <button class="btn" onclick="withLock(this, baixarLaminaImagem)">📸 Baixar Imagem</button>
+          <button class="btn btn-primary" onclick="withLock(this, baixarLaminaPDF)">📄 Baixar PDF</button>
         </div>
       </div>
       <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Mostra clientes em fase de Implantação: atividades criadas hoje (qualquer raia), atividades antigas ainda não concluídas, e pendências marcadas pra aparecer aqui (✎ em cada pendência, aba Pendências ou modal do cliente).</p>
@@ -1234,6 +1235,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
@@ -2422,16 +2424,36 @@ function renderLamina() {
   document.getElementById('lamina-visual').innerHTML = html;
 }
 
-function baixarLaminaImagem() {
+async function baixarLaminaImagem() {
   const el = document.getElementById('lamina-visual');
-  html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-    const imgData = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-    link.download = `Lamina-Implantacao-${dataHoje}.png`;
-    link.href = imgData;
-    link.click();
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+  link.download = `Lamina-Implantacao-${dataHoje}.png`;
+  link.href = imgData;
+  link.click();
+}
+
+async function baixarLaminaPDF() {
+  const el = document.getElementById('lamina-visual');
+  const scale = 2;
+  const canvas = await html2canvas(el, { scale, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+
+  // px (em CSS, já descontando o scale do html2canvas) → mm, a 96dpi
+  const widthMm = (canvas.width / scale) * 0.264583;
+  const heightMm = (canvas.height / scale) * 0.264583;
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({
+    orientation: widthMm > heightMm ? 'landscape' : 'portrait',
+    unit: 'mm',
+    format: [widthMm, heightMm]
   });
+  pdf.addImage(imgData, 'PNG', 0, 0, widthMm, heightMm);
+  const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+  pdf.save(`Lamina-Implantacao-${dataHoje}.pdf`);
 }
 
 async function copiarLaminaImagem() {
