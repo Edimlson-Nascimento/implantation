@@ -299,14 +299,21 @@
   .pendencia-card-count { font-size:11px; font-weight:700; color:#B45309; background:rgba(180,83,9,0.12); padding:3px 9px; border-radius:100px; white-space:nowrap; }
 
   .contato-hoje-box {
-    display:flex; align-items:center; gap:8px; margin:8px 0 14px; padding:10px 12px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:8px 0 14px; padding:10px 12px;
     border-radius:10px; border:1px solid rgba(245,158,11,0.4); background:rgba(245,158,11,0.14);
-    font-size:13px; font-weight:700; color:#92400E; cursor:pointer;
+    font-size:13px; font-weight:700; color:#92400E;
   }
   :root[data-theme="dark"] .contato-hoje-box { color:#FCD34D; }
-  .contato-hoje-box input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
   .contato-hoje-box.feito { border-color:rgba(0,255,122,0.4); background:rgba(0,255,122,0.14); color:#166534; }
   :root[data-theme="dark"] .contato-hoje-box.feito { color:var(--green); }
+  .canal-btns { display:flex; gap:4px; }
+  .canal-btn {
+    font-size:15px; line-height:1; padding:5px 7px; border-radius:8px; border:1px solid transparent;
+    background:rgba(255,255,255,0.5); cursor:pointer; opacity:0.5;
+  }
+  :root[data-theme="dark"] .canal-btn { background:rgba(255,255,255,0.08); }
+  .canal-btn:hover { opacity:0.85; }
+  .canal-btn.active { opacity:1; border-color:currentColor; box-shadow:0 1px 3px rgba(0,0,0,0.15); }
 
   .treinamentos-clientes-wrap { display:flex; flex-direction:column; gap:16px; margin-top:16px; }
   .trein-cliente-card { background:var(--white); border:1px solid var(--border-light); border-radius:16px; padding:18px; }
@@ -708,6 +715,7 @@
   <div class="main-area">
     <div class="topbar">
       <div class="header-sub" id="header-date"></div>
+      <button class="btn btn-sm" onclick="withLock(this, refreshDados)" title="Recarrega os dados do servidor (útil pra ver o que outras pessoas lançaram)">🔄 Atualizar</button>
       <div class="stats-row" id="stats-row"></div>
       <button class="btn btn-green" id="btn-novo-cliente" onclick="openModal(null)" style="display:none;">+ Novo Cliente</button>
     </div>
@@ -1364,6 +1372,7 @@ async function loadState() {
     observacao: c.observacao || '',
     inicio: c.inicio,
     ultimoContato: c.ultimo_contato,
+    ultimoContatoCanal: c.ultimo_contato_canal || null,
     proximoContato: c.proximo_contato,
     contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '' })),
     pendencias: pendencias.filter(p => p.cliente_id === c.id).map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito })),
@@ -1529,7 +1538,7 @@ function populateTipoAgendamentoOptions() {
   if (current) sel.value = current;
 }
 
-async function registrarContato(id, nota, proximo) {
+async function registrarContato(id, nota, proximo, canal) {
   const c = state.clients.find(c => c.id === id);
   if (!c) return;
   const today = todayStr();
@@ -1539,28 +1548,50 @@ async function registrarContato(id, nota, proximo) {
   const { data: histRow, error: errH } = await sb.from('historico').insert({ cliente_id: id, data: today, texto }).select().single();
   if (errH) { alert('Erro ao registrar contato: ' + errH.message); return; }
 
-  const { error: errU } = await sb.from('clientes').update({ ultimo_contato: today, proximo_contato: proximoFinal }).eq('id', id);
+  const { error: errU } = await sb.from('clientes').update({ ultimo_contato: today, proximo_contato: proximoFinal, ultimo_contato_canal: canal || null }).eq('id', id);
   if (errU) { alert('Erro ao atualizar cliente: ' + errU.message); return; }
 
   c.historico.unshift({ id: histRow.id, data: today, texto });
   c.ultimoContato = today;
   c.proximoContato = proximoFinal;
+  c.ultimoContatoCanal = canal || null;
 }
 
-async function toggleContatoHoje(clienteId, checked) {
+const CANAL_CONTATO_LABEL = { ligacao: 'Ligação', mensagem: 'Mensagem (WhatsApp)', email: 'E-mail', reuniao: 'Reunião/Call' };
+
+async function marcarContatoHoje(clienteId, canal) {
   const c = state.clients.find(c => c.id === clienteId);
   if (!c) return;
-  if (checked) {
-    await registrarContato(clienteId, 'Contato registrado via Pendências.', null);
-  } else {
-    const { error } = await sb.from('clientes').update({ ultimo_contato: null }).eq('id', clienteId);
+  const today = todayStr();
+  const jaContatadoHoje = c.ultimoContato === today;
+
+  if (jaContatadoHoje && c.ultimoContatoCanal === canal) {
+    const { error } = await sb.from('clientes').update({ ultimo_contato: null, ultimo_contato_canal: null }).eq('id', clienteId);
     if (error) { alert('Erro ao desmarcar contato: ' + error.message); return; }
     c.ultimoContato = null;
+    c.ultimoContatoCanal = null;
+  } else if (jaContatadoHoje) {
+    const { error } = await sb.from('clientes').update({ ultimo_contato_canal: canal }).eq('id', clienteId);
+    if (error) { alert('Erro ao atualizar canal de contato: ' + error.message); return; }
+    c.ultimoContatoCanal = canal;
+  } else {
+    await registrarContato(clienteId, `Contato por ${CANAL_CONTATO_LABEL[canal]} (registrado via Pendências).`, null, canal);
   }
-  const box = document.getElementById(`pgeral-contato-box-${clienteId}`);
-  if (box) box.classList.toggle('feito', checked);
+
+  renderContatoHojeBox(c);
   renderStats();
   updatePendenciasCount();
+}
+
+function renderContatoHojeBox(c) {
+  const box = document.getElementById(`pgeral-contato-box-${c.id}`);
+  if (!box) return;
+  const today = todayStr();
+  const feito = c.ultimoContato === today;
+  box.classList.toggle('feito', feito);
+  box.querySelectorAll('.canal-btn').forEach(btn => {
+    btn.classList.toggle('active', feito && btn.dataset.canal === c.ultimoContatoCanal);
+  });
 }
 
 function setClientsView(view) {
@@ -1897,10 +1928,15 @@ function renderPendencias() {
           <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
         </div>
       </div>
-      <label class="chk contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
-        <input type="checkbox" ${c.ultimoContato === today ? 'checked' : ''} onchange="toggleContatoHoje('${c.id}', this.checked)">
-        🔔 Entrar em contato com o cliente hoje
-      </label>
+      <div class="contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
+        <span>🔔 Entrar em contato com o cliente hoje</span>
+        <div class="canal-btns">
+          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'ligacao' ? 'active' : ''}" data-canal="ligacao" onclick="marcarContatoHoje('${c.id}','ligacao')" title="Ligação">📞</button>
+          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'mensagem' ? 'active' : ''}" data-canal="mensagem" onclick="marcarContatoHoje('${c.id}','mensagem')" title="Mensagem (WhatsApp)">💬</button>
+          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'email' ? 'active' : ''}" data-canal="email" onclick="marcarContatoHoje('${c.id}','email')" title="E-mail">📧</button>
+          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'reuniao' ? 'active' : ''}" data-canal="reuniao" onclick="marcarContatoHoje('${c.id}','reuniao')" title="Reunião / Call">🤝</button>
+        </div>
+      </div>
       <div class="pend-cols">
         <div class="pend-col cliente">
           <h4>⚠ Do Cliente</h4>
@@ -3938,6 +3974,11 @@ document.getElementById('signup-senha2').addEventListener('keydown', e => { if (
 function showAuthScreen() {
   document.getElementById('app-shell').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function refreshDados() {
+  await loadState();
+  render();
 }
 
 async function showApp(session) {
