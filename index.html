@@ -3746,7 +3746,8 @@ document.getElementById('relatorio-filter-custom').addEventListener('change', e 
 function atividadesConcluidasFiltradas() {
   const base = atividades.filter(a =>
     a.coluna === 'concluida' && !a.cancelado &&
-    (relatorioFiltroData === null || a.concluidoEm === relatorioFiltroData)
+    (relatorioFiltroData === null || a.concluidoEm === relatorioFiltroData) &&
+    (!concluidoFiltroCliente || a.clienteNome === concluidoFiltroCliente)
   );
   const expandido = [];
   base.forEach(a => {
@@ -3759,7 +3760,8 @@ function atividadesConcluidasFiltradas() {
 function renderRelatorioVisual() {
   const concluidos = atividadesConcluidasFiltradas();
   const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
-  const subtitulo = pessoaFiltro === 'Todos' ? '' : ` · ${escapeHtml(pessoaFiltro)}`;
+  const subtitulo = [pessoaFiltro !== 'Todos' ? pessoaFiltro : null, concluidoFiltroCliente || null]
+    .filter(Boolean).map(s => ` · ${escapeHtml(s)}`).join('');
 
   let html = `
     <div class="rv-brand"><img src="logo-intelipulse-light.png" alt="Intelipulse"></div>
@@ -3792,7 +3794,9 @@ function baixarRelatorioTexto() {
   const concluidos = atividadesConcluidasFiltradas();
   const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
 
-  let texto = `Resumo do Dia${pessoaFiltro === 'Todos' ? '' : ' — ' + pessoaFiltro} — ${tituloData}\n`;
+  const subtituloTexto = [pessoaFiltro !== 'Todos' ? pessoaFiltro : null, concluidoFiltroCliente || null]
+    .filter(Boolean).map(s => ' — ' + s).join('');
+  let texto = `Resumo do Dia${subtituloTexto} — ${tituloData}\n`;
   texto += `Total: ${concluidos.length} tarefa${concluidos.length===1?'':'s'} concluída${concluidos.length===1?'':'s'}\n\n`;
 
   if (concluidos.length === 0) {
