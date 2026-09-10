@@ -618,6 +618,18 @@
   .lam-item.pend-rscrm { border-left-color:#3B82F6; background:#eff5ff; }
   .lamina-cliente-ok { font-size:12.5px; color:#1f9d63; font-weight:700; padding:4px 2px 2px; }
 
+  .stat-card .sub { font-size:10.5px; color:var(--gray-text); margin-top:2px; }
+  .ind-legend { display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--text-main); font-weight:600; }
+  .ind-legend .sw { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:middle; }
+  .ind-chart-bars { display:flex; align-items:flex-end; gap:16px; height:200px; padding:26px 6px 0; margin-top:6px; border-bottom:1px solid var(--border-light); overflow-x:auto; }
+  .ind-bucket { display:flex; flex-direction:column; align-items:center; min-width:46px; flex-shrink:0; }
+  .ind-bucket-bars { display:flex; align-items:flex-end; gap:5px; height:160px; }
+  .ind-bar { width:16px; border-radius:4px 4px 0 0; position:relative; min-height:3px; }
+  .ind-bar .val { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:10.5px; font-weight:700; color:var(--text-main); white-space:nowrap; }
+  .ind-bar.criadas { background:#3B82F6; }
+  .ind-bar.concluidas { background:#00C853; }
+  .ind-bucket-label { font-size:10px; color:var(--gray-text); margin-top:6px; text-align:center; white-space:nowrap; }
+
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
   .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.4); }
@@ -731,6 +743,7 @@
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
       <button class="nav-item" id="tab-lamina" onclick="setTab('lamina')">🖼 Lâmina</button>
+      <button class="nav-item" id="tab-indicadores" onclick="setTab('indicadores')">📊 Indicadores</button>
     </nav>
     <div class="sidebar-footer">
       <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
@@ -962,6 +975,29 @@
       </div>
       <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Mostra clientes em fase de Implantação: atividades criadas hoje (qualquer raia), atividades antigas ainda não concluídas, e pendências marcadas pra aparecer aqui (✎ em cada pendência, aba Pendências ou modal do cliente).</p>
       <div id="lamina-visual"></div>
+    </div>
+  </section>
+
+  <section id="view-indicadores" style="display:none">
+    <div class="resumo-box">
+      <h2>Indicadores</h2>
+      <div class="pessoa-filter" id="pessoa-filter-indicadores" style="margin-top:14px;"></div>
+
+      <div class="stats-row" id="indicadores-stats-row" style="margin-top:16px;"></div>
+
+      <div style="margin-top:26px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <h3 style="margin:0;font-size:14px;color:var(--text-main);">Criadas × Concluídas</h3>
+        <div class="view-toggle">
+          <button class="view-toggle-btn" id="ind-periodo-btn-dia" onclick="setIndicadoresPeriodo('dia')">Dia</button>
+          <button class="view-toggle-btn" id="ind-periodo-btn-semana" onclick="setIndicadoresPeriodo('semana')">Semana</button>
+          <button class="view-toggle-btn" id="ind-periodo-btn-mes" onclick="setIndicadoresPeriodo('mes')">Mês</button>
+        </div>
+      </div>
+      <div class="ind-legend">
+        <span><span class="sw" style="background:#3B82F6"></span>Criadas</span>
+        <span><span class="sw" style="background:#00C853"></span>Concluídas</span>
+      </div>
+      <div id="indicadores-chart" class="ind-chart-bars"></div>
     </div>
   </section>
     </main>
@@ -1516,6 +1552,7 @@ function setTab(tab) {
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
   document.getElementById('tab-lamina').classList.toggle('active', tab === 'lamina');
+  document.getElementById('tab-indicadores').classList.toggle('active', tab === 'indicadores');
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-pendencias').style.display = tab === 'pendencias' ? '' : 'none';
@@ -1524,6 +1561,7 @@ function setTab(tab) {
   document.getElementById('view-etapas').style.display = tab === 'etapas' ? '' : 'none';
   document.getElementById('view-atividades').style.display = tab === 'atividades' ? '' : 'none';
   document.getElementById('view-lamina').style.display = tab === 'lamina' ? '' : 'none';
+  document.getElementById('view-indicadores').style.display = tab === 'indicadores' ? '' : 'none';
   render();
 }
 
@@ -1543,6 +1581,7 @@ function render() {
   else if (activeTab === 'etapas') renderEtapas();
   else if (activeTab === 'atividades') renderAtividades();
   else if (activeTab === 'lamina') renderLamina();
+  else if (activeTab === 'indicadores') renderIndicadores();
   else renderResumo();
 }
 
@@ -2454,6 +2493,96 @@ async function baixarLaminaPDF() {
   pdf.addImage(imgData, 'PNG', 0, 0, widthMm, heightMm);
   const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
   pdf.save(`Lamina-Implantacao-${dataHoje}.pdf`);
+}
+
+/* ── INDICADORES ── */
+let indicadoresPeriodo = 'dia';
+
+function setIndicadoresPeriodo(p) {
+  indicadoresPeriodo = p;
+  renderIndicadores();
+}
+
+function gerarBucketsIndicadores(periodo) {
+  const hoje = todayStr();
+  const buckets = [];
+  if (periodo === 'dia') {
+    for (let i = 13; i >= 0; i--) {
+      const iso = addDays(hoje, -i);
+      buckets.push({ label: shortDateAt(iso), from: iso, to: iso });
+    }
+  } else if (periodo === 'semana') {
+    for (let i = 7; i >= 0; i--) {
+      const to = addDays(hoje, -i * 7);
+      const from = addDays(to, -6);
+      buckets.push({ label: shortDateAt(from), from, to });
+    }
+  } else {
+    const [y0, m0] = hoje.split('-').map(Number);
+    for (let i = 5; i >= 0; i--) {
+      let y = y0, m = m0 - i;
+      while (m <= 0) { m += 12; y -= 1; }
+      const mm = String(m).padStart(2, '0');
+      const from = `${y}-${mm}-01`;
+      const ultimoDia = new Date(y, m, 0).getDate();
+      const to = `${y}-${mm}-${String(ultimoDia).padStart(2, '0')}`;
+      buckets.push({ label: `${MESES_PT[m - 1].slice(0, 3)}/${String(y).slice(2)}`, from, to });
+    }
+  }
+  return buckets;
+}
+
+function mediaIdadeAbertos(lista) {
+  if (!lista.length) return 0;
+  const total = lista.reduce((soma, a) => soma + diasDesde(a.criadoEm), 0);
+  return Math.round(total / lista.length);
+}
+
+function renderIndicadores() {
+  renderPessoaFilterInto('pessoa-filter-indicadores');
+
+  const atividadesFiltradas = atividades.filter(a => !a.cancelado &&
+    (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)))
+  );
+
+  const urgencias = atividadesFiltradas.filter(a => a.coluna === 'urgencias');
+  const afazer = atividadesFiltradas.filter(a => a.coluna === 'afazer');
+  const andamento = atividadesFiltradas.filter(a => a.coluna === 'andamento');
+  const concluidas = atividadesFiltradas.filter(a => a.coluna === 'concluida');
+
+  document.getElementById('indicadores-stats-row').innerHTML = `
+    <div class="stat-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div><div class="sub">${urgencias.length ? `média ${mediaIdadeAbertos(urgencias)} dia(s) em aberto` : '—'}</div></div>
+    <div class="stat-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div><div class="sub">${afazer.length ? `média ${mediaIdadeAbertos(afazer)} dia(s) em aberto` : '—'}</div></div>
+    <div class="stat-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div><div class="sub">${andamento.length ? `média ${mediaIdadeAbertos(andamento)} dia(s) em aberto` : '—'}</div></div>
+    <div class="stat-card"><div class="num">${concluidas.length}</div><div class="lbl">Concluídas</div><div class="sub">total (todo o período)</div></div>
+  `;
+
+  ['dia', 'semana', 'mes'].forEach(p => {
+    document.getElementById(`ind-periodo-btn-${p}`).classList.toggle('active', indicadoresPeriodo === p);
+  });
+
+  const buckets = gerarBucketsIndicadores(indicadoresPeriodo).map(b => {
+    const criadasQtd = atividadesFiltradas.filter(a => {
+      const d = (a.criadoEm || '').slice(0, 10);
+      return d >= b.from && d <= b.to;
+    }).length;
+    const concluidasQtd = atividadesFiltradas.filter(a =>
+      a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= b.from && a.concluidoEm <= b.to
+    ).length;
+    return { ...b, criadasQtd, concluidasQtd };
+  });
+
+  const maxValor = Math.max(1, ...buckets.map(b => Math.max(b.criadasQtd, b.concluidasQtd)));
+
+  document.getElementById('indicadores-chart').innerHTML = buckets.map(b => `
+    <div class="ind-bucket">
+      <div class="ind-bucket-bars">
+        <div class="ind-bar criadas" style="height:${Math.max(3, (b.criadasQtd / maxValor) * 160)}px" title="Criadas: ${b.criadasQtd}">${b.criadasQtd ? `<span class="val">${b.criadasQtd}</span>` : ''}</div>
+        <div class="ind-bar concluidas" style="height:${Math.max(3, (b.concluidasQtd / maxValor) * 160)}px" title="Concluídas: ${b.concluidasQtd}">${b.concluidasQtd ? `<span class="val">${b.concluidasQtd}</span>` : ''}</div>
+      </div>
+      <div class="ind-bucket-label">${b.label}</div>
+    </div>
+  `).join('');
 }
 
 async function copiarLaminaImagem() {
