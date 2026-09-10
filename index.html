@@ -2160,7 +2160,7 @@ function renderResumo() {
       }).join('\n\n');
       return `🏢 ${empresa}\n${usuarios}`;
     });
-    txt += blocos.join('\n\n');
+    txt += blocos.join('\n\n' + '─'.repeat(24) + '\n\n');
   }
 
   document.getElementById('resumo-texto').textContent = txt;
