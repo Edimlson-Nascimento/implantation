@@ -603,7 +603,8 @@
   .lamina-cliente-card { background:#fff; border:1px solid #e6e9f0; border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 10px rgba(2,31,51,0.05); }
   .lamina-cliente-card:last-child { margin-bottom:0; }
   .lamina-cliente-topbar { height:5px; }
-  .lamina-cliente-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:13px 18px; background:#f5f7fb; border-bottom:1px solid #eceff5; flex-wrap:wrap; }
+  .lamina-cliente-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:13px 18px; background:#f5f7fb; border-bottom:1px solid #eceff5; flex-wrap:wrap; cursor:pointer; user-select:none; }
+  .lamina-colapsar-btn { display:inline-block; width:14px; color:#5e6c84; font-size:12px; }
   .lamina-cliente-nome { font-size:15px; font-weight:800; color:#0e1c2b; }
   .lamina-etapa-badge { font-size:10.5px; font-weight:800; padding:4px 12px; border-radius:100px; color:#fff; white-space:nowrap; letter-spacing:.02em; }
   .lamina-cliente-body { padding:14px 18px 16px; }
@@ -953,6 +954,7 @@
           <div class="resumo-sub" id="lamina-data"></div>
         </div>
         <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" id="btn-toggle-todos-lamina" onclick="toggleTodosLamina()">▸ Recolher Todos</button>
           <button class="btn" onclick="withLock(this, copiarLaminaImagem)">📋 Copiar Imagem</button>
           <button class="btn btn-primary" onclick="baixarLaminaImagem()">📸 Baixar Imagem</button>
         </div>
@@ -1276,6 +1278,21 @@ let treinamentosEtapas = [];
 let TREINAMENTOS_PADRAO = [];
 let treinamentoAtividades = [];
 let treinamentosColapsados = new Set();
+let laminaColapsados = new Set();
+
+function toggleLaminaColapso(clienteId) {
+  if (laminaColapsados.has(clienteId)) laminaColapsados.delete(clienteId);
+  else laminaColapsados.add(clienteId);
+  renderLamina();
+}
+
+function toggleTodosLamina() {
+  const clienteIds = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao').map(c => c.id);
+  const todosColapsados = clienteIds.length > 0 && clienteIds.every(id => laminaColapsados.has(id));
+  if (todosColapsados) laminaColapsados.clear();
+  else clienteIds.forEach(id => laminaColapsados.add(id));
+  renderLamina();
+}
 let editingEtapaAtividadesId = null;
 
 function toggleTreinamentoColapso(clienteId) {
@@ -2327,6 +2344,9 @@ function renderLamina() {
       return a.nome.localeCompare(b.nome);
     });
 
+  const todosColapsados = clientesImplantacao.length > 0 && clientesImplantacao.every(c => laminaColapsados.has(c.id));
+  document.getElementById('btn-toggle-todos-lamina').textContent = todosColapsados ? '▾ Expandir Todos' : '▸ Recolher Todos';
+
   let html = `
     <div class="lamina-doc">
       <div class="lamina-doc-header">
@@ -2349,16 +2369,23 @@ function renderLamina() {
       const pendDoCliente = pendenciasLamina.filter(p => p.responsavel === 'cliente');
       const pendIntelipulse = pendenciasLamina.filter(p => p.responsavel === 'rscrm');
       const temAlgo = atividadesHoje.length || atividadesAntigasAbertas.length || pendDoCliente.length || pendIntelipulse.length;
+      const colapsado = laminaColapsados.has(c.id);
 
       html += `
         <div class="lamina-cliente-card">
           <div class="lamina-cliente-topbar" style="background:${etapaObj.cor}"></div>
-          <div class="lamina-cliente-head">
-            <span class="lamina-cliente-nome">${escapeHtml(c.nome)}</span>
+          <div class="lamina-cliente-head" onclick="toggleLaminaColapso('${c.id}')" title="${colapsado ? 'Expandir' : 'Recolher'}">
+            <span class="lamina-cliente-nome"><span class="lamina-colapsar-btn">${colapsado ? '▸' : '▾'}</span>${escapeHtml(c.nome)}</span>
             <span class="lamina-etapa-badge" style="background:${etapaObj.cor}">${escapeHtml(etapaObj.nome)}</span>
           </div>
-          <div class="lamina-cliente-body">
       `;
+
+      if (colapsado) {
+        html += `</div>`;
+        return;
+      }
+
+      html += `<div class="lamina-cliente-body">`;
 
       if (!temAlgo) {
         html += `<div class="lamina-cliente-ok">✅ Sem pendências ou atividades em aberto no momento</div>`;
