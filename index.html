@@ -405,7 +405,7 @@
   .resumo-box .resumo-sub { font-size: 12.5px; color: var(--gray-text); margin-bottom: 4px; }
   .resumo-pre { white-space: pre-wrap; font-family: 'Inter', sans-serif; font-size: 13.5px; line-height: 1.7; color: var(--text-main); background: var(--light-bg); border-radius: 12px; padding: 18px; margin-top: 16px; }
   .resumo-actions { display:flex; align-items:center; gap:8px; margin-top:14px; }
-  .resumo-actions input[type=date] { font-family:inherit; font-size:13px; padding:8px 10px; border-radius:8px; border:1px solid var(--border-light); background:var(--white); color:var(--text-main); }
+  .resumo-actions input[type=date], .resumo-actions select { font-family:inherit; font-size:13px; padding:8px 10px; border-radius:8px; border:1px solid var(--border-light); background:var(--white); color:var(--text-main); }
 
   .config-section { padding: 18px 24px; }
   .config-section-header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
@@ -796,6 +796,9 @@
       <div class="resumo-sub" id="resumo-data"></div>
       <div class="resumo-actions">
         <input type="date" id="resumo-filtro-data" onchange="setResumoFiltroData(this.value)">
+        <select id="resumo-filtro-empresa" onchange="setResumoFiltroEmpresa(this.value)">
+          <option value="">Todas as empresas</option>
+        </select>
         <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
       </div>
       <div class="resumo-pre" id="resumo-texto"></div>
@@ -1261,6 +1264,7 @@ let pessoaFiltro = 'Todos';
 let concluidoFiltroCliente = '';
 let concluidoFiltroData = todayStr();
 let resumoFiltroData = todayStr();
+let resumoFiltroEmpresa = '';
 let draggedAtividadeId = null;
 let editingAtividadeId = null;
 let editingAtividadeLabel = null;
@@ -2166,13 +2170,26 @@ function setResumoFiltroData(v) {
   renderResumo();
 }
 
+function setResumoFiltroEmpresa(v) {
+  resumoFiltroEmpresa = v;
+  renderResumo();
+}
+
 function renderResumo() {
   const dia = resumoFiltroData;
   const ehHoje = dia === todayStr();
-  const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === dia);
+  const concluidosDoDia = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === dia);
+
+  const empresasDisponiveis = [...new Set(concluidosDoDia.map(a => a.clienteNome).filter(Boolean))].sort();
+  if (resumoFiltroEmpresa && !empresasDisponiveis.includes(resumoFiltroEmpresa)) resumoFiltroEmpresa = '';
+
+  const concluidosHoje = resumoFiltroEmpresa ? concluidosDoDia.filter(a => a.clienteNome === resumoFiltroEmpresa) : concluidosDoDia;
 
   document.getElementById('resumo-filtro-data').value = dia;
-  document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(dia);
+  document.getElementById('resumo-filtro-empresa').innerHTML =
+    '<option value="">Todas as empresas</option>' +
+    empresasDisponiveis.map(e => `<option value="${escapeHtml(e)}" ${e === resumoFiltroEmpresa ? 'selected' : ''}>${escapeHtml(e)}</option>`).join('');
+  document.getElementById('resumo-data').textContent = 'Referente a ' + formatDate(dia) + (resumoFiltroEmpresa ? ' — ' + resumoFiltroEmpresa : '');
 
   let txt = `📊 Resumo do Dia — ${formatDate(dia)}\n\n`;
   txt += `✅ ${concluidosHoje.length} atividade${concluidosHoje.length === 1 ? '' : 's'} concluída${concluidosHoje.length === 1 ? '' : 's'}${ehHoje ? ' hoje' : ''}\n\n`;
