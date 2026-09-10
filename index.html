@@ -3760,8 +3760,7 @@ function atividadesConcluidasFiltradas() {
 function renderRelatorioVisual() {
   const concluidos = atividadesConcluidasFiltradas();
   const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
-  const subtitulo = [pessoaFiltro !== 'Todos' ? pessoaFiltro : null, concluidoFiltroCliente || null]
-    .filter(Boolean).map(s => ` · ${escapeHtml(s)}`).join('');
+  const subtitulo = pessoaFiltro === 'Todos' ? '' : ` · ${escapeHtml(pessoaFiltro)}`;
 
   let html = `
     <div class="rv-brand"><img src="logo-intelipulse-light.png" alt="Intelipulse"></div>
@@ -3794,9 +3793,7 @@ function baixarRelatorioTexto() {
   const concluidos = atividadesConcluidasFiltradas();
   const tituloData = relatorioFiltroData === null ? 'Todos os dias' : `${weekdayAbbrAt(relatorioFiltroData)}, ${formatDate(relatorioFiltroData)}`;
 
-  const subtituloTexto = [pessoaFiltro !== 'Todos' ? pessoaFiltro : null, concluidoFiltroCliente || null]
-    .filter(Boolean).map(s => ' — ' + s).join('');
-  let texto = `Resumo do Dia${subtituloTexto} — ${tituloData}\n`;
+  let texto = `Resumo do Dia${pessoaFiltro === 'Todos' ? '' : ' — ' + pessoaFiltro} — ${tituloData}\n`;
   texto += `Total: ${concluidos.length} tarefa${concluidos.length===1?'':'s'} concluída${concluidos.length===1?'':'s'}\n\n`;
 
   if (concluidos.length === 0) {
