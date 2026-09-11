@@ -630,6 +630,13 @@
   .ind-bar.concluidas { background:#00C853; }
   .ind-bucket-label { font-size:10px; color:var(--gray-text); margin-top:6px; text-align:center; white-space:nowrap; }
 
+  .pizza-wrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; margin-top:14px; }
+  .pizza-donut { width:140px; height:140px; border-radius:50%; position:relative; flex-shrink:0; }
+  .pizza-donut::after { content:''; position:absolute; inset:26px; border-radius:50%; background:var(--white); }
+  .pizza-legenda { display:flex; flex-direction:column; gap:7px; font-size:12.5px; color:var(--text-main); }
+  .pizza-legenda .sw { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:7px; vertical-align:middle; }
+  .pizza-legenda .pizza-pct { color:var(--gray-text); font-size:11px; }
+
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
   .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.4); }
@@ -998,6 +1005,16 @@
         <span><span class="sw" style="background:#00C853"></span>Concluídas</span>
       </div>
       <div id="indicadores-chart" class="ind-chart-bars"></div>
+
+      <div style="margin-top:30px;">
+        <h3 style="margin:0;font-size:14px;color:var(--text-main);">Distribuição da Fila Atual</h3>
+        <div id="pizza-fila"></div>
+      </div>
+
+      <div id="pizza-pessoa-wrap" style="margin-top:30px;">
+        <h3 style="margin:0;font-size:14px;color:var(--text-main);">Atividades em Aberto por Pessoa</h3>
+        <div id="pizza-pessoa"></div>
+      </div>
     </div>
   </section>
     </main>
@@ -2583,6 +2600,57 @@ function renderIndicadores() {
       <div class="ind-bucket-label">${b.label}</div>
     </div>
   `).join('');
+
+  montarPizza('pizza-fila', [
+    { label: 'Fila de Urgências', valor: urgencias.length, cor: '#DC2626' },
+    { label: 'A Fazer', valor: afazer.length, cor: '#F59E0B' },
+    { label: 'Em Andamento', valor: andamento.length, cor: '#8B5CF6' }
+  ]);
+
+  const wrapPizzaPessoa = document.getElementById('pizza-pessoa-wrap');
+  if (pessoaFiltro !== 'Todos') {
+    wrapPizzaPessoa.style.display = 'none';
+  } else {
+    wrapPizzaPessoa.style.display = '';
+    const CORES_PESSOA = ['#14B8A6', '#F97316', '#6366F1', '#EC4899', '#84CC16', '#0EA5E9'];
+    const abertas = atividades.filter(a => !a.cancelado && a.coluna !== 'concluida');
+    const itensPessoa = PESSOAS.map((nome, i) => ({
+      label: nome,
+      valor: abertas.filter(a => a.responsavel === nome || (a.participantes && a.participantes.includes(nome))).length,
+      cor: CORES_PESSOA[i % CORES_PESSOA.length]
+    }));
+    montarPizza('pizza-pessoa', itensPessoa);
+  }
+}
+
+function montarPizza(containerId, itens) {
+  const el = document.getElementById(containerId);
+  const total = itens.reduce((soma, i) => soma + i.valor, 0);
+
+  if (!total) {
+    el.innerHTML = `<div class="rv-empty" style="padding:16px 0;">Sem dados no momento.</div>`;
+    return;
+  }
+
+  let acumulado = 0;
+  const stops = itens.filter(i => i.valor > 0).map(i => {
+    const pctIni = (acumulado / total) * 100;
+    acumulado += i.valor;
+    const pctFim = (acumulado / total) * 100;
+    return `${i.cor} ${pctIni}% ${pctFim}%`;
+  }).join(', ');
+
+  const legenda = itens.map(i => {
+    const pct = Math.round((i.valor / total) * 100);
+    return `<div><span class="sw" style="background:${i.cor}"></span>${escapeHtml(i.label)} <b>${i.valor}</b> <span class="pizza-pct">(${pct}%)</span></div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="pizza-wrap">
+      <div class="pizza-donut" style="background: conic-gradient(${stops});"></div>
+      <div class="pizza-legenda">${legenda}</div>
+    </div>
+  `;
 }
 
 async function copiarLaminaImagem() {
