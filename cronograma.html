@@ -53,6 +53,11 @@
   .campo { margin-bottom: 14px; }
   .campo label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin-bottom:6px; }
   .campo input, .campo select, .campo textarea { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--line); background: var(--paper); color: var(--ink); font-family:'Inter',sans-serif; font-size:14px; }
+  .campo-senha-wrap { position: relative; }
+  .campo-senha-wrap input { padding-right: 42px; }
+  .olho-btn { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:16px; opacity:.55; padding:6px; line-height:1; border-radius:6px; }
+  .olho-btn:hover { opacity:1; background: var(--line); }
+  .olho-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   .campo input:focus-visible, .campo select:focus-visible, .campo textarea:focus-visible { outline: 2px solid var(--focus); outline-offset:1px; }
   .btn-primario { padding:12px 18px; border-radius:9px; border:none; background: var(--navy); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
   .btn-primario:hover { background: var(--navy-deep); }
@@ -215,11 +220,14 @@
     <div class="erro-login" id="login-erro" hidden></div>
     <div class="campo">
       <label>Usuário</label>
-      <input type="text" id="login-nome" placeholder="Ex: Karne Keijo" autocomplete="username">
+      <input type="text" id="login-nome" placeholder="Ex: Karne Keijo" autocomplete="username" onkeydown="if(event.key==='Enter') fazerLogin()">
     </div>
     <div class="campo">
       <label>Senha</label>
-      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+      <div class="campo-senha-wrap">
+        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') fazerLogin()">
+        <button type="button" class="olho-btn" onclick="toggleSenhaVisivel('login-senha', this)" aria-label="Mostrar senha">👁</button>
+      </div>
     </div>
     <button class="btn-primario full" id="btn-login" onclick="fazerLogin()">Entrar</button>
     <p class="login-help">Ainda não tem acesso? Fale com o time de implantação da Intelipulse.</p>
@@ -235,11 +243,17 @@
     <div class="erro-login" id="troca-erro" hidden></div>
     <div class="campo">
       <label>Nova senha</label>
-      <input type="password" id="nova-senha-1" placeholder="Mínimo 6 caracteres">
+      <div class="campo-senha-wrap">
+        <input type="password" id="nova-senha-1" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter') trocarSenha()">
+        <button type="button" class="olho-btn" onclick="toggleSenhaVisivel('nova-senha-1', this)" aria-label="Mostrar senha">👁</button>
+      </div>
     </div>
     <div class="campo">
       <label>Confirmar nova senha</label>
-      <input type="password" id="nova-senha-2" placeholder="Repita a senha">
+      <div class="campo-senha-wrap">
+        <input type="password" id="nova-senha-2" placeholder="Repita a senha" onkeydown="if(event.key==='Enter') trocarSenha()">
+        <button type="button" class="olho-btn" onclick="toggleSenhaVisivel('nova-senha-2', this)" aria-label="Mostrar senha">👁</button>
+      </div>
     </div>
     <button class="btn-primario full" id="btn-trocar-senha" onclick="trocarSenha()">Salvar e continuar</button>
   </div>
@@ -313,6 +327,14 @@ function nomeParaEmail(nome) { return `${slugify(nome)}@${DOMINIO_LOGIN}`; }
 function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDateBR(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
 function parseBRtoISO(br) { const m = br.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : null; }
+
+function toggleSenhaVisivel(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const visivel = input.type === 'text';
+  input.type = visivel ? 'password' : 'text';
+  btn.textContent = visivel ? '👁' : '🙈';
+  btn.setAttribute('aria-label', visivel ? 'Mostrar senha' : 'Ocultar senha');
+}
 
 async function withLock(btn, fn) { if (!btn || btn.disabled) return; btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } }
 const withLockAdmin = withLock;
