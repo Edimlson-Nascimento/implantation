@@ -153,14 +153,39 @@
   .admin-mini-btn.perigo:hover { color:var(--red); border-color:var(--red); }
   .admin-bloqueio-row { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--slate); margin-bottom:12px; }
   .admin-bloqueio-row textarea { flex:1; min-height:44px; font-family:inherit; font-size:12.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--paper); color:var(--ink); resize:vertical; }
-  table.admin-itens { width:100%; border-collapse:collapse; }
-  table.admin-itens th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); padding:0 6px 8px; font-family:'IBM Plex Mono',monospace; }
+  .admin-itens-scroll { overflow-x: auto; }
+  table.admin-itens { width:100%; min-width:820px; border-collapse:collapse; }
+  table.admin-itens th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); padding:0 6px 8px; font-family:'IBM Plex Mono',monospace; white-space:nowrap; }
   table.admin-itens td { padding:6px; vertical-align:top; }
   table.admin-itens input, table.admin-itens select { width:100%; font-size:12.5px; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; }
+  table.admin-itens .col-ordem { width:44px; }
   table.admin-itens .col-ordem input { width:44px; }
-  table.admin-itens .col-nome input { min-width:170px; }
-  .admin-escopo-wrap { margin-top:4px; }
-  .admin-escopo-wrap textarea { width:100%; min-height:60px; font-size:11.5px; font-family:inherit; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); resize:vertical; }
+  table.admin-itens .col-nome { min-width:190px; }
+  table.admin-itens .col-resp { min-width:130px; }
+  table.admin-itens .col-baseline { min-width:100px; }
+  table.admin-itens .col-data { min-width:130px; }
+  table.admin-itens .col-status { min-width:120px; }
+  table.admin-itens .col-acao { width:34px; }
+  .admin-detalhe-toggle { display:inline-block; margin-top:4px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color: var(--focus); cursor:pointer; background:none; border:none; padding:0; }
+  tr.admin-detalhe-row td { padding:14px 6px; background: var(--paper); border-bottom:1px solid var(--line); }
+  .admin-detalhe-box { display:flex; gap:24px; flex-wrap:wrap; }
+  .admin-detalhe-col { flex:1 1 280px; min-width:260px; }
+  .admin-detalhe-label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin-bottom:6px; }
+  .admin-detalhe-col textarea { width:100%; min-height:100px; font-size:12.5px; font-family:inherit; padding:8px 9px; border-radius:6px; border:1px solid var(--line); background:var(--surface); color:var(--ink); resize:vertical; }
+  .admin-subitens-list { max-height:220px; overflow-y:auto; margin-bottom:8px; }
+  .admin-subitem-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .admin-subitem-row input[type=checkbox] { flex-shrink:0; accent-color: var(--green); width:15px; height:15px; }
+  .admin-subitem-grupo { flex:0 0 120px; font-size:11px !important; color:var(--slate) !important; }
+  .admin-subitem-nome { flex:1; }
+  .admin-subitem-row input[type=text] { font-size:12px; padding:5px 7px; border-radius:5px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-family:inherit; }
+  .admin-subitem-add-row { display:flex; gap:6px; }
+  .admin-subitem-add-row input { padding:7px 9px; border-radius:6px; border:1px dashed var(--line); background:var(--surface); color:var(--ink); font-size:12px; }
+  .admin-subitem-add-row input:first-child { flex:0 0 120px; }
+  .admin-subitem-add-row input:nth-child(2) { flex:1; }
+  .checklist-grupo { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin:10px 0 4px; }
+  .checklist-grupo:first-child { margin-top:0; }
+  .checklist-item { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12.5px; }
+  .checklist-item input[type=checkbox] { accent-color: var(--green); width:14px; height:14px; flex-shrink:0; }
   .admin-add-item-row { display:flex; gap:6px; margin-top:10px; }
   .admin-add-item-row input { flex:1; padding:8px 10px; border-radius:7px; border:1px dashed var(--line); background:var(--paper); color:var(--ink); font-size:12.5px; }
   .admin-add-etapa-row { display:flex; gap:8px; margin-bottom:20px; }
@@ -300,7 +325,10 @@ let todosClientes = [];    // visão do admin
 let clienteSelAdmin = null;
 let etapas = [];
 let itens = [];
+let subitens = [];
 let escopoAberto = {};
+let checklistAberto = {};
+let adminDetalheAberto = {};
 
 /* ── LOGIN ── */
 async function fazerLogin() {
@@ -387,6 +415,39 @@ async function carregarDadosCliente(clienteId) {
     ? await sb.from('cronograma_itens').select('*').in('etapa_id', etapaIds).order('ordem')
     : { data: [] };
   itens = itensRows || [];
+  const itemIds = itens.map(i => i.id);
+  const { data: subitensRows } = itemIds.length
+    ? await sb.from('cronograma_item_subitens').select('*').in('item_id', itemIds).order('ordem')
+    : { data: [] };
+  subitens = subitensRows || [];
+}
+
+// Agrupa sub-itens consecutivos pelo campo `grupo` (opcional) e monta o HTML
+// do checklist — usado tanto na visão do cliente (sempre readonly) quanto no
+// admin (sempre editável, pois só o admin marca o check).
+function renderChecklist(lista, readonly) {
+  let html = '';
+  let grupoAtual = null;
+  lista.forEach(s => {
+    const grupo = s.grupo || '';
+    if (grupo !== grupoAtual) {
+      grupoAtual = grupo;
+      if (grupo) html += `<div class="checklist-grupo">${escapeHtml(grupo)}</div>`;
+    }
+    if (readonly) {
+      html += `<label class="checklist-item"><input type="checkbox" ${s.feito ? 'checked' : ''} disabled><span>${escapeHtml(s.nome)}</span></label>`;
+    } else {
+      html += `
+        <div class="admin-subitem-row">
+          <input type="checkbox" ${s.feito ? 'checked' : ''} onchange="salvarCampoSubitem('${s.id}','feito', this.checked)">
+          <input type="text" class="admin-subitem-grupo" value="${escapeHtml(s.grupo || '')}" placeholder="Grupo (opcional)" onchange="salvarCampoSubitem('${s.id}','grupo', this.value)">
+          <input type="text" class="admin-subitem-nome" value="${escapeHtml(s.nome)}" onchange="salvarCampoSubitem('${s.id}','nome', this.value)">
+          <button class="admin-mini-btn perigo" onclick="excluirSubitem('${s.id}')">🗑</button>
+        </div>
+      `;
+    }
+  });
+  return html;
 }
 
 function renderStepper() {
@@ -428,9 +489,13 @@ function renderEtapasCliente() {
                 <td class="nome">
                   ${escapeHtml(item.nome)}
                   ${item.escopo ? `
-                    <button class="escopo-toggle" onclick="toggleEscopo('${item.id}')">${escopoAberto[item.id] ? '▾ ocultar escopo' : '▸ ver escopo'}</button>
+                    <button class="escopo-toggle" onclick="toggleEscopo('${item.id}')">${escopoAberto[item.id] ? '▾ ocultar detalhe' : '▸ ver detalhe'}</button>
                     <div class="escopo-box" ${escopoAberto[item.id] ? '' : 'hidden'}>${escapeHtml(item.escopo)}</div>
                   ` : ''}
+                  ${(() => { const subLinhas = subitens.filter(s => s.item_id === item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
+                    <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAberto[item.id] ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
+                    <div class="escopo-box" ${checklistAberto[item.id] ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
+                  `; })()}
                 </td>
                 <td data-label="Responsável"><button class="pill resp-${item.responsavel}" onclick="alternarResponsavel('${item.id}')">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</button></td>
                 <td data-label="Baseline" class="tabular"><input class="baseline-field ${item.baseline ? '' : 'indefinido'}" value="${escapeHtml(item.baseline || '?')}" onchange="editarBaseline('${item.id}', this)"></td>
@@ -447,6 +512,7 @@ function renderEtapasCliente() {
 
 function renderClienteAll() { renderStepper(); renderEtapasCliente(); }
 function toggleEscopo(id) { escopoAberto[id] = !escopoAberto[id]; renderEtapasCliente(); }
+function toggleChecklist(id) { checklistAberto[id] = !checklistAberto[id]; renderEtapasCliente(); }
 
 // as únicas 4 alterações que o cliente pode fazer — todas passam pela função
 // atualizar_item_cronograma_cliente() no banco, que valida dono e restringe os campos.
@@ -560,35 +626,58 @@ function renderEtapasAdmin() {
           Etapa bloqueada
           <textarea id="nota-${etapa.id}" placeholder="Motivo do bloqueio (aparece pro cliente)..." onchange="salvarBloqueioEtapa('${etapa.id}', document.getElementById('check-${etapa.id}')?.checked ?? ${etapa.bloqueada}, this.value)">${escapeHtml(etapa.nota_bloqueio || '')}</textarea>
         </label>
+        <div class="admin-itens-scroll">
         <table class="admin-itens">
-          <thead><tr><th class="col-ordem">Ord.</th><th class="col-nome">Item</th><th>Responsável</th><th>Baseline</th><th>Data validação</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th class="col-ordem">Ord.</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Baseline</th><th class="col-data">Data validação</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
           <tbody>
-            ${linhas.map(item => `
+            ${linhas.map(item => { const subLinhas = subitens.filter(s => s.item_id === item.id); const aberto = !!adminDetalheAberto[item.id]; return `
               <tr>
                 <td class="col-ordem"><input type="number" value="${item.ordem}" onchange="salvarCampoItem('${item.id}','ordem', this.valueAsNumber)"></td>
                 <td class="col-nome">
                   <input type="text" value="${escapeHtml(item.nome)}" onchange="salvarCampoItem('${item.id}','nome', this.value)">
-                  <div class="admin-escopo-wrap"><textarea placeholder="Escopo/detalhe (opcional, o cliente pode expandir)..." onchange="salvarCampoItem('${item.id}','escopo', this.value)">${escapeHtml(item.escopo || '')}</textarea></div>
+                  <button class="admin-detalhe-toggle" onclick="toggleAdminDetalhe('${item.id}')">${aberto ? '▾ ocultar detalhes' : `▸ escopo / checklist${subLinhas.length ? ` (${subLinhas.filter(s=>s.feito).length}/${subLinhas.length})` : ''}`}</button>
                 </td>
-                <td>
+                <td class="col-resp">
                   <select onchange="salvarCampoItem('${item.id}','responsavel', this.value)">
                     <option value="cliente" ${item.responsavel === 'cliente' ? 'selected' : ''}>${escapeHtml(clienteSelAdmin.nome)}</option>
                     <option value="intelipulse" ${item.responsavel === 'intelipulse' ? 'selected' : ''}>Intelipulse</option>
                   </select>
                 </td>
-                <td><input type="text" value="${escapeHtml(item.baseline || '')}" onchange="salvarCampoItem('${item.id}','baseline', this.value)"></td>
-                <td><input type="date" value="${item.data_validacao || ''}" onchange="salvarCampoItem('${item.id}','data_validacao', this.value || null)"></td>
-                <td>
+                <td class="col-baseline"><input type="text" value="${escapeHtml(item.baseline || '')}" onchange="salvarCampoItem('${item.id}','baseline', this.value)"></td>
+                <td class="col-data"><input type="date" value="${item.data_validacao || ''}" onchange="salvarCampoItem('${item.id}','data_validacao', this.value || null)"></td>
+                <td class="col-status">
                   <select onchange="salvarCampoItem('${item.id}','status', this.value)">
                     <option value="pendente" ${item.status === 'pendente' ? 'selected' : ''}>Pendente</option>
                     <option value="concluido" ${item.status === 'concluido' ? 'selected' : ''}>Concluído</option>
                   </select>
                 </td>
-                <td><button class="admin-mini-btn perigo" onclick="excluirItem('${item.id}')">🗑</button></td>
+                <td class="col-acao"><button class="admin-mini-btn perigo" onclick="excluirItem('${item.id}')">🗑</button></td>
               </tr>
-            `).join('')}
+              ${aberto ? `
+              <tr class="admin-detalhe-row">
+                <td colspan="7">
+                  <div class="admin-detalhe-box">
+                    <div class="admin-detalhe-col">
+                      <label class="admin-detalhe-label">Escopo / nota livre</label>
+                      <textarea placeholder="Detalhe opcional (o cliente pode expandir e ler)..." onchange="salvarCampoItem('${item.id}','escopo', this.value)">${escapeHtml(item.escopo || '')}</textarea>
+                    </div>
+                    <div class="admin-detalhe-col">
+                      <label class="admin-detalhe-label">Checklist (sub-itens com check — só admin marca)</label>
+                      <div class="admin-subitens-list">${renderChecklist(subLinhas, false)}</div>
+                      <div class="admin-subitem-add-row">
+                        <input type="text" id="novo-sub-grupo-${item.id}" placeholder="Grupo (opcional)...">
+                        <input type="text" id="novo-sub-nome-${item.id}" placeholder="Novo sub-item...">
+                        <button class="admin-mini-btn" onclick="withLockAdmin(this, () => criarSubitem('${item.id}'))">+ Adicionar</button>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              ` : ''}
+            `; }).join('')}
           </tbody>
         </table>
+        </div>
         <div class="admin-add-item-row">
           <input type="text" id="novo-item-${etapa.id}" placeholder="Nome do novo item...">
           <button class="admin-mini-btn" onclick="withLockAdmin(this, () => criarItem('${etapa.id}'))">+ Adicionar item</button>
@@ -650,7 +739,38 @@ async function excluirItem(id) {
   if (!confirm('Excluir este item?')) return;
   await sb.from('cronograma_itens').delete().eq('id', id);
   itens = itens.filter(i => i.id !== id);
+  subitens = subitens.filter(s => s.item_id !== id);
   renderAdminConteudo();
+}
+
+function toggleAdminDetalhe(itemId) { adminDetalheAberto[itemId] = !adminDetalheAberto[itemId]; renderEtapasAdmin(); }
+
+async function criarSubitem(itemId) {
+  const grupoInput = document.getElementById(`novo-sub-grupo-${itemId}`);
+  const nomeInput = document.getElementById(`novo-sub-nome-${itemId}`);
+  const nome = nomeInput.value.trim();
+  if (!nome) return;
+  const grupo = grupoInput.value.trim();
+  const daLista = subitens.filter(s => s.item_id === itemId);
+  const ordem = daLista.length ? Math.max(...daLista.map(s => s.ordem)) + 1 : 1;
+  const { data, error } = await sb.from('cronograma_item_subitens').insert({ item_id: itemId, nome, grupo, ordem }).select().single();
+  if (error) { alert('Erro ao criar sub-item: ' + error.message); return; }
+  subitens.push(data);
+  nomeInput.value = '';
+  grupoInput.value = '';
+  renderEtapasAdmin();
+}
+
+async function salvarCampoSubitem(id, campo, valor) {
+  await sb.from('cronograma_item_subitens').update({ [campo]: valor }).eq('id', id);
+  const s = subitens.find(s => s.id === id); if (s) s[campo] = valor;
+}
+
+async function excluirSubitem(id) {
+  if (!confirm('Excluir este sub-item?')) return;
+  await sb.from('cronograma_item_subitens').delete().eq('id', id);
+  subitens = subitens.filter(s => s.id !== id);
+  renderEtapasAdmin();
 }
 
 /* ── BOOT: retoma sessão ativa, se houver ── */
