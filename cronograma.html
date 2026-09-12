@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cronograma Karne Keijo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --navy: #021F33;
+    --navy-deep: #010f1c;
+    --paper: #F3F6F7;
+    --surface: #FFFFFF;
+    --ink: #0E1B26;
+    --slate: #5B6B79;
+    --line: #DCE3E8;
+    --green: #00A859;
+    --green-soft: #E4F6ED;
+    --amber: #A6650F;
+    --amber-soft: #FBF0DF;
+    --red: #B3261E;
+    --red-soft: #FCEBEA;
+    --focus: #0B5FFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0A141C; --surface: #101E29; --ink: #E7EEF2; --slate: #93A5B3; --line: #223140;
+      --green: #35D488; --green-soft: #103322; --amber: #E3A94B; --amber-soft: #33260F;
+      --red: #E8877E; --red-soft: #3A1613;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0A141C; --surface: #101E29; --ink: #E7EEF2; --slate: #93A5B3; --line: #223140;
+    --green: #35D488; --green-soft: #103322; --amber: #E3A94B; --amber-soft: #33260F;
+    --red: #E8877E; --red-soft: #3A1613;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  [hidden] { display: none !important; }
+  button { font-family: inherit; }
+
+  /* ── LOGIN / TROCA DE SENHA ── */
+  .tela-cheia { min-height: 100vh; display:flex; align-items:center; justify-content:center; background: var(--navy-deep); padding: 20px; }
+  .login-box { background: var(--surface); border-radius: 16px; padding: 34px 30px; width: 100%; max-width: 360px; }
+  .login-brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color: var(--ink); margin-bottom: 22px; }
+  .login-brand .bars { display:flex; align-items:flex-end; gap:2px; height:14px; }
+  .login-brand .bars span { width:3px; background: var(--green); border-radius:1px; }
+  .login-box h1 { font-size: 18px; margin: 0 0 4px; }
+  .login-box .sub { font-size: 12.5px; color: var(--slate); margin: 0 0 22px; }
+  .campo { margin-bottom: 14px; }
+  .campo label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin-bottom:6px; }
+  .campo input, .campo select, .campo textarea { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--line); background: var(--paper); color: var(--ink); font-family:'Inter',sans-serif; font-size:14px; }
+  .campo input:focus-visible, .campo select:focus-visible, .campo textarea:focus-visible { outline: 2px solid var(--focus); outline-offset:1px; }
+  .btn-primario { padding:12px 18px; border-radius:9px; border:none; background: var(--navy); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+  .btn-primario:hover { background: var(--navy-deep); }
+  .btn-primario:disabled { opacity:.6; cursor:default; }
+  .btn-primario.full { width:100%; margin-top:6px; }
+  .erro-login { background: var(--red-soft); color: var(--red); font-size:12.5px; padding:10px 12px; border-radius:8px; margin-bottom:14px; }
+  .login-help { font-size:11.5px; color: var(--slate); margin-top:16px; text-align:center; }
+
+  /* ── APP (cliente e admin compartilham o header) ── */
+  header.top { background: var(--navy-deep); color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header.top .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+  header.top .bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+  header.top .bars span { width: 3px; background: var(--green); border-radius: 1px; }
+  header.top .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.18); }
+  header.top .client { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: .06em; }
+  header.top .client b { color: #fff; font-weight: 600; }
+  header.top .sair { margin-left: auto; background:none; border:1px solid rgba(255,255,255,0.25); color:rgba(255,255,255,0.75); font-size:11.5px; padding:6px 12px; border-radius:8px; cursor:pointer; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 40px 28px 60px; }
+
+  .title-row { margin-bottom: 34px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .title-row p { margin: 8px 0 0; color: var(--slate); font-size: 14px; max-width: 62ch; line-height: 1.5; }
+
+  /* stepper */
+  .stepper { display: flex; align-items: flex-start; margin-bottom: 40px; overflow-x: auto; padding-bottom: 4px; }
+  .step { flex: 1 1 0; min-width: 140px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+  .step .track { position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: var(--line); z-index: 0; }
+  .step:first-child .track { display: none; }
+  .step.done .track { background: var(--green); }
+  .step .node { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--slate); position: relative; z-index: 1; }
+  .step.done .node { background: var(--green); border-color: var(--green); color: #fff; }
+  .step.current .node { border-color: var(--green); color: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+  .step.bloqueada .node { border-color: var(--red); color: var(--red); }
+  .step .label { margin-top: 10px; font-size: 11.5px; font-weight: 600; color: var(--slate); line-height: 1.3; max-width: 120px; }
+  .step.current .label, .step.done .label, .step.bloqueada .label { color: var(--ink); }
+  .step .stage-tag { margin-top: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; }
+  .step.current .stage-tag { color: var(--green); }
+  .step.bloqueada .stage-tag { color: var(--red); }
+
+  /* etapa card — visão do cliente (leitura + 4 campos editáveis) */
+  .etapa-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 26px 26px 10px; margin-bottom: 24px; }
+  .aviso-bloqueio { display:flex; gap:10px; align-items:flex-start; background: var(--red-soft); color: var(--red); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height:1.5; margin-bottom: 20px; }
+  .aviso-bloqueio .ic { font-size:16px; flex-shrink:0; }
+  .etapa-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  .etapa-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .etapa-count { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--slate); }
+
+  table.itens { width: 100%; border-collapse: collapse; }
+  table.itens th { text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); padding: 0 10px 10px; border-bottom: 1px solid var(--line); }
+  table.itens td { padding: 13px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
+  table.itens tr:last-child > td { border-bottom: none; }
+  table.itens td.nome { font-weight: 500; }
+  .escopo-toggle { display:inline-block; margin-top:4px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color: var(--focus); cursor:pointer; background:none; border:none; padding:0; }
+  .escopo-box { margin-top:10px; background: var(--paper); border:1px solid var(--line); border-radius:9px; padding:12px 14px; font-size:12.5px; color: var(--ink); white-space:pre-wrap; line-height:1.6; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 100px; border: none; cursor: pointer; letter-spacing: .01em; transition: filter .12s; white-space:nowrap; }
+  .pill:hover { filter: brightness(0.95); }
+  :root:not([data-theme="light"]) .pill:hover { filter: brightness(1.15); }
+  .pill:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pill.status-pendente { background: var(--amber-soft); color: var(--amber); }
+  .pill.status-pendente .dot { background: var(--amber); }
+  .pill.status-concluido { background: var(--green-soft); color: var(--green); }
+  .pill.status-concluido .dot { background: var(--green); }
+  .pill.resp-cliente { background: #EFEAFB; color: #6B46C1; }
+  .pill.resp-intelipulse { background: var(--green-soft); color: var(--green); }
+  :root:not([data-theme="light"]) .pill.resp-cliente { background: #241B3D; color: #B79DF0; }
+
+  .baseline-field { background:none; border:1px dashed var(--line); border-radius:8px; padding:6px 9px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); width:110px; }
+  .baseline-field.indefinido { color: var(--slate); font-style: italic; }
+  .date-field { background:none; border:1px dashed var(--line); border-radius:8px; padding:6px 9px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); width:128px; cursor:pointer; }
+  .date-field.empty { color: var(--slate); font-style: italic; }
+  .baseline-field:focus-visible, .date-field:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+  footer.foot { max-width: 980px; margin: 8px auto 0; padding: 0 28px 40px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  footer.foot .note { font-size: 11.5px; color: var(--slate); }
+  footer.foot .sync { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--slate); display: flex; align-items: center; gap: 6px; }
+  footer.foot .sync .led { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  /* ── ADMIN (time interno) — funcional, sem tanto capricho visual ── */
+  .admin-shell { display:flex; min-height:calc(100vh - 58px); }
+  .admin-lateral { width:260px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line); padding:20px; }
+  .admin-lateral h3 { margin:0 0 12px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); font-family:'IBM Plex Mono',monospace; }
+  .admin-cliente-item { display:block; width:100%; text-align:left; padding:9px 11px; border-radius:8px; border:none; background:none; color:var(--ink); font-size:13.5px; cursor:pointer; margin-bottom:2px; }
+  .admin-cliente-item:hover { background:var(--paper); }
+  .admin-cliente-item.ativo { background:var(--navy); color:#fff; font-weight:600; }
+  .admin-novo-cliente { margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  .admin-novo-cliente input { width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:13px; margin-bottom:6px; }
+  .admin-conteudo { flex:1; padding:28px 32px; max-width:900px; }
+  .admin-etapa-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:18px; }
+  .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .admin-etapa-topo input[type=text] { font-size:15px; font-weight:700; border:none; background:none; color:var(--ink); padding:4px 0; flex:1; min-width:160px; }
+  .admin-etapa-topo input[type=text]:focus-visible { outline:1px solid var(--line); border-radius:4px; }
+  .admin-mini-btn { background:none; border:1px solid var(--line); border-radius:7px; padding:5px 10px; font-size:11.5px; color:var(--slate); cursor:pointer; }
+  .admin-mini-btn:hover { color:var(--ink); border-color:var(--ink); }
+  .admin-mini-btn.perigo:hover { color:var(--red); border-color:var(--red); }
+  .admin-bloqueio-row { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--slate); margin-bottom:12px; }
+  .admin-bloqueio-row textarea { flex:1; min-height:44px; font-family:inherit; font-size:12.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--paper); color:var(--ink); resize:vertical; }
+  table.admin-itens { width:100%; border-collapse:collapse; }
+  table.admin-itens th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); padding:0 6px 8px; font-family:'IBM Plex Mono',monospace; }
+  table.admin-itens td { padding:6px; vertical-align:top; }
+  table.admin-itens input, table.admin-itens select { width:100%; font-size:12.5px; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; }
+  table.admin-itens .col-ordem input { width:44px; }
+  table.admin-itens .col-nome input { min-width:170px; }
+  .admin-escopo-wrap { margin-top:4px; }
+  .admin-escopo-wrap textarea { width:100%; min-height:60px; font-size:11.5px; font-family:inherit; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); resize:vertical; }
+  .admin-add-item-row { display:flex; gap:6px; margin-top:10px; }
+  .admin-add-item-row input { flex:1; padding:8px 10px; border-radius:7px; border:1px dashed var(--line); background:var(--paper); color:var(--ink); font-size:12.5px; }
+  .admin-add-etapa-row { display:flex; gap:8px; margin-bottom:20px; }
+  .admin-add-etapa-row input { flex:1; padding:10px 12px; border-radius:9px; border:1px dashed var(--line); background:var(--surface); color:var(--ink); font-size:13px; }
+
+  @media (max-width: 640px) {
+    table.itens thead { display: none; }
+    table.itens tr { display: block; border-bottom: 1px solid var(--line); padding: 12px 0; }
+    table.itens tr:last-child { border-bottom: none; }
+    table.itens td { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border: none; gap: 10px; }
+    table.itens td.nome { display: block; font-weight: 600; margin-bottom: 6px; }
+    table.itens td:not(.nome)::before { content: attr(data-label); font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--slate); text-transform: uppercase; letter-spacing: .04em; }
+    .baseline-field, .date-field { width: auto; }
+    .admin-shell { flex-direction: column; }
+    .admin-lateral { width:auto; border-right:none; border-bottom:1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="tela-login" class="tela-cheia">
+  <div class="login-box">
+    <div class="login-brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
+    <h1>Acessar cronograma</h1>
+    <p class="sub">Clientes: digite o nome da empresa. Time Intelipulse: digite seu e-mail.</p>
+    <div class="erro-login" id="login-erro" hidden></div>
+    <div class="campo">
+      <label>Usuário</label>
+      <input type="text" id="login-nome" placeholder="Ex: Karne Keijo" autocomplete="username">
+    </div>
+    <div class="campo">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primario full" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <p class="login-help">Ainda não tem acesso? Fale com o time de implantação da Intelipulse.</p>
+  </div>
+</div>
+
+<!-- ═══ TROCA OBRIGATÓRIA DE SENHA (primeiro acesso do cliente) ═══ -->
+<div id="tela-troca-senha" class="tela-cheia" hidden>
+  <div class="login-box">
+    <div class="login-brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
+    <h1>Defina sua nova senha</h1>
+    <p class="sub">Este é o seu primeiro acesso — troque a senha padrão antes de continuar.</p>
+    <div class="erro-login" id="troca-erro" hidden></div>
+    <div class="campo">
+      <label>Nova senha</label>
+      <input type="password" id="nova-senha-1" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="campo">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="nova-senha-2" placeholder="Repita a senha">
+    </div>
+    <button class="btn-primario full" id="btn-trocar-senha" onclick="trocarSenha()">Salvar e continuar</button>
+  </div>
+</div>
+
+<!-- ═══ APP DO CLIENTE ═══ -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
+    <div class="divider"></div>
+    <div class="client">Cronograma de Projeto · <b id="cliente-nome-header"></b></div>
+    <button class="sair" onclick="sair()">Sair</button>
+  </header>
+  <main>
+    <div class="title-row">
+      <div class="eyebrow">Acompanhamento em tempo real</div>
+      <h1>Onde está o seu projeto</h1>
+      <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
+    </div>
+    <div class="stepper" id="stepper"></div>
+    <div id="etapas-wrap"></div>
+  </main>
+  <footer class="foot">
+    <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span></div>
+  </footer>
+</div>
+
+<!-- ═══ ADMIN (time Intelipulse) ═══ -->
+<div id="admin-app" hidden>
+  <header class="top">
+    <div class="brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
+    <div class="divider"></div>
+    <div class="client">Gestão de Cronogramas · <b id="admin-nome-header"></b></div>
+    <button class="sair" onclick="sair()">Sair</button>
+  </header>
+  <div class="admin-shell">
+    <aside class="admin-lateral">
+      <h3>Clientes</h3>
+      <div id="admin-lista-clientes"></div>
+      <div class="admin-novo-cliente">
+        <input type="text" id="admin-novo-cliente-nome" placeholder="Nome do novo cliente...">
+        <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, criarCliente)">+ Adicionar cliente</button>
+      </div>
+    </aside>
+    <div class="admin-conteudo" id="admin-conteudo">
+      <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Mesmo projeto Supabase do painel de gestão interno ("implantation") —
+   unificado desde 2026-09-11 pra os 4 admins (Edimilson, Gilson, Jefferson,
+   Leandro) entrarem com a MESMA conta que já usam no gestão. Isso só é
+   seguro porque as tabelas do gestão estão travadas por RLS (is_equipe()) —
+   ver supabase-schema.sql / cronograma-unificacao-migration.sql.
+   ═══════════════════════════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DOMINIO_LOGIN = 'login.intelipulse.com.br'; // domínio fictício, só pra formar o e-mail interno de login de cliente
+
+function slugify(str) {
+  return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+}
+function nomeParaEmail(nome) { return `${slugify(nome)}@${DOMINIO_LOGIN}`; }
+function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDateBR(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
+function parseBRtoISO(br) { const m = br.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : null; }
+
+async function withLock(btn, fn) { if (!btn || btn.disabled) return; btn.disabled = true; try { await fn(); } finally { btn.disabled = false; } }
+const withLockAdmin = withLock;
+
+/* ── ESTADO ── */
+let modoAdmin = false;
+let adminNome = '';
+let clienteAtual = null;   // visão do cliente
+let todosClientes = [];    // visão do admin
+let clienteSelAdmin = null;
+let etapas = [];
+let itens = [];
+let escopoAberto = {};
+
+/* ── LOGIN ── */
+async function fazerLogin() {
+  const idDigitado = document.getElementById('login-nome').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erroEl = document.getElementById('login-erro');
+  erroEl.hidden = true;
+  if (!idDigitado || !senha) { erroEl.textContent = 'Preencha usuário e senha.'; erroEl.hidden = false; return; }
+
+  const email = idDigitado.includes('@') ? idDigitado : nomeParaEmail(idDigitado);
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  btn.disabled = false;
+  if (error) { erroEl.textContent = 'Usuário ou senha incorretos.'; erroEl.hidden = false; return; }
+  await depoisDoLogin();
+}
+
+async function depoisDoLogin() {
+  const { data: { user } } = await sb.auth.getUser();
+
+  const { data: souAdmin } = await sb.rpc('is_cronograma_admin');
+  if (souAdmin) {
+    modoAdmin = true;
+    const { data: adminRow } = await sb.from('cronograma_admins').select('nome').eq('user_id', user.id).maybeSingle();
+    adminNome = (adminRow && adminRow.nome) || user.user_metadata?.nome || user.email.split('@')[0];
+    await abrirAdmin();
+    return;
+  }
+
+  const { data: cliente, error } = await sb.from('cronograma_clientes').select('*').eq('user_id', user.id).maybeSingle();
+  if (error || !cliente) {
+    document.getElementById('login-erro').textContent = 'Conta sem cronograma vinculado. Fale com a Intelipulse.';
+    document.getElementById('login-erro').hidden = false;
+    await sb.auth.signOut();
+    return;
+  }
+  clienteAtual = cliente;
+
+  if (!cliente.senha_trocada) {
+    document.getElementById('tela-login').hidden = true;
+    document.getElementById('tela-troca-senha').hidden = false;
+    return;
+  }
+  await abrirApp();
+}
+
+async function trocarSenha() {
+  const s1 = document.getElementById('nova-senha-1').value;
+  const s2 = document.getElementById('nova-senha-2').value;
+  const erroEl = document.getElementById('troca-erro');
+  erroEl.hidden = true;
+  if (s1.length < 6) { erroEl.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; erroEl.hidden = false; return; }
+  if (s1 !== s2) { erroEl.textContent = 'As senhas digitadas não são iguais.'; erroEl.hidden = false; return; }
+
+  const btn = document.getElementById('btn-trocar-senha');
+  btn.disabled = true;
+  const { error: errSenha } = await sb.auth.updateUser({ password: s1 });
+  if (errSenha) { erroEl.textContent = 'Erro ao salvar a senha: ' + errSenha.message; erroEl.hidden = false; btn.disabled = false; return; }
+
+  await sb.from('cronograma_clientes').update({ senha_trocada: true }).eq('id', clienteAtual.id);
+  clienteAtual.senha_trocada = true;
+  document.getElementById('tela-troca-senha').hidden = true;
+  await abrirApp();
+}
+
+async function sair() { await sb.auth.signOut(); location.reload(); }
+
+/* ── VISÃO DO CLIENTE ── */
+async function abrirApp() {
+  document.getElementById('tela-login').hidden = true;
+  document.getElementById('tela-troca-senha').hidden = true;
+  document.getElementById('app').hidden = false;
+  document.getElementById('cliente-nome-header').textContent = clienteAtual.nome;
+  await carregarDadosCliente(clienteAtual.id);
+  renderClienteAll();
+}
+
+async function carregarDadosCliente(clienteId) {
+  const { data: etapasRows } = await sb.from('cronograma_etapas').select('*').eq('cliente_id', clienteId).order('ordem');
+  etapas = etapasRows || [];
+  const etapaIds = etapas.map(e => e.id);
+  const { data: itensRows } = etapaIds.length
+    ? await sb.from('cronograma_itens').select('*').in('etapa_id', etapaIds).order('ordem')
+    : { data: [] };
+  itens = itensRows || [];
+}
+
+function renderStepper() {
+  document.getElementById('stepper').innerHTML = etapas.map((e, i) => {
+    const itensDaEtapa = itens.filter(it => it.etapa_id === e.id);
+    const todasConcluidas = itensDaEtapa.length > 0 && itensDaEtapa.every(it => it.status === 'concluido');
+    let cls = 'current', tag = 'Em andamento';
+    if (e.bloqueada) { cls = 'bloqueada'; tag = 'Bloqueada'; }
+    else if (todasConcluidas) { cls = 'done'; tag = 'Concluída'; }
+    return `
+      <div class="step ${cls}">
+        <div class="track"></div>
+        <div class="node">${cls === 'done' ? '✓' : (i + 1)}</div>
+        <div class="label">${escapeHtml(e.nome)}</div>
+        <div class="stage-tag">${tag}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderEtapasCliente() {
+  const wrap = document.getElementById('etapas-wrap');
+  if (!etapas.length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">Nenhuma etapa cadastrada ainda.</p></div>`; return; }
+  wrap.innerHTML = etapas.map(etapa => {
+    const linhas = itens.filter(i => i.etapa_id === etapa.id);
+    const feitos = linhas.filter(i => i.status === 'concluido').length;
+    return `
+      <div class="etapa-card">
+        <div class="etapa-head">
+          <h2>${escapeHtml(etapa.nome)}</h2>
+          <span class="etapa-count tabular">${feitos}/${linhas.length} concluídos</span>
+        </div>
+        ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
+        <table class="itens">
+          <thead><tr><th>Item</th><th>Responsável</th><th>Baseline</th><th>Data validação</th><th>Status</th></tr></thead>
+          <tbody>
+            ${linhas.map(item => `
+              <tr>
+                <td class="nome">
+                  ${escapeHtml(item.nome)}
+                  ${item.escopo ? `
+                    <button class="escopo-toggle" onclick="toggleEscopo('${item.id}')">${escopoAberto[item.id] ? '▾ ocultar escopo' : '▸ ver escopo'}</button>
+                    <div class="escopo-box" ${escopoAberto[item.id] ? '' : 'hidden'}>${escapeHtml(item.escopo)}</div>
+                  ` : ''}
+                </td>
+                <td data-label="Responsável"><button class="pill resp-${item.responsavel}" onclick="alternarResponsavel('${item.id}')">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</button></td>
+                <td data-label="Baseline" class="tabular"><input class="baseline-field ${item.baseline ? '' : 'indefinido'}" value="${escapeHtml(item.baseline || '?')}" onchange="editarBaseline('${item.id}', this)"></td>
+                <td data-label="Data validação" class="tabular"><input class="date-field ${item.data_validacao ? '' : 'empty'}" value="${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}" onclick="this.select()" onchange="editarDataValidacao('${item.id}', this)"></td>
+                <td data-label="Status"><button class="pill status-${item.status}" onclick="alternarStatus('${item.id}')"><span class="dot"></span>${item.status === 'concluido' ? 'Concluído' : 'Pendente'}</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderClienteAll() { renderStepper(); renderEtapasCliente(); }
+function toggleEscopo(id) { escopoAberto[id] = !escopoAberto[id]; renderEtapasCliente(); }
+
+// as únicas 4 alterações que o cliente pode fazer — todas passam pela função
+// atualizar_item_cronograma_cliente() no banco, que valida dono e restringe os campos.
+async function salvarEdicaoCliente(item) {
+  await sb.rpc('atualizar_item_cronograma_cliente', {
+    p_item_id: item.id,
+    p_status: item.status,
+    p_responsavel: item.responsavel,
+    p_baseline: item.baseline,
+    p_data_validacao: item.data_validacao
+  });
+}
+async function alternarStatus(id) {
+  const item = itens.find(i => i.id === id); if (!item) return;
+  item.status = item.status === 'concluido' ? 'pendente' : 'concluido';
+  renderClienteAll(); await salvarEdicaoCliente(item);
+}
+async function alternarResponsavel(id) {
+  const item = itens.find(i => i.id === id); if (!item) return;
+  item.responsavel = item.responsavel === 'cliente' ? 'intelipulse' : 'cliente';
+  renderClienteAll(); await salvarEdicaoCliente(item);
+}
+async function editarBaseline(id, inputEl) {
+  const item = itens.find(i => i.id === id); if (!item) return;
+  item.baseline = inputEl.value.trim();
+  renderEtapasCliente(); await salvarEdicaoCliente(item);
+}
+async function editarDataValidacao(id, inputEl) {
+  const item = itens.find(i => i.id === id); if (!item) return;
+  const bruto = inputEl.value.trim();
+  if (!bruto || bruto === 'dd/mm/aaaa') { item.data_validacao = null; }
+  else {
+    const iso = parseBRtoISO(bruto);
+    if (!iso) { alert('Use o formato dd/mm/aaaa.'); renderEtapasCliente(); return; }
+    item.data_validacao = iso;
+  }
+  renderEtapasCliente(); await salvarEdicaoCliente(item);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   VISÃO ADMIN (Edimilson, Gilson, Jefferson, Leandro) — acesso total:
+   criar/editar/excluir clientes, etapas e itens (todos os campos).
+   ═══════════════════════════════════════════════════════════════════ */
+async function abrirAdmin() {
+  document.getElementById('tela-login').hidden = true;
+  document.getElementById('admin-app').hidden = false;
+  document.getElementById('admin-nome-header').textContent = adminNome;
+  await carregarListaClientes();
+}
+
+async function carregarListaClientes() {
+  const { data } = await sb.from('cronograma_clientes').select('*').order('nome');
+  todosClientes = data || [];
+  renderListaClientesAdmin();
+}
+
+function renderListaClientesAdmin() {
+  document.getElementById('admin-lista-clientes').innerHTML = todosClientes.map(c => `
+    <button class="admin-cliente-item ${clienteSelAdmin && clienteSelAdmin.id === c.id ? 'ativo' : ''}" onclick="selecionarClienteAdmin('${c.id}')">${escapeHtml(c.nome)}</button>
+  `).join('') || `<p style="font-size:12.5px;color:var(--slate);">Nenhum cliente ainda.</p>`;
+}
+
+async function criarCliente() {
+  const input = document.getElementById('admin-novo-cliente-nome');
+  const nome = input.value.trim();
+  if (!nome) return;
+  const { data, error } = await sb.from('cronograma_clientes').insert({ nome }).select().single();
+  if (error) { alert('Erro ao criar cliente: ' + error.message); return; }
+  input.value = '';
+  todosClientes.push(data);
+  todosClientes.sort((a,b) => a.nome.localeCompare(b.nome));
+  renderListaClientesAdmin();
+  alert(`Cliente "${nome}" criado. Falta criar o login dele: Authentication → Invite user com o e-mail "${nomeParaEmail(nome)}", e depois vincular o UID gerado a este cliente (coluna user_id em cronograma_clientes).`);
+  await selecionarClienteAdmin(data.id);
+}
+
+async function selecionarClienteAdmin(clienteId) {
+  clienteSelAdmin = todosClientes.find(c => c.id === clienteId);
+  renderListaClientesAdmin();
+  await carregarDadosCliente(clienteId);
+  renderAdminConteudo();
+}
+
+function renderAdminConteudo() {
+  const el = document.getElementById('admin-conteudo');
+  if (!clienteSelAdmin) { el.innerHTML = `<p style="color:var(--slate);">Selecione um cliente.</p>`; return; }
+
+  el.innerHTML = `
+    <h2 style="margin-top:0;">${escapeHtml(clienteSelAdmin.nome)}</h2>
+    <div class="admin-add-etapa-row">
+      <input type="text" id="admin-nova-etapa-nome" placeholder="Nome da nova etapa...">
+      <button class="admin-mini-btn" onclick="withLockAdmin(this, criarEtapa)">+ Nova etapa</button>
+    </div>
+    <div id="admin-etapas-lista"></div>
+  `;
+  renderEtapasAdmin();
+}
+
+function renderEtapasAdmin() {
+  const wrap = document.getElementById('admin-etapas-lista');
+  wrap.innerHTML = etapas.map(etapa => {
+    const linhas = itens.filter(i => i.etapa_id === etapa.id);
+    return `
+      <div class="admin-etapa-card">
+        <div class="admin-etapa-topo">
+          <input type="text" value="${escapeHtml(etapa.nome)}" onchange="salvarNomeEtapa('${etapa.id}', this.value)">
+          <button class="admin-mini-btn perigo" onclick="excluirEtapa('${etapa.id}')">🗑 Excluir etapa</button>
+        </div>
+        <label class="admin-bloqueio-row">
+          <input type="checkbox" ${etapa.bloqueada ? 'checked' : ''} onchange="salvarBloqueioEtapa('${etapa.id}', this.checked, document.getElementById('nota-${etapa.id}').value)">
+          Etapa bloqueada
+          <textarea id="nota-${etapa.id}" placeholder="Motivo do bloqueio (aparece pro cliente)..." onchange="salvarBloqueioEtapa('${etapa.id}', document.getElementById('check-${etapa.id}')?.checked ?? ${etapa.bloqueada}, this.value)">${escapeHtml(etapa.nota_bloqueio || '')}</textarea>
+        </label>
+        <table class="admin-itens">
+          <thead><tr><th class="col-ordem">Ord.</th><th class="col-nome">Item</th><th>Responsável</th><th>Baseline</th><th>Data validação</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${linhas.map(item => `
+              <tr>
+                <td class="col-ordem"><input type="number" value="${item.ordem}" onchange="salvarCampoItem('${item.id}','ordem', this.valueAsNumber)"></td>
+                <td class="col-nome">
+                  <input type="text" value="${escapeHtml(item.nome)}" onchange="salvarCampoItem('${item.id}','nome', this.value)">
+                  <div class="admin-escopo-wrap"><textarea placeholder="Escopo/detalhe (opcional, o cliente pode expandir)..." onchange="salvarCampoItem('${item.id}','escopo', this.value)">${escapeHtml(item.escopo || '')}</textarea></div>
+                </td>
+                <td>
+                  <select onchange="salvarCampoItem('${item.id}','responsavel', this.value)">
+                    <option value="cliente" ${item.responsavel === 'cliente' ? 'selected' : ''}>${escapeHtml(clienteSelAdmin.nome)}</option>
+                    <option value="intelipulse" ${item.responsavel === 'intelipulse' ? 'selected' : ''}>Intelipulse</option>
+                  </select>
+                </td>
+                <td><input type="text" value="${escapeHtml(item.baseline || '')}" onchange="salvarCampoItem('${item.id}','baseline', this.value)"></td>
+                <td><input type="date" value="${item.data_validacao || ''}" onchange="salvarCampoItem('${item.id}','data_validacao', this.value || null)"></td>
+                <td>
+                  <select onchange="salvarCampoItem('${item.id}','status', this.value)">
+                    <option value="pendente" ${item.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="concluido" ${item.status === 'concluido' ? 'selected' : ''}>Concluído</option>
+                  </select>
+                </td>
+                <td><button class="admin-mini-btn perigo" onclick="excluirItem('${item.id}')">🗑</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="admin-add-item-row">
+          <input type="text" id="novo-item-${etapa.id}" placeholder="Nome do novo item...">
+          <button class="admin-mini-btn" onclick="withLockAdmin(this, () => criarItem('${etapa.id}'))">+ Adicionar item</button>
+        </div>
+      </div>
+    `;
+  }).join('') || `<p style="color:var(--slate);">Nenhuma etapa ainda — crie a primeira acima.</p>`;
+}
+
+async function criarEtapa() {
+  const input = document.getElementById('admin-nova-etapa-nome');
+  const nome = input.value.trim();
+  if (!nome) return;
+  const ordem = etapas.length ? Math.max(...etapas.map(e => e.ordem)) + 1 : 1;
+  const { data, error } = await sb.from('cronograma_etapas').insert({ cliente_id: clienteSelAdmin.id, nome, ordem }).select().single();
+  if (error) { alert('Erro ao criar etapa: ' + error.message); return; }
+  etapas.push(data);
+  input.value = '';
+  renderAdminConteudo();
+}
+
+async function salvarNomeEtapa(id, nome) {
+  nome = nome.trim(); if (!nome) return;
+  await sb.from('cronograma_etapas').update({ nome }).eq('id', id);
+  const e = etapas.find(e => e.id === id); if (e) e.nome = nome;
+}
+
+async function salvarBloqueioEtapa(id, bloqueada, nota) {
+  await sb.from('cronograma_etapas').update({ bloqueada, nota_bloqueio: nota }).eq('id', id);
+  const e = etapas.find(e => e.id === id); if (e) { e.bloqueada = bloqueada; e.nota_bloqueio = nota; }
+}
+
+async function excluirEtapa(id) {
+  if (!confirm('Excluir esta etapa e todos os itens dela?')) return;
+  await sb.from('cronograma_etapas').delete().eq('id', id);
+  etapas = etapas.filter(e => e.id !== id);
+  itens = itens.filter(i => i.etapa_id !== id);
+  renderAdminConteudo();
+}
+
+async function criarItem(etapaId) {
+  const input = document.getElementById(`novo-item-${etapaId}`);
+  const nome = input.value.trim();
+  if (!nome) return;
+  const daEtapa = itens.filter(i => i.etapa_id === etapaId);
+  const ordem = daEtapa.length ? Math.max(...daEtapa.map(i => i.ordem)) + 1 : 1;
+  const { data, error } = await sb.from('cronograma_itens').insert({ etapa_id: etapaId, nome, ordem, responsavel: 'intelipulse', status: 'pendente' }).select().single();
+  if (error) { alert('Erro ao criar item: ' + error.message); return; }
+  itens.push(data);
+  renderAdminConteudo();
+}
+
+async function salvarCampoItem(id, campo, valor) {
+  await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
+  const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
+}
+
+async function excluirItem(id) {
+  if (!confirm('Excluir este item?')) return;
+  await sb.from('cronograma_itens').delete().eq('id', id);
+  itens = itens.filter(i => i.id !== id);
+  renderAdminConteudo();
+}
+
+/* ── BOOT: retoma sessão ativa, se houver ── */
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await depoisDoLogin();
+})();
+</script>
+</body>
+</html>
