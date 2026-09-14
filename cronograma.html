@@ -153,6 +153,11 @@
   .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
   .admin-etapa-topo input[type=text] { font-size:15px; font-weight:700; border:none; background:none; color:var(--ink); padding:4px 0; flex:1; min-width:160px; }
   .admin-etapa-topo input[type=text]:focus-visible { outline:1px solid var(--line); border-radius:4px; }
+  .admin-etapa-nome-toggle { font-size:15px; font-weight:700; color:var(--ink); cursor:pointer; flex:1; user-select:none; }
+  .admin-etapa-nome-toggle:hover { color: var(--focus); }
+  .admin-etapa-count { font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:500; color:var(--slate); margin-left:4px; }
+  .admin-recolher-todos { background:none; border:1px solid var(--line); border-radius:7px; padding:7px 12px; font-size:12px; color:var(--slate); cursor:pointer; margin-bottom:14px; }
+  .admin-recolher-todos:hover { color:var(--ink); border-color:var(--ink); }
   .admin-mini-btn { background:none; border:1px solid var(--line); border-radius:7px; padding:5px 10px; font-size:11.5px; color:var(--slate); cursor:pointer; }
   .admin-mini-btn:hover { color:var(--ink); border-color:var(--ink); }
   .admin-mini-btn.perigo:hover { color:var(--red); border-color:var(--red); }
@@ -360,6 +365,8 @@ let subitens = [];
 let escopoAberto = {};
 let checklistAberto = {};
 let adminDetalheAberto = {};
+let adminEtapaColapsada = {};
+let adminEtapaRenomeando = {};
 
 /* ── LOGIN ── */
 async function fazerLogin() {
@@ -638,8 +645,34 @@ function renderAdminConteudo() {
       <input type="text" id="admin-nova-etapa-nome" placeholder="Nome da nova etapa...">
       <button class="admin-mini-btn" onclick="withLockAdmin(this, criarEtapa)">+ Nova etapa</button>
     </div>
+    <button class="admin-recolher-todos" onclick="toggleTodasEtapasAdmin()">${todasEtapasColapsadas() ? '▾ Expandir todas' : '▸ Recolher todas'}</button>
     <div id="admin-etapas-lista"></div>
   `;
+  renderEtapasAdmin();
+}
+
+function todasEtapasColapsadas() {
+  return etapas.length > 0 && etapas.every(e => adminEtapaColapsada[e.id]);
+}
+
+function toggleTodasEtapasAdmin() {
+  const colapsarTudo = !todasEtapasColapsadas();
+  etapas.forEach(e => { adminEtapaColapsada[e.id] = colapsarTudo; });
+  renderAdminConteudo();
+}
+
+function toggleAdminEtapa(id) { adminEtapaColapsada[id] = !adminEtapaColapsada[id]; renderAdminConteudo(); }
+
+function iniciarRenomearEtapa(id) {
+  adminEtapaRenomeando[id] = true;
+  renderEtapasAdmin();
+  const input = document.getElementById(`etapa-input-${id}`);
+  if (input) { input.focus(); input.select(); }
+}
+
+async function salvarNomeEtapaEFechar(id, nome) {
+  await salvarNomeEtapa(id, nome);
+  adminEtapaRenomeando[id] = false;
   renderEtapasAdmin();
 }
 
@@ -647,12 +680,19 @@ function renderEtapasAdmin() {
   const wrap = document.getElementById('admin-etapas-lista');
   wrap.innerHTML = etapas.map(etapa => {
     const linhas = itens.filter(i => i.etapa_id === etapa.id);
+    const colapsada = !!adminEtapaColapsada[etapa.id];
     return `
       <div class="admin-etapa-card">
         <div class="admin-etapa-topo">
-          <input type="text" value="${escapeHtml(etapa.nome)}" onchange="salvarNomeEtapa('${etapa.id}', this.value)">
+          ${adminEtapaRenomeando[etapa.id] ? `
+            <input type="text" id="etapa-input-${etapa.id}" value="${escapeHtml(etapa.nome)}" onblur="salvarNomeEtapaEFechar('${etapa.id}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+          ` : `
+            <span class="admin-etapa-nome-toggle" onclick="toggleAdminEtapa('${etapa.id}')">${colapsada ? '▸' : '▾'} ${escapeHtml(etapa.nome)}<span class="admin-etapa-count">(${linhas.length})</span></span>
+            <button class="admin-mini-btn" onclick="iniciarRenomearEtapa('${etapa.id}')" title="Renomear etapa">✏️</button>
+          `}
           <button class="admin-mini-btn perigo" onclick="excluirEtapa('${etapa.id}')">🗑 Excluir etapa</button>
         </div>
+        ${colapsada ? '' : `
         <label class="admin-bloqueio-row">
           <input type="checkbox" ${etapa.bloqueada ? 'checked' : ''} onchange="salvarBloqueioEtapa('${etapa.id}', this.checked, document.getElementById('nota-${etapa.id}').value)">
           Etapa bloqueada
@@ -714,6 +754,7 @@ function renderEtapasAdmin() {
           <input type="text" id="novo-item-${etapa.id}" placeholder="Nome do novo item...">
           <button class="admin-mini-btn" onclick="withLockAdmin(this, () => criarItem('${etapa.id}'))">+ Adicionar item</button>
         </div>
+        `}
       </div>
     `;
   }).join('') || `<p style="color:var(--slate);">Nenhuma etapa ainda — crie a primeira acima.</p>`;
