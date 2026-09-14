@@ -81,6 +81,7 @@
 
   .title-row { margin-bottom: 34px; }
   .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+  .preview-admin-banner { background: var(--amber-soft); color: var(--amber); border-radius: 9px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; margin-bottom: 18px; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
   .title-row p { margin: 8px 0 0; color: var(--slate); font-size: 14px; max-width: 62ch; line-height: 1.5; }
 
@@ -289,10 +290,12 @@
     <div class="divider"></div>
     <div class="client">Cronograma de Projeto · <b id="cliente-nome-header"></b></div>
     <button class="sair theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
-    <button class="sair" onclick="sair()">Sair</button>
+    <button class="sair" id="btn-voltar-admin" onclick="voltarPraAdmin()" hidden>◂ Voltar pro admin</button>
+    <button class="sair" id="btn-sair-app" onclick="sair()">Sair</button>
   </header>
   <main>
     <div class="title-row">
+      <div class="preview-admin-banner" id="preview-admin-banner" hidden>👁 Modo visualização — é assim que o cliente vê o próprio cronograma (somente leitura, nada aqui é salvo)</div>
       <div class="eyebrow">Acompanhamento em tempo real</div>
       <h1>Onde está o seu projeto</h1>
       <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
@@ -446,6 +449,7 @@ let checklistAberto = {};
 let adminDetalheAberto = {};
 let adminEtapaColapsada = {};
 let adminEtapaRenomeando = {};
+let modoPreviewAdmin = false;
 
 /* ── LOGIN ── */
 async function fazerLogin() {
@@ -615,7 +619,7 @@ function renderEtapasCliente() {
                   `; })()}
                 </td>
                 <td data-label="Responsável" class="col-resp"><span class="pill resp-${item.responsavel}">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</span></td>
-                ${item.responsavel === 'cliente' ? `
+                ${item.responsavel === 'cliente' && !modoPreviewAdmin ? `
                 <td data-label="Baseline" class="tabular col-baseline"><input class="baseline-field ${item.baseline ? '' : 'indefinido'}" value="${escapeHtml(item.baseline || '?')}" onchange="editarBaseline('${item.id}', this)"></td>
                 <td data-label="Data validação" class="tabular col-data"><input class="date-field ${item.data_validacao ? '' : 'empty'}" value="${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}" onclick="this.select()" onchange="editarDataValidacao('${item.id}', this)"></td>
                 <td data-label="Status" class="col-status"><button class="pill status-${item.status}" onclick="alternarStatus('${item.id}')"><span class="dot"></span>${item.status === 'concluido' ? 'Concluído' : 'Pendente'}</button></td>
@@ -634,6 +638,34 @@ function renderEtapasCliente() {
 }
 
 function renderClienteAll() { renderStepper(); renderEtapasCliente(); }
+
+// Deixa um admin ver o cronograma exatamente como o cliente selecionado vê —
+// pra apresentação/demonstração e pra testar mudanças sem precisar logar com
+// a conta do cliente. Reaproveita os mesmos dados já carregados pro admin
+// (etapas/itens/subitens), só troca a tela; nunca chama a RPC do cliente —
+// modoPreviewAdmin trava toda edição, vira somente leitura.
+function abrirVisaoClientePreview() {
+  if (!clienteSelAdmin) return;
+  modoPreviewAdmin = true;
+  clienteAtual = clienteSelAdmin;
+  document.getElementById('admin-app').hidden = true;
+  document.getElementById('app').hidden = false;
+  document.getElementById('cliente-nome-header').textContent = clienteSelAdmin.nome;
+  document.getElementById('preview-admin-banner').hidden = false;
+  document.getElementById('btn-voltar-admin').hidden = false;
+  document.getElementById('btn-sair-app').hidden = true;
+  renderClienteAll();
+}
+
+function voltarPraAdmin() {
+  modoPreviewAdmin = false;
+  clienteAtual = null;
+  document.getElementById('app').hidden = true;
+  document.getElementById('admin-app').hidden = false;
+  document.getElementById('preview-admin-banner').hidden = true;
+  document.getElementById('btn-voltar-admin').hidden = true;
+  document.getElementById('btn-sair-app').hidden = false;
+}
 function toggleEscopo(id) { escopoAberto[id] = !escopoAberto[id]; renderEtapasCliente(); }
 function toggleChecklist(id) { checklistAberto[id] = !checklistAberto[id]; renderEtapasCliente(); }
 
@@ -760,7 +792,10 @@ function renderAdminConteudo() {
   if (!clienteSelAdmin) { el.innerHTML = `<p style="color:var(--slate);">Selecione um cliente.</p>`; return; }
 
   el.innerHTML = `
-    <h2 style="margin-top:0;">${escapeHtml(clienteSelAdmin.nome)}</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+      <h2 style="margin:0;">${escapeHtml(clienteSelAdmin.nome)}</h2>
+      <button class="admin-mini-btn" onclick="abrirVisaoClientePreview()">👁 Visão do Cliente</button>
+    </div>
     <div class="admin-add-etapa-row">
       <input type="text" id="admin-nova-etapa-nome" placeholder="Nome da nova etapa...">
       <button class="admin-mini-btn" onclick="withLockAdmin(this, criarEtapa)">+ Nova etapa</button>
