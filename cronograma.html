@@ -388,6 +388,17 @@ function parseBRtoISO(br) { const m = br.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\
 // expirada, RLS negada) passava em silêncio: a tela local continuava
 // mostrando a mudança (já que o estado em memória é atualizado de qualquer
 // jeito), mas nada ia pro banco, e um refresh depois revertia tudo sem aviso.
+function traduzErroAuth(msg) {
+  const mapa = {
+    'Invalid login credentials': 'Usuário ou senha incorretos.',
+    'New password should be different from the old password.': 'A nova senha precisa ser diferente da senha atual.',
+    'Password should be at least 6 characters.': 'A senha precisa ter pelo menos 6 caracteres.',
+    'User already registered': 'Já existe uma conta com esse e-mail.',
+    'Email not confirmed': 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada/spam).'
+  };
+  return mapa[msg] || msg;
+}
+
 function avisarSeErro(error, acao) {
   if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})`); return true; }
   return false;
@@ -484,7 +495,7 @@ async function trocarSenha() {
   const btn = document.getElementById('btn-trocar-senha');
   btn.disabled = true;
   const { error: errSenha } = await sb.auth.updateUser({ password: s1 });
-  if (errSenha) { erroEl.textContent = 'Erro ao salvar a senha: ' + errSenha.message; erroEl.hidden = false; btn.disabled = false; return; }
+  if (errSenha) { erroEl.textContent = 'Erro ao salvar a senha: ' + traduzErroAuth(errSenha.message); erroEl.hidden = false; btn.disabled = false; return; }
 
   await sb.from('cronograma_clientes').update({ senha_trocada: true }).eq('id', clienteAtual.id);
   clienteAtual.senha_trocada = true;

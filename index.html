@@ -4398,7 +4398,9 @@ function traduzErroAuth(msg) {
   const mapa = {
     'Invalid login credentials': 'E-mail ou senha incorretos.',
     'User already registered': 'Já existe uma conta com esse e-mail.',
-    'Email not confirmed': 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada/spam).'
+    'Email not confirmed': 'Confirme seu e-mail antes de entrar (verifique a caixa de entrada/spam).',
+    'New password should be different from the old password.': 'A nova senha precisa ser diferente da senha atual.',
+    'Password should be at least 6 characters.': 'A senha precisa ter pelo menos 6 caracteres.'
   };
   return mapa[msg] || msg;
 }
