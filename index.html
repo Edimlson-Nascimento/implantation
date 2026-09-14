@@ -707,6 +707,7 @@
         </div>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="withLock(this, doLogin)">Entrar</button>
+      <button type="button" onclick="withLock(this, doForgotPassword)" style="background:none;border:none;color:var(--gray-text);font-size:12px;margin-top:10px;width:100%;text-align:center;cursor:pointer;text-decoration:underline;">Esqueci minha senha</button>
     </div>
 
     <div id="auth-form-signup" style="display:none;">
@@ -4429,6 +4430,17 @@ async function doSignup() {
   } else {
     msg.textContent = '';
   }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('login-email').value.trim();
+  const msg = document.getElementById('auth-msg');
+  msg.style.color = 'var(--red)';
+  if (!email) { msg.textContent = 'Digite seu e-mail no campo acima primeiro.'; return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if (error) { msg.textContent = 'Erro ao enviar: ' + traduzErroAuth(error.message); return; }
+  msg.style.color = 'var(--text-main)';
+  msg.textContent = `Enviamos um e-mail pra ${email} com um link pra redefinir sua senha.`;
 }
 
 async function doLogout() {
