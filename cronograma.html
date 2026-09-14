@@ -149,6 +149,13 @@
   .admin-novo-cliente { margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
   .admin-novo-cliente input, .admin-novo-cliente select { width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:13px; margin-bottom:6px; }
   .admin-duplicar-label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin-bottom:6px; }
+
+  .aviso-overlay { position:fixed; inset:0; background:rgba(1,15,28,0.65); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+  .aviso-box { background:var(--surface); border-radius:16px; padding:30px 28px; width:100%; max-width:420px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.35); }
+  .aviso-icone { font-size:32px; margin-bottom:10px; }
+  .aviso-box h3 { margin:0 0 10px; font-size:17px; color:var(--ink); }
+  .aviso-box p { margin:0 0 22px; font-size:13.5px; color:var(--slate); line-height:1.6; white-space:pre-wrap; text-align:left; }
+  .aviso-box .btn-primario { width:100%; }
   .admin-conteudo { flex:1; padding:28px 32px; max-width:1500px; }
   .admin-etapa-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:18px; }
   .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
@@ -317,6 +324,16 @@
   </div>
 </div>
 
+<!-- ═══ MODAL DE AVISO (substitui o alert() padrão do navegador) ═══ -->
+<div id="aviso-overlay" class="aviso-overlay" hidden onclick="if(event.target===this) fecharAviso()">
+  <div class="aviso-box">
+    <div class="aviso-icone" id="aviso-icone">✅</div>
+    <h3 id="aviso-titulo"></h3>
+    <p id="aviso-mensagem"></p>
+    <button class="btn-primario full" onclick="fecharAviso()">Entendi</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
@@ -348,6 +365,14 @@ function avisarSeErro(error, acao) {
   if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})`); return true; }
   return false;
 }
+
+function mostrarAviso(titulo, mensagem, icone) {
+  document.getElementById('aviso-icone').textContent = icone || '✅';
+  document.getElementById('aviso-titulo').textContent = titulo;
+  document.getElementById('aviso-mensagem').textContent = mensagem;
+  document.getElementById('aviso-overlay').hidden = false;
+}
+function fecharAviso() { document.getElementById('aviso-overlay').hidden = true; }
 
 function toggleSenhaVisivel(inputId, btn) {
   const input = document.getElementById(inputId);
@@ -645,7 +670,11 @@ async function duplicarCliente() {
 
   nomeInput.value = '';
   await carregarListaClientes();
-  alert(`Cliente "${novoNome}" criado com tudo copiado de "${nomeOrigem}" (etapas, itens e checklists). Revise/ajuste o que for específico desse cliente. Falta criar o login: Authentication → Invite user com o e-mail "${nomeParaEmail(novoNome)}", e depois vincular o UID gerado (coluna user_id em cronograma_clientes).`);
+  mostrarAviso(
+    'Cliente duplicado',
+    `Cliente "${novoNome}" criado com tudo copiado de "${nomeOrigem}" (etapas, itens e checklists).\n\nRevise/ajuste o que for específico desse cliente.\n\nFalta criar o login: Authentication → Invite user com o e-mail "${nomeParaEmail(novoNome)}", e depois vincular o UID gerado (coluna user_id em cronograma_clientes).`,
+    '📋'
+  );
   await selecionarClienteAdmin(data);
 }
 
@@ -659,7 +688,11 @@ async function criarCliente() {
   todosClientes.push(data);
   todosClientes.sort((a,b) => a.nome.localeCompare(b.nome));
   renderListaClientesAdmin();
-  alert(`Cliente "${nome}" criado. Falta criar o login dele: Authentication → Invite user com o e-mail "${nomeParaEmail(nome)}", e depois vincular o UID gerado a este cliente (coluna user_id em cronograma_clientes).`);
+  mostrarAviso(
+    'Cliente criado',
+    `Cliente "${nome}" criado em branco.\n\nFalta criar o login dele: Authentication → Invite user com o e-mail "${nomeParaEmail(nome)}", e depois vincular o UID gerado a este cliente (coluna user_id em cronograma_clientes).`,
+    '✨'
+  );
   await selecionarClienteAdmin(data.id);
 }
 
