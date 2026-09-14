@@ -175,6 +175,12 @@
   .admin-etapa-nome-toggle { font-size:15px; font-weight:700; color:var(--ink); cursor:pointer; flex:1; user-select:none; }
   .admin-etapa-nome-toggle:hover { color: var(--focus); }
   .admin-etapa-count { font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:500; color:var(--slate); margin-left:4px; }
+  .pct-badge { display:inline-flex; align-items:center; font-family:'IBM Plex Mono',monospace; font-weight:700; border-radius:100px; white-space:nowrap; }
+  .pct-badge.pct-alta { background:var(--green-soft); color:var(--green); }
+  .pct-badge.pct-media { background:var(--amber-soft); color:var(--amber); }
+  .pct-badge.pct-baixa { background:var(--red-soft); color:var(--red); }
+  .pct-badge.pct-geral { font-size:13px; padding:6px 14px; }
+  .admin-etapa-count.pct-badge { font-size:11.5px; padding:2px 9px; margin-left:6px; }
   .admin-recolher-todos { background:none; border:1px solid var(--line); border-radius:7px; padding:7px 12px; font-size:12px; color:var(--slate); cursor:pointer; margin-bottom:14px; }
   .admin-recolher-todos:hover { color:var(--ink); border-color:var(--ink); }
   .admin-mini-btn { background:none; border:1px solid var(--line); border-radius:7px; padding:5px 10px; font-size:11.5px; color:var(--slate); cursor:pointer; }
@@ -297,7 +303,10 @@
     <div class="title-row">
       <div class="preview-admin-banner" id="preview-admin-banner" hidden>👁 Modo visualização — é assim que o cliente vê o próprio cronograma (somente leitura, nada aqui é salvo)</div>
       <div class="eyebrow">Acompanhamento em tempo real</div>
-      <h1>Onde está o seu projeto</h1>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h1 style="margin:0;">Onde está o seu projeto</h1>
+        <span id="progresso-geral-cliente"></span>
+      </div>
       <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
     </div>
     <div class="stepper" id="stepper"></div>
@@ -591,15 +600,22 @@ function renderStepper() {
 
 function renderEtapasCliente() {
   const wrap = document.getElementById('etapas-wrap');
+  const badgeGeral = document.getElementById('progresso-geral-cliente');
+  if (badgeGeral) {
+    const pctGeral = pctConcluido(itens);
+    badgeGeral.innerHTML = itens.length ? `<span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>` : '';
+  }
   if (!etapas.length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">Nenhuma etapa cadastrada ainda.</p></div>`; return; }
   wrap.innerHTML = etapas.map(etapa => {
     const linhas = itens.filter(i => i.etapa_id === etapa.id);
     const feitos = linhas.filter(i => i.status === 'concluido').length;
+    const pctEtapa = pctConcluido(linhas);
     return `
       <div class="etapa-card">
         <div class="etapa-head">
           <h2>${escapeHtml(etapa.nome)}</h2>
           <span class="etapa-count tabular">${feitos}/${linhas.length} concluídos</span>
+          ${linhas.length ? `<span class="pct-badge ${pctClasse(pctEtapa)}" style="font-size:11.5px; padding:3px 10px;">${pctEtapa}%</span>` : ''}
         </div>
         ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
         <table class="itens">
@@ -787,13 +803,28 @@ async function selecionarClienteAdmin(clienteId) {
   renderAdminConteudo();
 }
 
+function pctConcluido(lista) {
+  if (!lista.length) return 0;
+  return Math.round(lista.filter(i => i.status === 'concluido').length / lista.length * 100);
+}
+
+function pctClasse(pct) {
+  if (pct >= 80) return 'pct-alta';
+  if (pct >= 40) return 'pct-media';
+  return 'pct-baixa';
+}
+
 function renderAdminConteudo() {
   const el = document.getElementById('admin-conteudo');
   if (!clienteSelAdmin) { el.innerHTML = `<p style="color:var(--slate);">Selecione um cliente.</p>`; return; }
 
+  const pctGeral = pctConcluido(itens);
   el.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-      <h2 style="margin:0;">${escapeHtml(clienteSelAdmin.nome)}</h2>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h2 style="margin:0;">${escapeHtml(clienteSelAdmin.nome)}</h2>
+        <span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>
+      </div>
       <button class="admin-mini-btn" onclick="abrirVisaoClientePreview()">👁 Visão do Cliente</button>
     </div>
     <div class="admin-add-etapa-row">
@@ -836,13 +867,14 @@ function renderEtapasAdmin() {
   wrap.innerHTML = etapas.map(etapa => {
     const linhas = itens.filter(i => i.etapa_id === etapa.id);
     const colapsada = !!adminEtapaColapsada[etapa.id];
+    const pctEtapa = pctConcluido(linhas);
     return `
       <div class="admin-etapa-card">
         <div class="admin-etapa-topo">
           ${adminEtapaRenomeando[etapa.id] ? `
             <input type="text" id="etapa-input-${etapa.id}" value="${escapeHtml(etapa.nome)}" onblur="salvarNomeEtapaEFechar('${etapa.id}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
           ` : `
-            <span class="admin-etapa-nome-toggle" onclick="toggleAdminEtapa('${etapa.id}')">${colapsada ? '▸' : '▾'} ${escapeHtml(etapa.nome)}<span class="admin-etapa-count">(${linhas.length})</span></span>
+            <span class="admin-etapa-nome-toggle" onclick="toggleAdminEtapa('${etapa.id}')">${colapsada ? '▸' : '▾'} ${escapeHtml(etapa.nome)}<span class="admin-etapa-count">(${linhas.length})</span>${linhas.length ? `<span class="admin-etapa-count pct-badge ${pctClasse(pctEtapa)}">${pctEtapa}%</span>` : ''}</span>
             <button class="admin-mini-btn" onclick="iniciarRenomearEtapa('${etapa.id}')" title="Renomear etapa">✏️</button>
           `}
           <button class="admin-mini-btn perigo" onclick="excluirEtapa('${etapa.id}')">🗑 Excluir etapa</button>
