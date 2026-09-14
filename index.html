@@ -4505,11 +4505,27 @@ async function refreshDados() {
 }
 
 async function showApp(session) {
+  const { data: pessoaRow } = await sb.from('pessoas').select('nome').eq('user_id', session.user.id).maybeSingle();
+
+  if (!pessoaRow) {
+    // Sessão válida no Supabase, mas a conta não está vinculada a ninguém da
+    // equipe (ex: login de cliente do Cronograma, mesmo projeto Supabase) —
+    // nunca deixar essa conta abrir a casca do painel, mesmo sem dado nenhum
+    // aparecendo (RLS já bloqueia os dados, mas a interface em si não devia
+    // nem carregar).
+    appBooted = false;
+    await sb.auth.signOut();
+    showAuthScreen();
+    const msg = document.getElementById('auth-msg');
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Essa conta não tem acesso ao painel de gestão. Se você é cliente, use o link do Cronograma de Clientes.';
+    return;
+  }
+
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-shell').style.display = '';
 
-  const { data: pessoaRow } = await sb.from('pessoas').select('nome').eq('user_id', session.user.id).maybeSingle();
-  currentPessoaNome = (pessoaRow && pessoaRow.nome) || session.user.user_metadata?.nome || '';
+  currentPessoaNome = pessoaRow.nome;
   document.getElementById('auth-user-saudacao').textContent = currentPessoaNome ? `Olá, ${currentPessoaNome}` : '';
 
   await loadState();
