@@ -742,6 +742,16 @@
   </div>
 </div>
 
+<div id="sem-acesso-screen" class="auth-screen" style="display:none;">
+  <div class="modal-box" style="max-width:380px; width:100%; text-align:center;">
+    <img src="logo-intelipulse.png" alt="Intelipulse" class="auth-logo">
+    <div style="font-size:38px; margin:6px 0 10px;">🔒</div>
+    <h3 style="margin:0 0 8px;">Acesso restrito</h3>
+    <p style="margin:0; font-size:13px; color:var(--gray-text); line-height:1.6;">Essa conta não tem acesso ao painel de gestão de implantação.</p>
+    <p style="margin:14px 0 0; font-size:13px; color:var(--gray-text); line-height:1.6;">Se você é cliente, use o link do seu Cronograma de Projeto.</p>
+  </div>
+</div>
+
 <div id="recovery-screen" class="auth-screen" style="display:none;">
   <div class="modal-box" style="max-width:380px; width:100%;">
     <img src="logo-intelipulse.png" alt="Intelipulse" class="auth-logo">
@@ -4510,13 +4520,15 @@ async function showApp(session) {
     // equipe (ex: login de cliente do Cronograma, mesmo projeto Supabase) —
     // nunca deixar essa conta abrir a casca do painel, mesmo sem dado nenhum
     // aparecendo (RLS já bloqueia os dados, mas a interface em si não devia
-    // nem carregar).
+    // nem carregar). Mostra uma tela dedicada de aviso em vez do formulário
+    // de login de novo — não é "senha errada", é "essa conta não é daqui",
+    // pra não parecer um convite a tentar de novo.
     appBooted = false;
     await sb.auth.signOut();
-    showAuthScreen();
-    const msg = document.getElementById('auth-msg');
-    msg.style.color = 'var(--red)';
-    msg.textContent = 'Essa conta não tem acesso ao painel de gestão. Se você é cliente, use o link do Cronograma de Clientes.';
+    document.getElementById('app-shell').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('recovery-screen').style.display = 'none';
+    document.getElementById('sem-acesso-screen').style.display = 'flex';
     return;
   }
 
