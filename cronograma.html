@@ -870,7 +870,7 @@ function renderEtapasAdmin() {
                     <option value="intelipulse" ${item.responsavel === 'intelipulse' ? 'selected' : ''}>Intelipulse</option>
                   </select>
                 </td>
-                <td class="col-baseline"><input type="text" value="${escapeHtml(item.baseline || '')}" onchange="salvarCampoItem('${item.id}','baseline', this.value)"></td>
+                <td class="col-baseline"><input type="text" placeholder="Data ou dias" value="${escapeHtml(item.baseline || '')}" onchange="salvarCampoItem('${item.id}','baseline', this.value)"></td>
                 <td class="col-data"><input type="date" value="${item.data_validacao || ''}" onchange="salvarCampoItem('${item.id}','data_validacao', this.value || null)"></td>
                 <td class="col-status">
                   <select onchange="salvarCampoItem('${item.id}','status', this.value)">
