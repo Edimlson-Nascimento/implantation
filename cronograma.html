@@ -279,6 +279,7 @@
     <div class="brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
     <div class="divider"></div>
     <div class="client">Cronograma de Projeto · <b id="cliente-nome-header"></b></div>
+    <button class="sair theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
     <button class="sair" onclick="sair()">Sair</button>
   </header>
   <main>
@@ -302,6 +303,7 @@
     <div class="brand"><span class="bars"><span style="height:5px"></span><span style="height:9px"></span><span style="height:14px"></span></span>intelipulse</div>
     <div class="divider"></div>
     <div class="client">Gestão de Cronogramas · <b id="admin-nome-header"></b></div>
+    <button class="sair theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
     <button class="sair" onclick="sair()">Sair</button>
   </header>
   <div class="admin-shell">
@@ -347,6 +349,30 @@
 const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const THEME_KEY = 'intelipulse_cronograma_theme';
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+    btn.textContent = theme === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+  });
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme')
+    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+(function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  const effective = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+      btn.textContent = effective === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+    });
+  });
+})();
 
 const DOMINIO_LOGIN = 'login.intelipulse.com.br'; // domínio fictício, só pra formar o e-mail interno de login de cliente
 
