@@ -100,6 +100,7 @@
   .step .stage-tag { margin-top: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; }
   .step.current .stage-tag { color: var(--green); }
   .step.bloqueada .stage-tag { color: var(--red); }
+  .step.pendente .stage-tag { color: var(--slate); }
 
   /* etapa card — visão do cliente (leitura + 4 campos editáveis) */
   .etapa-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 26px 26px 10px; margin-bottom: 24px; }
@@ -584,9 +585,11 @@ function renderStepper() {
   document.getElementById('stepper').innerHTML = etapas.map((e, i) => {
     const itensDaEtapa = itens.filter(it => it.etapa_id === e.id);
     const todasConcluidas = itensDaEtapa.length > 0 && itensDaEtapa.every(it => it.status === 'concluido');
-    let cls = 'current', tag = 'Em andamento';
+    const algumConcluido = itensDaEtapa.some(it => it.status === 'concluido');
+    let cls = 'pendente', tag = 'Pendente';
+    if (algumConcluido) { cls = 'current'; tag = 'Em andamento'; }
+    if (todasConcluidas) { cls = 'done'; tag = 'Concluída'; }
     if (e.bloqueada) { cls = 'bloqueada'; tag = 'Bloqueada'; }
-    else if (todasConcluidas) { cls = 'done'; tag = 'Concluída'; }
     return `
       <div class="step ${cls}">
         <div class="track"></div>
