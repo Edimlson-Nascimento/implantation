@@ -568,6 +568,8 @@
   .kc-cliente { font-size:10.5px; background:var(--light-bg); color:var(--text-main); padding:3px 8px; border-radius:5px; font-weight:700; }
   .kc-pessoa { font-size:10px; font-weight:700; color:var(--on-navy); background:var(--navy); padding:2px 7px; border-radius:100px; }
   .kc-idade { font-size:10px; font-weight:700; color:var(--gray-text); }
+  .kc-idade.kc-idade-atencao { color:var(--amber); }
+  .kc-idade.kc-idade-atrasada { color:var(--red); }
   .kc-criador { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-participantes { font-size:10px; font-weight:700; color:var(--gray-text); }
   .kc-delete { position:absolute; top:6px; right:8px; font-size:13px; color:var(--gray-text); cursor:pointer; }
@@ -3881,7 +3883,11 @@ function renderAtividadeCard(a) {
     <div class="kc-footer">
       ${a.clienteNome ? `<span class="kc-cliente">${escapeHtml(a.clienteNome)}</span>` : '<span></span>'}
       <span style="display:flex;align-items:center;gap:6px;">
-        ${a.coluna !== 'concluida' && a.criadoEm ? `<span class="kc-idade" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${diasDesde(a.criadoEm) === 0 ? 'hoje' : diasDesde(a.criadoEm) + 'd'}</span>` : ''}
+        ${a.coluna !== 'concluida' && a.criadoEm ? (() => {
+          const dias = diasDesde(a.criadoEm);
+          const classeIdade = dias >= 15 ? ' kc-idade-atrasada' : dias >= 8 ? ' kc-idade-atencao' : '';
+          return `<span class="kc-idade${classeIdade}" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${dias === 0 ? 'hoje' : dias + 'd'}</span>`;
+        })() : ''}
         ${a.criadoPor && a.criadoPor !== a.responsavel ? `<span class="kc-criador" title="Solicitado por ${escapeHtml(a.criadoPor)}">${escapeHtml(a.criadoPor)} ➜</span>` : ''}
         <span class="kc-pessoa">${escapeHtml(a.responsavel)}</span>
         ${a.participantes && a.participantes.length > 1 ? `<span class="kc-participantes" title="Feito em conjunto: ${a.participantes.map(escapeHtml).join(', ')}">👥 +${a.participantes.length - 1}</span>` : ''}
