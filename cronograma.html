@@ -997,6 +997,7 @@ async function salvarCampoItem(id, campo, valor) {
   const { error } = await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
   if (avisarSeErro(error, 'salvar o item')) { renderAdminConteudo(); return; }
   const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
+  if (campo === 'status') renderAdminConteudo();
 }
 
 async function excluirItem(id) {
