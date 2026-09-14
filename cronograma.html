@@ -147,7 +147,8 @@
   .admin-cliente-item:hover { background:var(--paper); }
   .admin-cliente-item.ativo { background:var(--navy); color:#fff; font-weight:600; }
   .admin-novo-cliente { margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
-  .admin-novo-cliente input { width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:13px; margin-bottom:6px; }
+  .admin-novo-cliente input, .admin-novo-cliente select { width:100%; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:13px; margin-bottom:6px; }
+  .admin-duplicar-label { display:block; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin-bottom:6px; }
   .admin-conteudo { flex:1; padding:28px 32px; max-width:1500px; }
   .admin-etapa-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:18px; }
   .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
@@ -301,7 +302,13 @@
       <div id="admin-lista-clientes"></div>
       <div class="admin-novo-cliente">
         <input type="text" id="admin-novo-cliente-nome" placeholder="Nome do novo cliente...">
-        <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, criarCliente)">+ Adicionar cliente</button>
+        <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, criarCliente)">+ Adicionar cliente (em branco)</button>
+      </div>
+      <div class="admin-novo-cliente">
+        <label class="admin-duplicar-label">Ou duplicar um cliente existente</label>
+        <select id="admin-duplicar-origem"></select>
+        <input type="text" id="admin-duplicar-novo-nome" placeholder="Nome do novo cliente...">
+        <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
@@ -612,6 +619,34 @@ function renderListaClientesAdmin() {
   document.getElementById('admin-lista-clientes').innerHTML = todosClientes.map(c => `
     <button class="admin-cliente-item ${clienteSelAdmin && clienteSelAdmin.id === c.id ? 'ativo' : ''}" onclick="selecionarClienteAdmin('${c.id}')">${escapeHtml(c.nome)}</button>
   `).join('') || `<p style="font-size:12.5px;color:var(--slate);">Nenhum cliente ainda.</p>`;
+
+  const selectOrigem = document.getElementById('admin-duplicar-origem');
+  if (selectOrigem) {
+    selectOrigem.innerHTML = todosClientes.length
+      ? todosClientes.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')
+      : `<option value="">Nenhum cliente ainda</option>`;
+  }
+}
+
+async function duplicarCliente() {
+  const origemSelect = document.getElementById('admin-duplicar-origem');
+  const nomeInput = document.getElementById('admin-duplicar-novo-nome');
+  const origemId = origemSelect.value;
+  const nomeOrigem = origemSelect.options[origemSelect.selectedIndex]?.text || '';
+  const novoNome = nomeInput.value.trim();
+  if (!origemId) { alert('Escolha um cliente pra duplicar.'); return; }
+  if (!novoNome) { alert('Digite o nome do novo cliente.'); return; }
+
+  const { data, error } = await sb.rpc('duplicar_cronograma_cliente', {
+    p_cliente_origem_id: origemId,
+    p_novo_nome: novoNome
+  });
+  if (avisarSeErro(error, 'duplicar o cliente')) return;
+
+  nomeInput.value = '';
+  await carregarListaClientes();
+  alert(`Cliente "${novoNome}" criado com tudo copiado de "${nomeOrigem}" (etapas, itens e checklists). Revise/ajuste o que for específico desse cliente. Falta criar o login: Authentication → Invite user com o e-mail "${nomeParaEmail(novoNome)}", e depois vincular o UID gerado (coluna user_id em cronograma_clientes).`);
+  await selecionarClienteAdmin(data);
 }
 
 async function criarCliente() {
