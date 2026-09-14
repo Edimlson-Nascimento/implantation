@@ -328,6 +328,15 @@ function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;'
 function fmtDateBR(iso) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; }
 function parseBRtoISO(br) { const m = br.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : null; }
 
+// Mostra um alerta quando uma gravação falha — sem isso, um erro (ex: sessão
+// expirada, RLS negada) passava em silêncio: a tela local continuava
+// mostrando a mudança (já que o estado em memória é atualizado de qualquer
+// jeito), mas nada ia pro banco, e um refresh depois revertia tudo sem aviso.
+function avisarSeErro(error, acao) {
+  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})`); return true; }
+  return false;
+}
+
 function toggleSenhaVisivel(inputId, btn) {
   const input = document.getElementById(inputId);
   const visivel = input.type === 'text';
@@ -539,13 +548,14 @@ function toggleChecklist(id) { checklistAberto[id] = !checklistAberto[id]; rende
 // as únicas 4 alterações que o cliente pode fazer — todas passam pela função
 // atualizar_item_cronograma_cliente() no banco, que valida dono e restringe os campos.
 async function salvarEdicaoCliente(item) {
-  await sb.rpc('atualizar_item_cronograma_cliente', {
+  const { error } = await sb.rpc('atualizar_item_cronograma_cliente', {
     p_item_id: item.id,
     p_status: item.status,
     p_responsavel: item.responsavel,
     p_baseline: item.baseline,
     p_data_validacao: item.data_validacao
   });
+  if (avisarSeErro(error, 'salvar sua alteração')) { renderClienteAll(); }
 }
 async function alternarStatus(id) {
   const item = itens.find(i => i.id === id); if (!item) return;
@@ -723,18 +733,21 @@ async function criarEtapa() {
 
 async function salvarNomeEtapa(id, nome) {
   nome = nome.trim(); if (!nome) return;
-  await sb.from('cronograma_etapas').update({ nome }).eq('id', id);
+  const { error } = await sb.from('cronograma_etapas').update({ nome }).eq('id', id);
+  if (avisarSeErro(error, 'salvar o nome da etapa')) { renderAdminConteudo(); return; }
   const e = etapas.find(e => e.id === id); if (e) e.nome = nome;
 }
 
 async function salvarBloqueioEtapa(id, bloqueada, nota) {
-  await sb.from('cronograma_etapas').update({ bloqueada, nota_bloqueio: nota }).eq('id', id);
+  const { error } = await sb.from('cronograma_etapas').update({ bloqueada, nota_bloqueio: nota }).eq('id', id);
+  if (avisarSeErro(error, 'salvar o bloqueio da etapa')) { renderAdminConteudo(); return; }
   const e = etapas.find(e => e.id === id); if (e) { e.bloqueada = bloqueada; e.nota_bloqueio = nota; }
 }
 
 async function excluirEtapa(id) {
   if (!confirm('Excluir esta etapa e todos os itens dela?')) return;
-  await sb.from('cronograma_etapas').delete().eq('id', id);
+  const { error } = await sb.from('cronograma_etapas').delete().eq('id', id);
+  if (avisarSeErro(error, 'excluir a etapa')) return;
   etapas = etapas.filter(e => e.id !== id);
   itens = itens.filter(i => i.etapa_id !== id);
   renderAdminConteudo();
@@ -753,13 +766,15 @@ async function criarItem(etapaId) {
 }
 
 async function salvarCampoItem(id, campo, valor) {
-  await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
+  const { error } = await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
+  if (avisarSeErro(error, 'salvar o item')) { renderAdminConteudo(); return; }
   const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
 }
 
 async function excluirItem(id) {
   if (!confirm('Excluir este item?')) return;
-  await sb.from('cronograma_itens').delete().eq('id', id);
+  const { error } = await sb.from('cronograma_itens').delete().eq('id', id);
+  if (avisarSeErro(error, 'excluir o item')) return;
   itens = itens.filter(i => i.id !== id);
   subitens = subitens.filter(s => s.item_id !== id);
   renderAdminConteudo();
@@ -784,13 +799,15 @@ async function criarSubitem(itemId) {
 }
 
 async function salvarCampoSubitem(id, campo, valor) {
-  await sb.from('cronograma_item_subitens').update({ [campo]: valor }).eq('id', id);
+  const { error } = await sb.from('cronograma_item_subitens').update({ [campo]: valor }).eq('id', id);
+  if (avisarSeErro(error, 'salvar o sub-item')) { renderEtapasAdmin(); return; }
   const s = subitens.find(s => s.id === id); if (s) s[campo] = valor;
 }
 
 async function excluirSubitem(id) {
   if (!confirm('Excluir este sub-item?')) return;
-  await sb.from('cronograma_item_subitens').delete().eq('id', id);
+  const { error } = await sb.from('cronograma_item_subitens').delete().eq('id', id);
+  if (avisarSeErro(error, 'excluir o sub-item')) return;
   subitens = subitens.filter(s => s.id !== id);
   renderEtapasAdmin();
 }
