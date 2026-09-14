@@ -776,7 +776,6 @@
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')">Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')">Clientes</button>
       <button class="nav-item" id="tab-pendencias" onclick="setTab('pendencias')">Pendências <span class="badge-count" id="pendencias-count" title="Clientes ainda não contatados hoje">0</span></button>
-      <button class="nav-item" id="tab-treinamentos" onclick="setTab('treinamentos')">Treinamentos</button>
       <button class="nav-item" id="tab-resumo" onclick="setTab('resumo')">Resumo do Dia</button>
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
       <button class="nav-item" id="tab-lamina" onclick="setTab('lamina')">🖼 Lâmina</button>
@@ -1598,7 +1597,6 @@ function setTab(tab) {
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-pendencias').classList.toggle('active', tab === 'pendencias');
-  document.getElementById('tab-treinamentos').classList.toggle('active', tab === 'treinamentos');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
   document.getElementById('tab-etapas').classList.toggle('active', tab === 'etapas');
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
