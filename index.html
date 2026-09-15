@@ -642,6 +642,11 @@
   .pizza-col { flex:1 1 320px; min-width:280px; }
   .pizza-explicacao { font-size:12px; color:var(--gray-text); margin:5px 0 0; line-height:1.4; }
 
+  table.quadro-grafana-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .quadro-grafana-table th { text-align:left; padding:8px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-text); border-bottom:1px solid var(--border); }
+  .quadro-grafana-table td { padding:9px 12px; color:var(--text-main); border-bottom:1px solid var(--border); }
+  .quadro-grafana-table td.tabular, .quadro-grafana-table th.tabular { font-variant-numeric:tabular-nums; text-align:right; }
+
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
   .swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,0.4); }
@@ -1058,6 +1063,18 @@
           <div id="pizza-pessoa"></div>
         </div>
       </div>
+
+      <div style="margin-top:30px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h3 style="margin:0;font-size:14px;color:var(--text-main);">📡 Quadro de Implantação (Grafana)</h3>
+          <p class="pizza-explicacao" style="margin-top:4px;">Puxado ao vivo do painel "Quadro de Implantação" do Grafana — atividades por empresa e % concluído.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
+          <button class="btn btn-sm" onclick="carregarQuadroGrafana()">🔄 Atualizar</button>
+        </div>
+      </div>
+      <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
     </div>
   </section>
     </main>
@@ -2597,6 +2614,62 @@ function mediaIdadeAbertos(lista) {
   return Math.round(total / lista.length);
 }
 
+const GRAFANA_QUADRO_FN_URL = `${SUPABASE_URL}/functions/v1/grafana-quadro-implantacao`;
+let grafanaQuadroCarregando = false;
+let grafanaQuadroUltimasLinhas = null;
+
+async function carregarQuadroGrafana() {
+  if (grafanaQuadroCarregando) return;
+  const statusEl = document.getElementById('quadro-grafana-status');
+  const tabelaEl = document.getElementById('quadro-grafana-tabela');
+  if (!statusEl || !tabelaEl) return;
+  grafanaQuadroCarregando = true;
+  statusEl.textContent = 'Buscando do Grafana...';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(GRAFANA_QUADRO_FN_URL, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar dados do Grafana.`);
+    grafanaQuadroUltimasLinhas = json.rows || [];
+    renderQuadroGrafana(grafanaQuadroUltimasLinhas);
+    const hora = new Date(json.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    statusEl.textContent = `Atualizado às ${hora}`;
+  } catch (e) {
+    statusEl.textContent = '';
+    tabelaEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Erro ao buscar dados do Grafana: ${escapeHtml(e.message)}</p>`;
+  } finally {
+    grafanaQuadroCarregando = false;
+  }
+}
+
+function renderQuadroGrafana(rows) {
+  const el = document.getElementById('quadro-grafana-tabela');
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Sem dados retornados pelo Grafana.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <table class="quadro-grafana-table">
+      <thead><tr><th>Empresa</th><th class="tabular">Atividades</th><th class="tabular">Concluídas</th><th class="tabular">%</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td>${escapeHtml(String(r.empresa ?? ''))}</td>
+            <td class="tabular">${escapeHtml(String(r.atividades ?? ''))}</td>
+            <td class="tabular">${escapeHtml(String(r.ativ_concluidas ?? ''))}</td>
+            <td class="tabular">${escapeHtml(String(r.percentual ?? ''))}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+setInterval(() => { if (activeTab === 'indicadores') carregarQuadroGrafana(); }, 60000);
+
 function renderIndicadores() {
   renderPessoaFilterInto('pessoa-filter-indicadores');
 
@@ -2663,6 +2736,8 @@ function renderIndicadores() {
     }));
     montarPizza('pizza-pessoa', itensPessoa);
   }
+
+  carregarQuadroGrafana();
 }
 
 function montarPizza(containerId, itens) {
