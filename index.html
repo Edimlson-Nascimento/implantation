@@ -653,6 +653,7 @@
   .quadro-grafana-table th { text-align:left; padding:8px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-text); border-bottom:1px solid var(--border); }
   .quadro-grafana-table td { padding:9px 12px; color:var(--text-main); border-bottom:1px solid var(--border); }
   .quadro-grafana-table td.tabular, .quadro-grafana-table th.tabular { font-variant-numeric:tabular-nums; text-align:right; }
+  .quadro-grafana-table td.destaque { color:var(--amber); font-weight:700; }
 
   .kanban-column.drop-hover { border-color: var(--green-mid); box-shadow: 0 0 0 1px var(--green-mid) inset; }
   .label-swatches { display:flex; gap:8px; margin-top:2px; }
@@ -2674,7 +2675,12 @@ function renderQuadroGrafana(rows) {
       <thead><tr>${colunas.map((c, i) => `<th${i > 0 ? ' class="tabular"' : ''}>${escapeHtml(rotuloColunaGrafana(c))}</th>`).join('')}</tr></thead>
       <tbody>
         ${rows.map(r => `
-          <tr>${colunas.map((c, i) => `<td${i > 0 ? ' class="tabular"' : ''}>${escapeHtml(String(r[c] ?? ''))}</td>`).join('')}</tr>
+          <tr>${colunas.map((c, i) => {
+            const valor = r[c];
+            const destaque = i > 0 && Number(valor) !== 0 && !isNaN(Number(valor));
+            const classes = [i > 0 ? 'tabular' : '', destaque ? 'destaque' : ''].filter(Boolean).join(' ');
+            return `<td${classes ? ` class="${classes}"` : ''}>${escapeHtml(String(valor ?? ''))}</td>`;
+          }).join('')}</tr>
         `).join('')}
       </tbody>
     </table>
