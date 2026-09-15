@@ -1465,6 +1465,14 @@ function todayStr() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+let ultimoDiaConhecido = todayStr();
+function sincronizarFiltrosDeHoje() {
+  const hoje = todayStr();
+  if (hoje === ultimoDiaConhecido) return;
+  if (concluidoFiltroData === ultimoDiaConhecido) concluidoFiltroData = hoje;
+  if (resumoFiltroData === ultimoDiaConhecido) resumoFiltroData = hoje;
+  ultimoDiaConhecido = hoje;
+}
 function addDays(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
@@ -1656,6 +1664,7 @@ function setTab(tab) {
 }
 
 function render() {
+  sincronizarFiltrosDeHoje();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
   renderStats();
@@ -4278,6 +4287,7 @@ function shortDateAt(iso) {
 }
 
 function abrirRelatorioAtividades() {
+  sincronizarFiltrosDeHoje();
   relatorioFiltroData = concluidoFiltroData;
   renderRelatorioFilterDays();
   renderRelatorioVisual();
