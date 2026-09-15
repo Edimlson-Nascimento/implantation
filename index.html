@@ -642,6 +642,12 @@
   .pizza-col { flex:1 1 320px; min-width:280px; }
   .pizza-explicacao { font-size:12px; color:var(--gray-text); margin:5px 0 0; line-height:1.4; }
 
+  .ind-bloco { background:var(--light-bg); border:1px solid var(--border-light); border-top:3px solid var(--bloco-accent); border-radius:12px; padding:20px 22px; margin-top:24px; }
+  .ind-bloco.bloco-tendencia { --bloco-accent: #3B82F6; }
+  .ind-bloco.bloco-distribuicao { --bloco-accent: #8B5CF6; }
+  .ind-bloco.bloco-grafana { --bloco-accent: #F46800; }
+  .ind-bloco .pizza-row, .ind-bloco #indicadores-chart { margin-top:20px; }
+
   table.quadro-grafana-table { width:100%; border-collapse:collapse; font-size:13px; }
   .quadro-grafana-table th { text-align:left; padding:8px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--gray-text); border-bottom:1px solid var(--border); }
   .quadro-grafana-table td { padding:9px 12px; color:var(--text-main); border-bottom:1px solid var(--border); }
@@ -1037,44 +1043,50 @@
 
       <div class="stats-row" id="indicadores-stats-row" style="margin-top:16px;"></div>
 
-      <div style="margin-top:26px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <h3 style="margin:0;font-size:14px;color:var(--text-main);">Criadas × Concluídas</h3>
-        <div class="view-toggle">
-          <button class="view-toggle-btn" id="ind-periodo-btn-dia" onclick="setIndicadoresPeriodo('dia')">Dia</button>
-          <button class="view-toggle-btn" id="ind-periodo-btn-semana" onclick="setIndicadoresPeriodo('semana')">Semana</button>
-          <button class="view-toggle-btn" id="ind-periodo-btn-mes" onclick="setIndicadoresPeriodo('mes')">Mês</button>
+      <div class="ind-bloco bloco-tendencia">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <h3 style="margin:0;font-size:14px;color:var(--text-main);">Criadas × Concluídas</h3>
+          <div class="view-toggle">
+            <button class="view-toggle-btn" id="ind-periodo-btn-dia" onclick="setIndicadoresPeriodo('dia')">Dia</button>
+            <button class="view-toggle-btn" id="ind-periodo-btn-semana" onclick="setIndicadoresPeriodo('semana')">Semana</button>
+            <button class="view-toggle-btn" id="ind-periodo-btn-mes" onclick="setIndicadoresPeriodo('mes')">Mês</button>
+          </div>
         </div>
-      </div>
-      <div class="ind-legend">
-        <span><span class="sw" style="background:#3B82F6"></span>Criadas</span>
-        <span><span class="sw" style="background:#00C853"></span>Concluídas</span>
-      </div>
-      <div id="indicadores-chart" class="ind-chart-bars"></div>
-
-      <div class="pizza-row">
-        <div class="pizza-col">
-          <h3 style="margin:0;font-size:14px;color:var(--text-main);">Distribuição da Fila Atual</h3>
-          <p class="pizza-explicacao">Como os cards em aberto (não concluídos) se dividem entre as 3 colunas do Kanban agora — mostra onde o trabalho pendente está concentrado.</p>
-          <div id="pizza-fila"></div>
+        <div class="ind-legend">
+          <span><span class="sw" style="background:#3B82F6"></span>Criadas</span>
+          <span><span class="sw" style="background:#00C853"></span>Concluídas</span>
         </div>
-        <div class="pizza-col" id="pizza-pessoa-wrap">
-          <h3 style="margin:0;font-size:14px;color:var(--text-main);">Atividades em Aberto por Pessoa</h3>
-          <p class="pizza-explicacao">De tudo que ainda está em aberto (qualquer coluna, menos Concluído), quanto é de cada pessoa da equipe — só aparece com o filtro em "Todos".</p>
-          <div id="pizza-pessoa"></div>
-        </div>
+        <div id="indicadores-chart" class="ind-chart-bars"></div>
       </div>
 
-      <div style="margin-top:30px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <div>
-          <h3 style="margin:0;font-size:14px;color:var(--text-main);">📡 Quadro de Implantação (Grafana)</h3>
-          <p class="pizza-explicacao" style="margin-top:4px;">Puxado ao vivo do painel "Quadro de Implantação" do Grafana — atividades por empresa e % concluído.</p>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
-          <button class="btn btn-sm" onclick="carregarQuadroGrafana()">🔄 Atualizar</button>
+      <div class="ind-bloco bloco-distribuicao">
+        <div class="pizza-row" style="margin-top:0;">
+          <div class="pizza-col">
+            <h3 style="margin:0;font-size:14px;color:var(--text-main);">Distribuição da Fila Atual</h3>
+            <p class="pizza-explicacao">Como os cards em aberto (não concluídos) se dividem entre as 3 colunas do Kanban agora — mostra onde o trabalho pendente está concentrado.</p>
+            <div id="pizza-fila"></div>
+          </div>
+          <div class="pizza-col" id="pizza-pessoa-wrap">
+            <h3 style="margin:0;font-size:14px;color:var(--text-main);">Atividades em Aberto por Pessoa</h3>
+            <p class="pizza-explicacao">De tudo que ainda está em aberto (qualquer coluna, menos Concluído), quanto é de cada pessoa da equipe — só aparece com o filtro em "Todos".</p>
+            <div id="pizza-pessoa"></div>
+          </div>
         </div>
       </div>
-      <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
+
+      <div class="ind-bloco bloco-grafana">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h3 style="margin:0;font-size:14px;color:var(--text-main);">📡 Quadro de Implantação (Grafana)</h3>
+            <p class="pizza-explicacao" style="margin-top:4px;">Puxado ao vivo do painel "Quadro de Implantação" do Grafana — atividades por empresa e % concluído.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
+            <button class="btn btn-sm" onclick="carregarQuadroGrafana()">🔄 Atualizar</button>
+          </div>
+        </div>
+        <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
+      </div>
     </div>
   </section>
     </main>
