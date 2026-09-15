@@ -4331,7 +4331,7 @@ function atividadesConcluidasFiltradas() {
   );
   const expandido = [];
   base.forEach(a => {
-    const nomes = (a.participantes && a.participantes.length) ? a.participantes : [a.responsavel];
+    const nomes = new Set([a.responsavel, ...(a.participantes || [])].filter(Boolean));
     nomes.forEach(nome => expandido.push({ ...a, responsavelExibicao: nome }));
   });
   return expandido.filter(a => pessoaFiltro === 'Todos' || a.responsavelExibicao === pessoaFiltro);
