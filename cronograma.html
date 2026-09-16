@@ -894,7 +894,7 @@ function renderEtapasAdmin() {
           <tbody>
             ${linhas.map(item => { const subLinhas = subitens.filter(s => s.item_id === item.id); const aberto = !!adminDetalheAberto[item.id]; return `
               <tr>
-                <td class="col-ordem"><input type="number" value="${item.ordem}" onchange="salvarCampoItem('${item.id}','ordem', isNaN(this.valueAsNumber) ? ${item.ordem} : this.valueAsNumber)" onkeydown="if(event.key==='Enter') this.blur()"></td>
+                <td class="col-ordem"><input type="number" min="1" value="${item.ordem}" onchange="moverItemParaPosicao('${item.id}', isNaN(this.valueAsNumber) ? ${item.ordem} : this.valueAsNumber)" onkeydown="if(event.key==='Enter') this.blur()"></td>
                 <td class="col-nome">
                   <input type="text" value="${escapeHtml(item.nome)}" onchange="salvarCampoItem('${item.id}','nome', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
                   <button class="admin-detalhe-toggle" onclick="toggleAdminDetalhe('${item.id}')">${aberto ? '▾ ocultar detalhes' : `▸ escopo / checklist${subLinhas.length ? ` (${subLinhas.filter(s=>s.feito).length}/${subLinhas.length})` : ''}`}</button>
@@ -1000,7 +1000,28 @@ async function salvarCampoItem(id, campo, valor) {
   const { error } = await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
   if (avisarSeErro(error, 'salvar o item')) { renderAdminConteudo(); return; }
   const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
-  if (campo === 'status' || campo === 'ordem') renderAdminConteudo();
+  if (campo === 'status') renderAdminConteudo();
+}
+
+async function moverItemParaPosicao(id, posicaoDigitada) {
+  const item = itens.find(i => i.id === id);
+  if (!item) return;
+  const daEtapa = itens.filter(i => i.etapa_id === item.etapa_id).sort((a, b) => a.ordem - b.ordem);
+  const semItem = daEtapa.filter(i => i.id !== id);
+  const posicao = Math.max(1, Math.min(posicaoDigitada || 1, semItem.length + 1));
+  semItem.splice(posicao - 1, 0, item);
+
+  const atualizacoes = semItem.map((i, idx) => ({ id: i.id, ordem: idx + 1 })).filter(u => {
+    const atual = itens.find(i => i.id === u.id);
+    return !atual || atual.ordem !== u.ordem;
+  });
+  if (!atualizacoes.length) { renderAdminConteudo(); return; }
+
+  const resultados = await Promise.all(atualizacoes.map(u => sb.from('cronograma_itens').update({ ordem: u.ordem }).eq('id', u.id)));
+  const falhou = resultados.find(r => r.error);
+  if (avisarSeErro(falhou?.error, 'reordenar os itens')) { renderAdminConteudo(); return; }
+  atualizacoes.forEach(u => { const i = itens.find(x => x.id === u.id); if (i) i.ordem = u.ordem; });
+  renderAdminConteudo();
 }
 
 async function excluirItem(id) {
