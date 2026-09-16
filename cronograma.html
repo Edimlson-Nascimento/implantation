@@ -756,6 +756,20 @@ function renderListaClientesAdmin() {
   }
 }
 
+const CRONOGRAMA_CRIAR_LOGIN_FN_URL = `${SUPABASE_URL}/functions/v1/cronograma-criar-login-cliente`;
+
+async function criarLoginClienteCronograma(clienteId) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(CRONOGRAMA_CRIAR_LOGIN_FN_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cliente_id: clienteId })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao criar login.`);
+  return json;
+}
+
 async function duplicarCliente() {
   const origemSelect = document.getElementById('admin-duplicar-origem');
   const nomeInput = document.getElementById('admin-duplicar-novo-nome');
@@ -773,9 +787,17 @@ async function duplicarCliente() {
 
   nomeInput.value = '';
   await carregarListaClientes();
+
+  let mensagemLogin;
+  try {
+    const login = await criarLoginClienteCronograma(data);
+    mensagemLogin = `Login criado automaticamente:\nUsuário: ${login.email.split('@')[0]}\nSenha: ${login.senha} (força trocar no primeiro acesso)`;
+  } catch (e) {
+    mensagemLogin = `Não consegui criar o login automaticamente (${e.message}). Crie manualmente: Authentication → Add user com o e-mail "${nomeParaEmail(novoNome)}", e vincule o UID gerado (coluna user_id em cronograma_clientes).`;
+  }
   mostrarAviso(
     'Cliente duplicado',
-    `Cliente "${novoNome}" criado com tudo copiado de "${nomeOrigem}" (etapas, itens e checklists).\n\nRevise/ajuste o que for específico desse cliente.\n\nFalta criar o login: Authentication → Invite user com o e-mail "${nomeParaEmail(novoNome)}", e depois vincular o UID gerado (coluna user_id em cronograma_clientes).`,
+    `Cliente "${novoNome}" criado com tudo copiado de "${nomeOrigem}" (etapas, itens e checklists).\n\nRevise/ajuste o que for específico desse cliente.\n\n${mensagemLogin}`,
     '📋'
   );
   await selecionarClienteAdmin(data);
@@ -791,11 +813,15 @@ async function criarCliente() {
   todosClientes.push(data);
   todosClientes.sort((a,b) => a.nome.localeCompare(b.nome));
   renderListaClientesAdmin();
-  mostrarAviso(
-    'Cliente criado',
-    `Cliente "${nome}" criado em branco.\n\nFalta criar o login dele: Authentication → Invite user com o e-mail "${nomeParaEmail(nome)}", e depois vincular o UID gerado a este cliente (coluna user_id em cronograma_clientes).`,
-    '✨'
-  );
+
+  let mensagemLogin;
+  try {
+    const login = await criarLoginClienteCronograma(data.id);
+    mensagemLogin = `Login criado automaticamente:\nUsuário: ${login.email.split('@')[0]}\nSenha: ${login.senha} (força trocar no primeiro acesso)`;
+  } catch (e) {
+    mensagemLogin = `Não consegui criar o login automaticamente (${e.message}). Crie manualmente: Authentication → Add user com o e-mail "${nomeParaEmail(nome)}", e vincule o UID gerado (coluna user_id em cronograma_clientes).`;
+  }
+  mostrarAviso('Cliente criado', `Cliente "${nome}" criado em branco.\n\n${mensagemLogin}`, '✨');
   await selecionarClienteAdmin(data.id);
 }
 
