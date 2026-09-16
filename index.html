@@ -301,6 +301,11 @@
   }
   .ficha-highlight mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
   .ficha-highlight mark.atual { background:#F59E0B; color:#111; box-shadow:0 0 0 2px #F59E0B; }
+  .busca-resultado-card { background:var(--light-bg); border:1px solid var(--border-light); border-radius:10px; padding:14px 16px; margin-bottom:10px; cursor:pointer; transition:border-color .12s; }
+  .busca-resultado-card:hover { border-color: var(--green-mid); }
+  .busca-resultado-nome { font-weight:700; font-size:14px; color:var(--text-main); margin-bottom:6px; }
+  .busca-resultado-trecho { font-size:13px; color:var(--gray-text); line-height:1.5; }
+  .busca-resultado-trecho mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
   .pendencias-cards-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
@@ -814,6 +819,7 @@
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')">Atividades</button>
       <button class="nav-item" id="tab-lamina" onclick="setTab('lamina')">🖼 Lâmina</button>
       <button class="nav-item" id="tab-indicadores" onclick="setTab('indicadores')">📊 Indicadores</button>
+      <button class="nav-item" id="tab-buscar" onclick="setTab('buscar')">🔍 Buscar</button>
     </nav>
     <div class="sidebar-footer">
       <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
@@ -1100,6 +1106,15 @@
         </div>
         <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
       </div>
+    </div>
+  </section>
+
+  <section id="view-buscar" style="display:none">
+    <div class="resumo-box">
+      <h2>🔍 Buscar na Ficha dos Clientes</h2>
+      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado. Busca por assunto, sem IA, sem custo.</p>
+      <input type="text" id="busca-global-input" placeholder="Digite um assunto, sistema, regra de negócio..." style="width:100%;margin-top:14px;font-family:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid var(--border-light);" oninput="buscarFichaGlobal()">
+      <div id="busca-global-resultados" style="margin-top:20px;"></div>
     </div>
   </section>
     </main>
@@ -1669,6 +1684,7 @@ function setTab(tab) {
   document.getElementById('tab-atividades').classList.toggle('active', tab === 'atividades');
   document.getElementById('tab-lamina').classList.toggle('active', tab === 'lamina');
   document.getElementById('tab-indicadores').classList.toggle('active', tab === 'indicadores');
+  document.getElementById('tab-buscar').classList.toggle('active', tab === 'buscar');
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-pendencias').style.display = tab === 'pendencias' ? '' : 'none';
@@ -1678,6 +1694,7 @@ function setTab(tab) {
   document.getElementById('view-atividades').style.display = tab === 'atividades' ? '' : 'none';
   document.getElementById('view-lamina').style.display = tab === 'lamina' ? '' : 'none';
   document.getElementById('view-indicadores').style.display = tab === 'indicadores' ? '' : 'none';
+  document.getElementById('view-buscar').style.display = tab === 'buscar' ? '' : 'none';
   render();
 }
 
@@ -1699,6 +1716,7 @@ function render() {
   else if (activeTab === 'atividades') renderAtividades();
   else if (activeTab === 'lamina') renderLamina();
   else if (activeTab === 'indicadores') renderIndicadores();
+  else if (activeTab === 'buscar') {}
   else renderResumo();
 }
 
@@ -2069,6 +2087,49 @@ function navegarFichaBusca(direcao) {
   if (!fichaBuscaTotal) return;
   fichaBuscaAtual = (fichaBuscaAtual + direcao + fichaBuscaTotal) % fichaBuscaTotal;
   pesquisarFichaCliente();
+}
+
+let buscaGlobalTimeout = null;
+
+function escapeExcetoMarks(raw) {
+  return raw.split(/(<mark>|<\/mark>)/g).map(parte =>
+    (parte === '<mark>' || parte === '</mark>') ? parte : escapeHtml(parte)
+  ).join('');
+}
+
+function buscarFichaGlobal() {
+  clearTimeout(buscaGlobalTimeout);
+  const termo = document.getElementById('busca-global-input').value.trim();
+  const resultadosEl = document.getElementById('busca-global-resultados');
+
+  if (!termo) { resultadosEl.innerHTML = ''; return; }
+
+  resultadosEl.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Buscando...</p>`;
+  buscaGlobalTimeout = setTimeout(async () => {
+    const { data, error } = await sb.rpc('buscar_ficha_clientes', { p_termo: termo });
+    if (error) {
+      resultadosEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Erro na busca: ${escapeHtml(error.message)}</p>`;
+      return;
+    }
+    renderResultadosBuscaGlobal(data || []);
+  }, 300);
+}
+
+function renderResultadosBuscaGlobal(rows) {
+  const el = document.getElementById('busca-global-resultados');
+  if (!rows.length) {
+    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo em nenhuma Ficha de Cliente.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto na Ficha:</p>
+    ${rows.map(r => `
+      <div class="busca-resultado-card" onclick="openModal('${r.id}')">
+        <div class="busca-resultado-nome">${r.codigo ? `<span class="codigo-tag">${escapeHtml(r.codigo)}</span>` : ''}${escapeHtml(r.nome)}</div>
+        <div class="busca-resultado-trecho">${escapeExcetoMarks(r.trecho || '')}</div>
+      </div>
+    `).join('')}
+  `;
 }
 
 function renderContatosList(c) {
