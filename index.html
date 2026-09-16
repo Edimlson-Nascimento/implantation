@@ -290,6 +290,17 @@
   .form-field input, .form-field select {
     font-family: inherit; font-size: 14px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-light);
   }
+  .ficha-busca-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .ficha-busca-row input { flex:1; font-family:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border-light); }
+  .ficha-busca-contador { font-size:11.5px; color:var(--gray-text); white-space:nowrap; }
+  .ficha-busca-nav { border:1px solid var(--border-light); background:var(--white); border-radius:6px; width:24px; height:24px; font-size:10px; cursor:pointer; color:var(--text-main); line-height:1; }
+  .ficha-busca-nav:hover { border-color: var(--green-mid); }
+  .ficha-highlight {
+    width:100%; min-height:160px; max-height:340px; overflow-y:auto; font-family:inherit; font-size:13px; padding:10px;
+    border-radius:8px; border:1px solid var(--border-light); white-space:pre-wrap; word-break:break-word; color:var(--text-main); background:var(--white);
+  }
+  .ficha-highlight mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
+  .ficha-highlight mark.atual { background:#F59E0B; color:#111; box-shadow:0 0 0 2px #F59E0B; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
   .pendencias-cards-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
@@ -1296,8 +1307,15 @@
       </div>
       <div class="form-field full"><label>Motivo (se amarelo/vermelho)</label><input type="text" id="f-saude-motivo" placeholder="Ex: aguardando definição de fluxo há 5 dias"></div>
       <div class="form-field full">
-        <label>Observação (particularidades do cliente)</label>
-        <textarea id="f-observacao" placeholder="Ex: sempre confirmar horário por WhatsApp, prefere contato só à tarde..." style="width:100%;min-height:80px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <label>Ficha do Cliente (Particularidade do Cliente)</label>
+        <div class="ficha-busca-row">
+          <input type="text" id="f-observacao-busca" placeholder="🔍 Pesquisar na ficha (ex: fluxo de pagamento, regra de frete...)" oninput="pesquisarFichaCliente()">
+          <span id="ficha-busca-contador" class="ficha-busca-contador" hidden></span>
+          <button type="button" class="ficha-busca-nav" id="ficha-busca-prev" onclick="navegarFichaBusca(-1)" hidden title="Ocorrência anterior">▲</button>
+          <button type="button" class="ficha-busca-nav" id="ficha-busca-next" onclick="navegarFichaBusca(1)" hidden title="Próxima ocorrência">▼</button>
+        </div>
+        <textarea id="f-observacao" placeholder="Descreva a estrutura do cliente: como ele trabalha, regras de negócio, o que já foi implantado, particularidades do dia a dia..." style="width:100%;min-height:160px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <div id="f-observacao-highlight" class="ficha-highlight" hidden></div>
       </div>
     </div>
     <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Clientes na Base só contam nos indicadores de "Contatos hoje"/"Em atraso" quando têm um "Próximo Contato" definido — deixe em branco se não há nada pendente.</p>
@@ -1969,6 +1987,8 @@ function openModal(id) {
   document.getElementById('f-saude').value = c.saude || 'verde';
   document.getElementById('f-saude-motivo').value = c.saudeMotivo || '';
   document.getElementById('f-observacao').value = c.observacao || '';
+  document.getElementById('f-observacao-busca').value = '';
+  limparFichaBusca();
   document.getElementById('f-inicio').value = c.inicio;
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
@@ -1992,6 +2012,63 @@ function closeModal() {
 function currentEditingClient() {
   if (editingClientId) return state.clients.find(c => c.id === editingClientId);
   return null;
+}
+
+let fichaBuscaTotal = 0;
+let fichaBuscaAtual = 0;
+
+function limparFichaBusca() {
+  fichaBuscaTotal = 0;
+  fichaBuscaAtual = 0;
+  document.getElementById('f-observacao').hidden = false;
+  document.getElementById('f-observacao-highlight').hidden = true;
+  document.getElementById('ficha-busca-contador').hidden = true;
+  document.getElementById('ficha-busca-prev').hidden = true;
+  document.getElementById('ficha-busca-next').hidden = true;
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function pesquisarFichaCliente() {
+  const termo = document.getElementById('f-observacao-busca').value.trim();
+  const highlightEl = document.getElementById('f-observacao-highlight');
+  const textoEl = document.getElementById('f-observacao');
+
+  if (!termo) { limparFichaBusca(); return; }
+
+  const texto = textoEl.value;
+  let count = 0;
+  const html = escapeHtml(texto).replace(new RegExp(escapeRegExp(escapeHtml(termo)), 'gi'), m => {
+    const cls = count === fichaBuscaAtual ? 'atual' : '';
+    count++;
+    return `<mark class="${cls}" data-i="${count - 1}">${m}</mark>`;
+  });
+
+  fichaBuscaTotal = count;
+  if (fichaBuscaAtual >= fichaBuscaTotal) fichaBuscaAtual = 0;
+
+  textoEl.hidden = true;
+  highlightEl.hidden = false;
+  highlightEl.innerHTML = count ? html : '<span style="color:var(--gray-text);">Nada encontrado nessa ficha.</span>';
+
+  const contadorEl = document.getElementById('ficha-busca-contador');
+  contadorEl.hidden = false;
+  contadorEl.textContent = count ? `${fichaBuscaAtual + 1} de ${count}` : '0 de 0';
+  document.getElementById('ficha-busca-prev').hidden = count < 2;
+  document.getElementById('ficha-busca-next').hidden = count < 2;
+
+  if (count) {
+    const atualEl = highlightEl.querySelector(`mark[data-i="${fichaBuscaAtual}"]`);
+    if (atualEl) atualEl.scrollIntoView({ block: 'center' });
+  }
+}
+
+function navegarFichaBusca(direcao) {
+  if (!fichaBuscaTotal) return;
+  fichaBuscaAtual = (fichaBuscaAtual + direcao + fichaBuscaTotal) % fichaBuscaTotal;
+  pesquisarFichaCliente();
 }
 
 function renderContatosList(c) {
