@@ -379,9 +379,13 @@
   .pend-col.cliente h4 { color: #B45309; }
   .pend-col.rscrm h4 { color: #1D4ED8; }
   .pend-item {
-    display:flex; align-items:flex-start; gap:8px; font-size: 13px; padding: 6px 0; color:var(--text-main);
+    display:flex; align-items:flex-start; gap:8px; font-size: 13px; padding: 6px 0; color:var(--text-main); border-radius:6px;
   }
   .pend-item.done { color: var(--gray-text); text-decoration: line-through; }
+  .pend-item.dragging { opacity:0.35; }
+  .pend-drag-handle { cursor:grab; color:var(--gray-text); font-size:13px; opacity:.45; margin-top:2px; user-select:none; }
+  .pend-drag-handle:hover { opacity:.9; }
+  .pend-item:active .pend-drag-handle { cursor:grabbing; }
   .pend-item input[type=checkbox] { margin-top: 3px; }
   .lamina-off-tag { font-size:10px; font-weight:700; color:var(--gray-text); font-style:italic; white-space:nowrap; }
   .lamina-toggle { cursor:pointer; font-size:13px; opacity:0.35; }
@@ -1611,7 +1615,9 @@ async function loadState() {
     ultimoContatoCanal: c.ultimo_contato_canal || null,
     proximoContato: c.proximo_contato,
     contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '' })),
-    pendencias: pendencias.filter(p => p.cliente_id === c.id).map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito, mostrarLamina: p.mostrar_lamina !== false })),
+    pendencias: pendencias.filter(p => p.cliente_id === c.id)
+      .map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito, mostrarLamina: p.mostrar_lamina !== false, ordem: p.ordem ?? null }))
+      .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity)),
     historico: historico.filter(h => h.cliente_id === c.id).map(h => ({ id: h.id, data: h.data, texto: h.texto }))
   }));
 
@@ -2179,7 +2185,8 @@ function renderPendList(c) {
     const container = document.getElementById('pend-list-' + tipo);
     const items = c.pendencias.filter(p => p.responsavel === tipo);
     container.innerHTML = items.length ? items.map(p => `
-      <div class="pend-item ${p.feito ? 'done' : ''}">
+      <div class="pend-item ${p.feito ? 'done' : ''}" draggable="true" data-id="${p.id}">
+        <span class="pend-drag-handle" title="Arrastar para reordenar">⠿</span>
         <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendencia('${p.id}')">
         <span>${escapeHtml(p.texto)}</span>
         ${p.mostrarLamina ? '' : '<span class="lamina-off-tag">fora da lâmina</span>'}
@@ -2188,6 +2195,7 @@ function renderPendList(c) {
         <span class="del" onclick="removePendencia('${p.id}')">✕</span>
       </div>
     `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+    tornarPendListaSortable(container, c, () => renderPendList(c));
   });
 }
 
@@ -2328,7 +2336,8 @@ function renderPendListGeral(c) {
     if (!container) return;
     const items = c.pendencias.filter(p => p.responsavel === tipo);
     container.innerHTML = items.length ? items.map(p => `
-      <div class="pend-item ${p.feito ? 'done' : ''}">
+      <div class="pend-item ${p.feito ? 'done' : ''}" draggable="true" data-id="${p.id}">
+        <span class="pend-drag-handle" title="Arrastar para reordenar">⠿</span>
         <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendenciaGeral('${c.id}','${p.id}')">
         <span>${escapeHtml(p.texto)}</span>
         ${p.mostrarLamina ? '' : '<span class="lamina-off-tag">fora da lâmina</span>'}
@@ -2337,6 +2346,7 @@ function renderPendListGeral(c) {
         <span class="del" onclick="removePendenciaGeral('${c.id}','${p.id}')">✕</span>
       </div>
     `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+    tornarPendListaSortable(container, c, () => renderPendListGeral(c));
   });
 
   const abertos = c.pendencias.filter(p => !p.feito).length;
@@ -2429,6 +2439,47 @@ async function editarPendenciaGeral(clienteId, pendId) {
   if (error) { alert('Erro ao editar pendência: ' + error.message); return; }
   p.texto = textoFinal;
   renderPendListGeral(c);
+}
+
+function tornarPendListaSortable(container, c, onReordenado) {
+  container.querySelectorAll('.pend-item').forEach(el => {
+    el.addEventListener('dragstart', () => { el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+  });
+
+  container.ondragover = e => {
+    e.preventDefault();
+    const dragging = container.querySelector('.dragging');
+    if (!dragging) return;
+    const depois = [...container.querySelectorAll('.pend-item:not(.dragging)')].find(el => {
+      const rect = el.getBoundingClientRect();
+      return e.clientY < rect.top + rect.height / 2;
+    });
+    if (depois) container.insertBefore(dragging, depois);
+    else container.appendChild(dragging);
+  };
+
+  container.ondrop = async e => {
+    e.preventDefault();
+    const idsEmOrdem = [...container.querySelectorAll('.pend-item')].map(el => el.dataset.id);
+    await persistirOrdemPendencias(c, idsEmOrdem, onReordenado);
+  };
+}
+
+async function persistirOrdemPendencias(c, idsEmOrdem, onReordenado) {
+  const resultados = await Promise.all(idsEmOrdem.map((id, i) => sb.from('pendencias').update({ ordem: i }).eq('id', id)));
+  const erro = resultados.find(r => r.error);
+  if (erro) {
+    alert('Erro ao salvar a nova ordem: ' + erro.error.message);
+    onReordenado();
+    return;
+  }
+  idsEmOrdem.forEach((id, i) => {
+    const p = c.pendencias.find(x => x.id === id);
+    if (p) p.ordem = i;
+  });
+  c.pendencias.sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
+  onReordenado();
 }
 
 async function registrarContatoModal() {
