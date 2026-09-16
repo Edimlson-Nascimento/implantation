@@ -610,7 +610,7 @@ function renderEtapasCliente() {
   }
   if (!etapas.length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">Nenhuma etapa cadastrada ainda.</p></div>`; return; }
   wrap.innerHTML = etapas.map(etapa => {
-    const linhas = itens.filter(i => i.etapa_id === etapa.id);
+    const linhas = itens.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
     const feitos = linhas.filter(i => i.status === 'concluido').length;
     const pctEtapa = pctConcluido(linhas);
     return `
@@ -868,7 +868,7 @@ async function salvarNomeEtapaEFechar(id, nome) {
 function renderEtapasAdmin() {
   const wrap = document.getElementById('admin-etapas-lista');
   wrap.innerHTML = etapas.map(etapa => {
-    const linhas = itens.filter(i => i.etapa_id === etapa.id);
+    const linhas = itens.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
     const colapsada = !!adminEtapaColapsada[etapa.id];
     const pctEtapa = pctConcluido(linhas);
     return `
@@ -1000,7 +1000,7 @@ async function salvarCampoItem(id, campo, valor) {
   const { error } = await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
   if (avisarSeErro(error, 'salvar o item')) { renderAdminConteudo(); return; }
   const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
-  if (campo === 'status') renderAdminConteudo();
+  if (campo === 'status' || campo === 'ordem') renderAdminConteudo();
 }
 
 async function excluirItem(id) {
