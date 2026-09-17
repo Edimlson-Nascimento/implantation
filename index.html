@@ -880,6 +880,7 @@
           <th class="sortable" id="th-etapa" onclick="sortClientes('etapa')">Etapa</th>
           <th class="sortable" id="th-saude" onclick="sortClientes('saude')">Saúde</th>
           <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável Projeto</th>
+          <th class="sortable" id="th-analista" onclick="sortClientes('analistaResponsavel')">Analista</th>
           <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
         </tr>
       </thead>
@@ -1304,6 +1305,7 @@
       <div class="form-field"><label>Código</label><input type="text" id="f-codigo" placeholder="Ex: 21"></div>
       <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome"></div>
       <div class="form-field"><label>Responsável Projeto</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
+      <div class="form-field"><label>Analista Responsável (Intelipulse)</label><select id="f-analista-responsavel"></select></div>
       <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
       <div class="form-field">
         <label>Fase</label>
@@ -1605,6 +1607,7 @@ async function loadState() {
     codigo: c.codigo || '',
     nome: c.nome,
     responsavel: c.responsavel || '',
+    analistaResponsavel: c.analista_responsavel || '',
     etapa: c.etapa,
     fase: c.fase || 'implantacao',
     saude: c.saude || 'verde',
@@ -1892,6 +1895,7 @@ function sortValue(c, col) {
     case 'etapa': return stageOf(c.etapa).ordem ?? 0;
     case 'saude': return { verde: 0, amarelo: 1, vermelho: 2 }[c.saude || 'verde'];
     case 'responsavel': return (c.responsavel || '').toLowerCase();
+    case 'analistaResponsavel': return (c.analistaResponsavel || '').toLowerCase();
     case 'ultimoContato': return c.ultimoContato || '';
     case 'proximoContato': return c.proximoContato || '';
     case 'pendencias': return c.pendencias.filter(p => !p.feito).length;
@@ -1927,7 +1931,7 @@ function renderClientesTable(list) {
   updateSortIndicators();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -1945,6 +1949,7 @@ function renderClientesTable(list) {
         <td><span class="stage-badge" style="background:${stage.cor}">${stage.nome}</span></td>
         <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
         <td>${escapeHtml(c.responsavel || '—')}</td>
+        <td>${escapeHtml(c.analistaResponsavel || '—')}</td>
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
       </tr>
     `;
@@ -1974,7 +1979,7 @@ function renderClientesCards(list) {
         <div class="cc-top">
           <div>
             <div class="cc-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-            <div class="cc-meta">${escapeHtml(c.responsavel || 'Sem responsável')}</div>
+            <div class="cc-meta">${escapeHtml(c.responsavel || 'Sem responsável')}${c.analistaResponsavel ? ' · Analista: ' + escapeHtml(c.analistaResponsavel) : ''}</div>
           </div>
         </div>
         <div class="cc-badges">
@@ -1997,7 +2002,7 @@ function openModal(id) {
   document.getElementById('btn-delete-client').style.display = isNew ? 'none' : 'inline-block';
 
   const c = isNew ? {
-    codigo:'', nome:'', responsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
+    codigo:'', nome:'', responsavel:'', analistaResponsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
     saude: 'verde', saudeMotivo: '', observacao: '',
     inicio: todayStr(), proximoContato: todayStr(),
     contatos: [], pendencias: [], historico: []
@@ -2006,6 +2011,8 @@ function openModal(id) {
   document.getElementById('f-codigo').value = c.codigo || '';
   document.getElementById('f-nome').value = c.nome;
   document.getElementById('f-responsavel').value = c.responsavel || '';
+  document.getElementById('f-analista-responsavel').innerHTML = '<option value="">Sem analista definido</option>' + PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('f-analista-responsavel').value = c.analistaResponsavel || '';
   document.getElementById('f-etapa').value = c.etapa;
   document.getElementById('f-fase').value = c.fase || 'implantacao';
   document.getElementById('f-saude').value = c.saude || 'verde';
@@ -2517,6 +2524,7 @@ async function saveClient(silent) {
     codigo: document.getElementById('f-codigo').value.trim() || null,
     nome,
     responsavel: document.getElementById('f-responsavel').value.trim(),
+    analista_responsavel: document.getElementById('f-analista-responsavel').value || null,
     etapa: document.getElementById('f-etapa').value,
     fase: novaFase,
     saude: novaSaude,
@@ -2533,7 +2541,7 @@ async function saveClient(silent) {
   if (isNew) {
     c = {
       id: clientId, codigo: payload.codigo || '', nome: payload.nome,
-      responsavel: payload.responsavel, etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
+      responsavel: payload.responsavel, analistaResponsavel: payload.analista_responsavel || '', etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
       saudeMotivo: payload.saude_motivo, observacao: payload.observacao, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
       contatos: [], pendencias: [], historico: []
     };
@@ -2544,6 +2552,7 @@ async function saveClient(silent) {
     c.codigo = payload.codigo || '';
     c.nome = payload.nome;
     c.responsavel = payload.responsavel;
+    c.analistaResponsavel = payload.analista_responsavel || '';
     c.etapa = payload.etapa;
     c.inicio = payload.inicio;
     c.proximoContato = payload.proximo_contato;
@@ -4639,7 +4648,7 @@ function importJSON(file) {
       for (const c of data.clients) {
         const payload = {
           id: c.id, codigo: c.codigo || null, nome: c.nome,
-          responsavel: c.responsavel || '', etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
+          responsavel: c.responsavel || '', analista_responsavel: c.analistaResponsavel || null, etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
           saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
         await sb.from('clientes').upsert(payload, { onConflict: 'id' });
