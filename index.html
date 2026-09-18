@@ -2155,6 +2155,23 @@ function limparTermoBuscaGlobal(termo) {
   return limpo || normalizado || termo.trim();
 }
 
+// Se o nome de um cliente cadastrado aparece por inteiro dentro das palavras
+// digitadas (ex: "agenda recorrente da tupan" → cliente "Tupan"), a pessoa
+// quase sempre quer o assunto SÓ daquele cliente — não qualquer cliente que
+// tenha citado o nome dele de passagem (ex: uma atividade de outro cliente
+// que só menciona "Tupan" no meio do texto). Usado pra filtrar o resultado
+// depois da busca, não pra restringir a query em si (a busca continua livre,
+// só o resultado final é que é filtrado quando faz sentido).
+function clienteMencionadoNoTermo(palavras) {
+  return state.clients.find(c => {
+    const nomeWords = c.nome.toLowerCase().split(/\s+/).filter(Boolean);
+    for (let i = 0; i <= palavras.length - nomeWords.length; i++) {
+      if (palavras.slice(i, i + nomeWords.length).join(' ') === nomeWords.join(' ')) return true;
+    }
+    return false;
+  });
+}
+
 function buscarFichaGlobal() {
   clearTimeout(buscaGlobalTimeout);
   const termoOriginal = document.getElementById('busca-global-input').value.trim();
@@ -2179,18 +2196,29 @@ function buscarFichaGlobal() {
         aproximado = true;
       }
     }
-    renderResultadosBuscaGlobal(data || [], aproximado);
+    data = data || [];
+    let clienteFiltrado = null;
+    const clienteMencionado = clienteMencionadoNoTermo(palavras);
+    if (clienteMencionado && data.some(r => r.id === clienteMencionado.id)) {
+      data = data.filter(r => r.id === clienteMencionado.id);
+      clienteFiltrado = clienteMencionado.nome;
+    }
+    renderResultadosBuscaGlobal(data, aproximado, clienteFiltrado);
   }, 300);
 }
 
-function renderResultadosBuscaGlobal(rows, aproximado) {
+function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado) {
   const el = document.getElementById('busca-global-resultados');
   if (!rows.length) {
     el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo na Ficha nem nas Atividades concluídas de nenhum cliente.</p>`;
     return;
   }
+  const avisos = [
+    clienteFiltrado ? `mostrando só o cliente "${clienteFiltrado}", identificado na sua busca` : '',
+    aproximado ? 'busca exata não achou nada — resultado aproximado, nem toda palavra digitada bateu junto' : ''
+  ].filter(Boolean).join(' · ');
   el.innerHTML = `
-    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto${aproximado ? ' (busca exata não achou nada — mostrando resultado aproximado, nem toda palavra digitada bateu junto)' : ''}:</p>
+    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto${avisos ? ' (' + avisos + ')' : ''}:</p>
     ${rows.map(r => `
       <div class="busca-resultado-card" onclick="openModal('${r.id}')">
         <div class="busca-resultado-nome">${r.codigo ? `<span class="codigo-tag">${escapeHtml(r.codigo)}</span>` : ''}${escapeHtml(r.nome)}</div>
