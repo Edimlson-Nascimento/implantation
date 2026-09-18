@@ -304,7 +304,7 @@
   .busca-resultado-card { background:var(--light-bg); border:1px solid var(--border-light); border-radius:10px; padding:14px 16px; margin-bottom:10px; cursor:pointer; transition:border-color .12s; }
   .busca-resultado-card:hover { border-color: var(--green-mid); }
   .busca-resultado-nome { font-weight:700; font-size:14px; color:var(--text-main); margin-bottom:6px; }
-  .busca-resultado-trecho { font-size:13px; color:var(--gray-text); line-height:1.5; }
+  .busca-resultado-trecho { font-size:13px; color:var(--gray-text); line-height:1.5; white-space:pre-wrap; }
   .busca-resultado-trecho mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
@@ -1117,8 +1117,8 @@
 
   <section id="view-buscar" style="display:none">
     <div class="resumo-box">
-      <h2>🔍 Buscar na Ficha dos Clientes</h2>
-      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado. Busca por assunto, sem IA, sem custo.</p>
+      <h2>🔍 Buscar</h2>
+      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Busca por assunto, sem IA, sem custo.</p>
       <input type="text" id="busca-global-input" placeholder="Digite um assunto, sistema, regra de negócio..." style="width:100%;margin-top:14px;font-family:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid var(--border-light);" oninput="buscarFichaGlobal()">
       <div id="busca-global-resultados" style="margin-top:20px;"></div>
     </div>
@@ -2132,11 +2132,11 @@ function buscarFichaGlobal() {
 function renderResultadosBuscaGlobal(rows) {
   const el = document.getElementById('busca-global-resultados');
   if (!rows.length) {
-    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo em nenhuma Ficha de Cliente.</p>`;
+    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo na Ficha nem nas Atividades concluídas de nenhum cliente.</p>`;
     return;
   }
   el.innerHTML = `
-    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto na Ficha:</p>
+    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto:</p>
     ${rows.map(r => `
       <div class="busca-resultado-card" onclick="openModal('${r.id}')">
         <div class="busca-resultado-nome">${r.codigo ? `<span class="codigo-tag">${escapeHtml(r.codigo)}</span>` : ''}${escapeHtml(r.nome)}</div>
