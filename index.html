@@ -1118,7 +1118,7 @@
   <section id="view-buscar" style="display:none">
     <div class="resumo-box">
       <h2>🔍 Buscar</h2>
-      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Busca por assunto, sem IA, sem custo.</p>
+      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Busca por assunto, sem IA, sem custo — pode digitar uma pergunta normal ("quero saber sobre..."), palavras de pergunta são ignoradas sozinhas.</p>
       <input type="text" id="busca-global-input" placeholder="Digite um assunto, sistema, regra de negócio..." style="width:100%;margin-top:14px;font-family:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid var(--border-light);" oninput="buscarFichaGlobal()">
       <div id="busca-global-resultados" style="margin-top:20px;"></div>
     </div>
@@ -2111,32 +2111,86 @@ function escapeExcetoMarks(raw) {
   ).join('');
 }
 
+// Palavras/expressões de "pergunta" que não ajudam a busca por palavra-chave
+// (websearch_to_tsquery não conhece essas como stopword — só "de"/"o"/"a"
+// etc. — então "quero saber sobre X" vira "quero" E "saber" E "sobre" E "X",
+// e como o texto salvo raramente tem "quero"/"saber" escritos, a busca não
+// acha nada mesmo quando X está lá). Removidas antes de buscar, sem IA,
+// sem custo — cobre os jeitos mais comuns de "perguntar" em vez de só
+// digitar o assunto.
+const BUSCA_FILLERS = [
+  'quero saber', 'queria saber', 'gostaria de saber', 'preciso saber',
+  'gostaria de', 'preciso de', 'quero', 'queria', 'gostaria', 'preciso',
+  'me fale sobre', 'me diga sobre', 'me conte sobre', 'fale sobre', 'diga sobre', 'conte sobre',
+  'fale', 'diga', 'conte', 'saber sobre', 'saber', 'sobre',
+  'a respeito de', 'com relação a', 'com relacao a', 'referente a',
+  'informações sobre', 'informacoes sobre', 'informação sobre', 'informacao sobre',
+  'informações', 'informacoes', 'informação', 'informacao',
+  'o que', 'qual é', 'qual e', 'quais são', 'quais sao', 'qual', 'quais',
+  'como', 'onde', 'quando', 'por favor', 'por gentileza',
+  'pode me dizer', 'poderia me dizer', 'pode', 'poderia',
+  'obrigado', 'obrigada', 'entender sobre', 'entender'
+];
+
+function limparTermoBuscaGlobal(termo) {
+  // Comparação por array de palavras em vez de regex com \b — \b não
+  // reconhece corretamente limite de palavra depois de letra acentuada
+  // (ex: "qual é" no fim da frase), o que deixava "é" sobrando sozinho.
+  const normalizado = termo.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  const palavras = normalizado.split(' ').filter(Boolean);
+  const fillers = BUSCA_FILLERS.map(f => f.split(/\s+/)).sort((a, b) => b.length - a.length);
+  const resultado = [];
+  for (let i = 0; i < palavras.length; ) {
+    let bateu = false;
+    for (const filler of fillers) {
+      if (palavras.slice(i, i + filler.length).join(' ') === filler.join(' ')) {
+        i += filler.length;
+        bateu = true;
+        break;
+      }
+    }
+    if (!bateu) { resultado.push(palavras[i]); i++; }
+  }
+  const limpo = resultado.join(' ').trim();
+  return limpo || normalizado || termo.trim();
+}
+
 function buscarFichaGlobal() {
   clearTimeout(buscaGlobalTimeout);
-  const termo = document.getElementById('busca-global-input').value.trim();
+  const termoOriginal = document.getElementById('busca-global-input').value.trim();
   const resultadosEl = document.getElementById('busca-global-resultados');
 
-  if (!termo) { resultadosEl.innerHTML = ''; return; }
+  if (!termoOriginal) { resultadosEl.innerHTML = ''; return; }
 
   resultadosEl.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Buscando...</p>`;
   buscaGlobalTimeout = setTimeout(async () => {
-    const { data, error } = await sb.rpc('buscar_ficha_clientes', { p_termo: termo });
+    const termoLimpo = limparTermoBuscaGlobal(termoOriginal);
+    let { data, error } = await sb.rpc('buscar_ficha_clientes', { p_termo: termoLimpo });
     if (error) {
       resultadosEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Erro na busca: ${escapeHtml(error.message)}</p>`;
       return;
     }
-    renderResultadosBuscaGlobal(data || []);
+    let aproximado = false;
+    const palavras = termoLimpo.split(/\s+/).filter(Boolean);
+    if ((!data || !data.length) && palavras.length > 1) {
+      const resultadoOu = await sb.rpc('buscar_ficha_clientes', { p_termo: palavras.join(' OR ') });
+      if (!resultadoOu.error && resultadoOu.data && resultadoOu.data.length) {
+        data = resultadoOu.data;
+        aproximado = true;
+      }
+    }
+    renderResultadosBuscaGlobal(data || [], aproximado);
   }, 300);
 }
 
-function renderResultadosBuscaGlobal(rows) {
+function renderResultadosBuscaGlobal(rows, aproximado) {
   const el = document.getElementById('busca-global-resultados');
   if (!rows.length) {
     el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo na Ficha nem nas Atividades concluídas de nenhum cliente.</p>`;
     return;
   }
   el.innerHTML = `
-    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto:</p>
+    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto${aproximado ? ' (busca exata não achou nada — mostrando resultado aproximado, nem toda palavra digitada bateu junto)' : ''}:</p>
     ${rows.map(r => `
       <div class="busca-resultado-card" onclick="openModal('${r.id}')">
         <div class="busca-resultado-nome">${r.codigo ? `<span class="codigo-tag">${escapeHtml(r.codigo)}</span>` : ''}${escapeHtml(r.nome)}</div>
