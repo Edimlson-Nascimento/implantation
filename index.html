@@ -1579,14 +1579,14 @@ function diasAte(iso) {
 // mostra há quantos dias está em implantação (neutro, sem cor de alerta).
 function prazoImplantacaoInfo(c) {
   const diasEmImplantacao = diasDesde(c.inicio);
-  const linha1 = `${diasEmImplantacao}d em implantação`;
+  const linha1 = `${diasEmImplantacao} dias de implantação`;
   if (!c.previsaoPosImplantacao) {
     return { diasEmImplantacao, diasRestantes: null, diasTotais: null, classe: 'neutro', linha1, linha2: '', texto: linha1 };
   }
   const diasRestantes = diasAte(c.previsaoPosImplantacao);
   const diasTotais = diasEmImplantacao + diasRestantes;
   const classe = diasRestantes < 0 ? 'atrasado' : (diasRestantes <= 7 ? 'atencao' : 'ok');
-  const linha2 = diasRestantes < 0 ? `${Math.abs(diasRestantes)}d em atraso` : `faltam ${diasRestantes}d`;
+  const linha2 = diasRestantes < 0 ? `Término há ${Math.abs(diasRestantes)} dias` : `Término em ${diasRestantes} dias`;
   return { diasEmImplantacao, diasRestantes, diasTotais, classe, linha1, linha2, texto: `${linha1} · ${linha2}` };
 }
 function uid() { return crypto.randomUUID(); }
