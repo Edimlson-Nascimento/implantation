@@ -314,6 +314,11 @@
   .pendencia-card-nome { font-size:15px; font-weight:700; color:var(--text-main); }
   .pendencia-card-count { font-size:11px; font-weight:700; color:#B45309; background:rgba(180,83,9,0.12); padding:3px 9px; border-radius:100px; white-space:nowrap; }
   .pendencia-card-analista { font-size:12px; color:var(--gray-text); white-space:nowrap; }
+  .prazo-badge { font-size:11px; font-weight:600; white-space:nowrap; }
+  .prazo-badge.neutro { color:var(--gray-text); }
+  .prazo-badge.ok { color:var(--green); }
+  .prazo-badge.atencao { color:var(--amber); }
+  .prazo-badge.atrasado { color:var(--red); font-weight:700; }
 
   .contato-hoje-box {
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:8px 0 14px; padding:10px 12px;
@@ -667,6 +672,16 @@
   .ind-bloco.bloco-tendencia { --bloco-accent: #3B82F6; }
   .ind-bloco.bloco-distribuicao { --bloco-accent: #8B5CF6; }
   .ind-bloco.bloco-grafana { --bloco-accent: #F46800; }
+  .ind-bloco.bloco-prazo { --bloco-accent: #14B8A6; }
+  .prazo-lista-linha { display:grid; grid-template-columns:160px 1fr 150px; align-items:center; gap:12px; padding:6px 0; }
+  .prazo-lista-nome { font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prazo-lista-barra-fundo { background:var(--border-light); border-radius:100px; height:10px; overflow:hidden; }
+  .prazo-lista-barra { height:100%; border-radius:100px; }
+  .prazo-lista-barra.neutro { background:var(--gray-text); }
+  .prazo-lista-barra.ok { background:var(--green); }
+  .prazo-lista-barra.atencao { background:var(--amber); }
+  .prazo-lista-barra.atrasado { background:var(--red); }
+  .prazo-lista-texto { font-size:11.5px; color:var(--gray-text); text-align:right; white-space:nowrap; }
   .ind-bloco .pizza-row, .ind-bloco #indicadores-chart { margin-top:20px; }
 
   #quadro-grafana-tabela { overflow-x:auto; }
@@ -882,6 +897,7 @@
           <th class="sortable" id="th-saude" onclick="sortClientes('saude')">Saúde</th>
           <th class="sortable" id="th-responsavel" onclick="sortClientes('responsavel')">Responsável Projeto</th>
           <th class="sortable" id="th-analista" onclick="sortClientes('analistaResponsavel')">Analista</th>
+          <th class="sortable" id="th-prazo" onclick="sortClientes('diasRestantesPrazo')">Prazo</th>
           <th class="sortable" id="th-pendencias" onclick="sortClientes('pendencias')">Pendências</th>
         </tr>
       </thead>
@@ -1067,6 +1083,12 @@
       <div class="pessoa-filter" id="pessoa-filter-indicadores" style="margin-top:14px;"></div>
 
       <div class="stats-row" id="indicadores-stats-row" style="margin-top:16px;"></div>
+
+      <div class="ind-bloco bloco-prazo">
+        <h3 style="margin:0;font-size:14px;color:var(--text-main);">⏳ Tempo de Implantação</h3>
+        <p class="pizza-explicacao">Há quanto tempo cada cliente em implantação está no processo, comparado com a Previsão Pós-Implantação (quando definida) — vermelho já passou do prazo, âmbar falta pouco, verde ainda tem folga, cinza sem previsão definida.</p>
+        <div id="prazo-implantacao-lista" style="margin-top:14px;"></div>
+      </div>
 
       <div class="ind-bloco bloco-tendencia">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -1319,6 +1341,7 @@
         </div>
       </div>
       <div class="form-field"><label>Início da Implantação</label><input type="date" id="f-inicio"></div>
+      <div class="form-field"><label>Previsão Pós-Implantação</label><input type="date" id="f-previsao-pos" title="Prazo pra encaminhar o cliente pro Atendimento normal, fim do acompanhamento pós-implantação"></div>
       <div class="form-field"><label>Próximo Contato</label><input type="date" id="f-proximo"></div>
       <div class="form-field"><label>Saúde</label>
         <select id="f-saude">
@@ -1542,6 +1565,36 @@ function diasDesde(iso) {
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   return Math.round((hoje - criado) / 86400000);
 }
+// Dias entre hoje e uma data futura/passada: positivo = ainda falta, negativo = já venceu.
+function diasAte(iso) {
+  if (!iso) return null;
+  const alvo = new Date(iso); alvo.setHours(0,0,0,0);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  return Math.round((alvo - hoje) / 86400000);
+}
+// Info de prazo de implantação de um cliente — usada em Clientes, Pendências
+// e no gráfico de Indicadores. Sem `previsaoPosImplantacao` definida, só
+// mostra há quantos dias está em implantação (neutro, sem cor de alerta).
+function prazoImplantacaoInfo(c) {
+  const diasEmImplantacao = diasDesde(c.inicio);
+  if (!c.previsaoPosImplantacao) {
+    return { diasEmImplantacao, diasRestantes: null, diasTotais: null, classe: 'neutro', texto: `${diasEmImplantacao}d em implantação` };
+  }
+  const diasRestantes = diasAte(c.previsaoPosImplantacao);
+  const diasTotais = diasEmImplantacao + diasRestantes;
+  let classe, texto;
+  if (diasRestantes < 0) {
+    classe = 'atrasado';
+    texto = `${diasEmImplantacao}d em implantação · ${Math.abs(diasRestantes)}d em atraso`;
+  } else if (diasRestantes <= 7) {
+    classe = 'atencao';
+    texto = `${diasEmImplantacao}d em implantação · faltam ${diasRestantes}d`;
+  } else {
+    classe = 'ok';
+    texto = `${diasEmImplantacao}d em implantação · faltam ${diasRestantes}d`;
+  }
+  return { diasEmImplantacao, diasRestantes, diasTotais, classe, texto };
+}
 function uid() { return crypto.randomUUID(); }
 function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0] || { id:'', nome: id || '—', cor:'#6B7280' }; }
 function slugify(str) {
@@ -1615,6 +1668,7 @@ async function loadState() {
     saudeMotivo: c.saude_motivo || '',
     observacao: c.observacao || '',
     inicio: c.inicio,
+    previsaoPosImplantacao: c.previsao_pos_implantacao || null,
     ultimoContato: c.ultimo_contato,
     ultimoContatoCanal: c.ultimo_contato_canal || null,
     proximoContato: c.proximo_contato,
@@ -1897,6 +1951,7 @@ function sortValue(c, col) {
     case 'saude': return { verde: 0, amarelo: 1, vermelho: 2 }[c.saude || 'verde'];
     case 'responsavel': return (c.responsavel || '').toLowerCase();
     case 'analistaResponsavel': return (c.analistaResponsavel || '').toLowerCase();
+    case 'diasRestantesPrazo': return c.previsaoPosImplantacao ? diasAte(c.previsaoPosImplantacao) : Infinity;
     case 'ultimoContato': return c.ultimoContato || '';
     case 'proximoContato': return c.proximoContato || '';
     case 'pendencias': return c.pendencias.filter(p => !p.feito).length;
@@ -1932,7 +1987,7 @@ function renderClientesTable(list) {
   updateSortIndicators();
   const tbody = document.getElementById('clients-tbody');
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--gray-text);padding:30px;">Nenhum cliente encontrado.</td></tr>`;
     return;
   }
 
@@ -1942,6 +1997,7 @@ function renderClientesTable(list) {
     const saudeLabel = { verde: 'Verde', amarelo: 'Amarelo', vermelho: 'Vermelho' }[saude];
     const fase = c.fase || 'implantacao';
     const pendAbertas = c.pendencias.filter(p => !p.feito).length;
+    const prazo = fase === 'implantacao' ? prazoImplantacaoInfo(c) : null;
     return `
       <tr onclick="openModal('${c.id}')">
         <td>${escapeHtml(c.codigo || '—')}</td>
@@ -1951,6 +2007,7 @@ function renderClientesTable(list) {
         <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
         <td>${escapeHtml(c.responsavel || '—')}</td>
         <td>${escapeHtml(c.analistaResponsavel || '—')}</td>
+        <td>${prazo ? `<span class="prazo-badge ${prazo.classe}">${prazo.texto}</span>` : '—'}</td>
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
       </tr>
     `;
@@ -1974,6 +2031,7 @@ function renderClientesCards(list) {
       `<span class="pend-chip ${p.responsavel}">${escapeHtml(p.texto)}</span>`
     ).join('');
     const pendMore = pendAbertas.length > 2 ? `<span class="pend-chip more">+${pendAbertas.length - 2}</span>` : '';
+    const prazo = fase === 'implantacao' ? prazoImplantacaoInfo(c) : null;
 
     return `
       <div class="client-card" onclick="openModal('${c.id}')">
@@ -1981,6 +2039,7 @@ function renderClientesCards(list) {
           <div>
             <div class="cc-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
             <div class="cc-meta">${escapeHtml(c.responsavel || 'Sem responsável')}${c.analistaResponsavel ? ' · Analista: ' + escapeHtml(c.analistaResponsavel) : ''}</div>
+            ${prazo ? `<div class="prazo-badge ${prazo.classe}">${prazo.texto}</div>` : ''}
           </div>
         </div>
         <div class="cc-badges">
@@ -2005,7 +2064,7 @@ function openModal(id) {
   const c = isNew ? {
     codigo:'', nome:'', responsavel:'', analistaResponsavel:'', etapa: STAGES[0].id, fase: 'implantacao',
     saude: 'verde', saudeMotivo: '', observacao: '',
-    inicio: todayStr(), proximoContato: todayStr(),
+    inicio: todayStr(), previsaoPosImplantacao: null, proximoContato: todayStr(),
     contatos: [], pendencias: [], historico: []
   } : state.clients.find(c => c.id === id);
 
@@ -2022,6 +2081,7 @@ function openModal(id) {
   document.getElementById('f-observacao-busca').value = '';
   limparFichaBusca();
   document.getElementById('f-inicio').value = c.inicio;
+  document.getElementById('f-previsao-pos').value = c.previsaoPosImplantacao || '';
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
   document.getElementById('f-nota-proximo').value = todayStr();
@@ -2388,6 +2448,7 @@ function renderPendencias() {
           <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
         </div>
       </div>
+      ${(c.fase || 'implantacao') === 'implantacao' ? (p => `<div class="prazo-badge ${p.classe}" style="margin-bottom:8px;">⏳ ${p.texto}</div>`)(prazoImplantacaoInfo(c)) : ''}
       <div class="contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
         <span>🔔 Entrar em contato com o cliente hoje</span>
         <div class="canal-btns">
@@ -2615,6 +2676,7 @@ async function saveClient(silent) {
     saude_motivo: novoMotivo,
     observacao: document.getElementById('f-observacao').value.trim(),
     inicio: document.getElementById('f-inicio').value || todayStr(),
+    previsao_pos_implantacao: document.getElementById('f-previsao-pos').value || null,
     proximo_contato: document.getElementById('f-proximo').value || null
   };
 
@@ -2626,7 +2688,7 @@ async function saveClient(silent) {
     c = {
       id: clientId, codigo: payload.codigo || '', nome: payload.nome,
       responsavel: payload.responsavel, analistaResponsavel: payload.analista_responsavel || '', etapa: payload.etapa, fase: payload.fase, saude: payload.saude,
-      saudeMotivo: payload.saude_motivo, observacao: payload.observacao, inicio: payload.inicio, ultimoContato: null, proximoContato: payload.proximo_contato,
+      saudeMotivo: payload.saude_motivo, observacao: payload.observacao, inicio: payload.inicio, previsaoPosImplantacao: payload.previsao_pos_implantacao, ultimoContato: null, proximoContato: payload.proximo_contato,
       contatos: [], pendencias: [], historico: []
     };
     state.clients.push(c);
@@ -2639,6 +2701,7 @@ async function saveClient(silent) {
     c.analistaResponsavel = payload.analista_responsavel || '';
     c.etapa = payload.etapa;
     c.inicio = payload.inicio;
+    c.previsaoPosImplantacao = payload.previsao_pos_implantacao;
     c.proximoContato = payload.proximo_contato;
   }
   c.saude = novaSaude;
@@ -2980,7 +3043,37 @@ function renderQuadroGrafana(rows) {
 
 setInterval(() => { if (activeTab === 'indicadores') carregarQuadroGrafana(); }, 60000);
 
+function renderPrazoImplantacaoLista() {
+  const el = document.getElementById('prazo-implantacao-lista');
+  const clientesImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
+  if (!clientesImplantacao.length) {
+    el.innerHTML = `<p style="font-size:12.5px;color:var(--gray-text);">Nenhum cliente em implantação no momento.</p>`;
+    return;
+  }
+  const linhas = clientesImplantacao.map(c => ({ c, prazo: prazoImplantacaoInfo(c) })).sort((a, b) => {
+    const ordemClasse = { atrasado: 0, atencao: 1, ok: 2, neutro: 3 };
+    const oa = ordemClasse[a.prazo.classe], ob = ordemClasse[b.prazo.classe];
+    if (oa !== ob) return oa - ob;
+    if (a.prazo.diasRestantes != null && b.prazo.diasRestantes != null) return a.prazo.diasRestantes - b.prazo.diasRestantes;
+    return b.prazo.diasEmImplantacao - a.prazo.diasEmImplantacao;
+  });
+  el.innerHTML = linhas.map(({ c, prazo }) => {
+    // Barra mostra quanto do prazo total já foi consumido (0–100%+); sem
+    // previsão definida, mostra uma barra cinza fixa em 100% só como
+    // referência visual de "sem meta", não de progresso real.
+    const pct = prazo.diasTotais ? Math.max(4, Math.min(100, Math.round((prazo.diasEmImplantacao / prazo.diasTotais) * 100))) : 100;
+    return `
+      <div class="prazo-lista-linha" onclick="openModal('${c.id}')" style="cursor:pointer;">
+        <div class="prazo-lista-nome" title="${escapeHtml(c.nome)}">${escapeHtml(c.nome)}</div>
+        <div class="prazo-lista-barra-fundo"><div class="prazo-lista-barra ${prazo.classe}" style="width:${pct}%;"></div></div>
+        <div class="prazo-lista-texto">${prazo.texto}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderIndicadores() {
+  renderPrazoImplantacaoLista();
   renderPessoaFilterInto('pessoa-filter-indicadores');
 
   const atividadesFiltradas = atividades.filter(a => !a.cancelado &&
@@ -4733,7 +4826,7 @@ function importJSON(file) {
         const payload = {
           id: c.id, codigo: c.codigo || null, nome: c.nome,
           responsavel: c.responsavel || '', analista_responsavel: c.analistaResponsavel || null, etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
-          saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
+          saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, previsao_pos_implantacao: c.previsaoPosImplantacao || null, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
         await sb.from('clientes').upsert(payload, { onConflict: 'id' });
         for (const ct of (c.contatos || [])) {
