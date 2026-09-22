@@ -319,6 +319,8 @@
   .prazo-badge.ok { color:var(--green); }
   .prazo-badge.atencao { color:var(--amber); }
   .prazo-badge.atrasado { color:var(--red); font-weight:700; }
+  .prazo-badge-empilhado { line-height:1.5; }
+  .prazo-badge-empilhado div { white-space:nowrap; }
 
   .contato-hoje-box {
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:8px 0 14px; padding:10px 12px;
@@ -1577,23 +1579,15 @@ function diasAte(iso) {
 // mostra há quantos dias está em implantação (neutro, sem cor de alerta).
 function prazoImplantacaoInfo(c) {
   const diasEmImplantacao = diasDesde(c.inicio);
+  const linha1 = `${diasEmImplantacao}d em implantação`;
   if (!c.previsaoPosImplantacao) {
-    return { diasEmImplantacao, diasRestantes: null, diasTotais: null, classe: 'neutro', texto: `${diasEmImplantacao}d em implantação` };
+    return { diasEmImplantacao, diasRestantes: null, diasTotais: null, classe: 'neutro', linha1, linha2: '', texto: linha1 };
   }
   const diasRestantes = diasAte(c.previsaoPosImplantacao);
   const diasTotais = diasEmImplantacao + diasRestantes;
-  let classe, texto;
-  if (diasRestantes < 0) {
-    classe = 'atrasado';
-    texto = `${diasEmImplantacao}d em implantação · ${Math.abs(diasRestantes)}d em atraso`;
-  } else if (diasRestantes <= 7) {
-    classe = 'atencao';
-    texto = `${diasEmImplantacao}d em implantação · faltam ${diasRestantes}d`;
-  } else {
-    classe = 'ok';
-    texto = `${diasEmImplantacao}d em implantação · faltam ${diasRestantes}d`;
-  }
-  return { diasEmImplantacao, diasRestantes, diasTotais, classe, texto };
+  const classe = diasRestantes < 0 ? 'atrasado' : (diasRestantes <= 7 ? 'atencao' : 'ok');
+  const linha2 = diasRestantes < 0 ? `${Math.abs(diasRestantes)}d em atraso` : `faltam ${diasRestantes}d`;
+  return { diasEmImplantacao, diasRestantes, diasTotais, classe, linha1, linha2, texto: `${linha1} · ${linha2}` };
 }
 function uid() { return crypto.randomUUID(); }
 function stageOf(id) { return STAGES.find(s => s.id === id) || STAGES[0] || { id:'', nome: id || '—', cor:'#6B7280' }; }
@@ -2007,7 +2001,7 @@ function renderClientesTable(list) {
         <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
         <td>${escapeHtml(c.responsavel || '—')}</td>
         <td>${escapeHtml(c.analistaResponsavel || '—')}</td>
-        <td>${prazo ? `<span class="prazo-badge ${prazo.classe}">${prazo.texto}</span>` : '—'}</td>
+        <td>${prazo ? `<div class="prazo-badge prazo-badge-empilhado ${prazo.classe}"><div>${prazo.linha1}</div>${prazo.linha2 ? `<div>${prazo.linha2}</div>` : ''}</div>` : '—'}</td>
         <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
       </tr>
     `;
