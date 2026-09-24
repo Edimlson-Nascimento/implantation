@@ -1042,7 +1042,7 @@
       </div>
       <div class="pessoa-filter" id="pessoa-filter-calendario" style="margin-top:14px;"></div>
       <input type="text" id="search-agenda" placeholder="Buscar por empresa ou assunto..." style="margin-top:10px;width:100%;max-width:360px;" oninput="renderCalendario()">
-      <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" onchange="renderCalendario()"> Mostrar concluídos</label>
+      <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" autocomplete="off" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
       <div id="calendario-cards-wrap" style="display:none"></div>
       <div id="calendario-mensal-wrap" style="display:none"></div>
@@ -1733,6 +1733,11 @@ async function loadState() {
 }
 
 function setTab(tab) {
+  // Agenda sempre abre no padrão: só pendentes (concluídos escondidos)
+  if (tab === 'calendario' && activeTab !== 'calendario') {
+    const chkConcl = document.getElementById('show-concluidos-agenda');
+    if (chkConcl) chkConcl.checked = false;
+  }
   activeTab = tab;
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
