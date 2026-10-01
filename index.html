@@ -313,6 +313,10 @@
   .busca-atividade-meta { font-size:11.5px; color:var(--gray-text); margin-bottom:6px; }
   .busca-atividade-resumo { font-size:13px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; }
   .busca-atividade-resumo mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
+  .busca-ia-resposta { background:linear-gradient(135deg, rgba(0,255,122,0.1), rgba(0,255,122,0.02)); border:1px solid var(--green-mid); border-radius:10px; padding:14px 16px; margin-bottom:14px; font-size:14px; line-height:1.5; color:var(--text-main); }
+  .busca-ia-label { font-size:11px; font-weight:700; color:var(--green-mid); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .busca-ia-carregando { color:var(--gray-text); font-style:italic; background:var(--light-bg); border-color:var(--border-light); }
+  .busca-ia-erro { border-color:var(--amber); background:var(--light-bg); color:var(--gray-text); font-size:13px; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
   .pendencias-cards-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
@@ -682,6 +686,7 @@
   .ind-bloco.bloco-distribuicao { --bloco-accent: #8B5CF6; }
   .ind-bloco.bloco-grafana { --bloco-accent: #F46800; }
   .ind-bloco.bloco-prazo { --bloco-accent: #14B8A6; }
+  .ind-bloco.bloco-ia { --bloco-accent: #EC4899; }
   .prazo-lista-linha { display:grid; grid-template-columns:160px 1fr 150px; align-items:center; gap:12px; padding:6px 0; }
   .prazo-lista-nome { font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .prazo-lista-barra-fundo { background:var(--border-light); border-radius:100px; height:10px; overflow:hidden; }
@@ -1130,6 +1135,12 @@
         </div>
       </div>
 
+      <div class="ind-bloco bloco-ia">
+        <h3 style="margin:0;font-size:14px;color:var(--text-main);">🤖 Uso da Busca com IA</h3>
+        <p class="pizza-explicacao">Quantas perguntas a aba "🔍 Buscar" já mandou pra Claude e o custo estimado — pra acompanhar o gasto sem precisar abrir o Console da Anthropic toda vez.</p>
+        <div class="stats-row" id="uso-busca-ia-cards" style="margin-top:12px;"></div>
+      </div>
+
       <div class="ind-bloco bloco-grafana">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
           <div>
@@ -1149,7 +1160,7 @@
   <section id="view-buscar" style="display:none">
     <div class="resumo-box">
       <h2>🔍 Buscar</h2>
-      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Busca por assunto, sem IA, sem custo — pode digitar uma pergunta normal ("quero saber sobre..."), palavras de pergunta são ignoradas sozinhas.</p>
+      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Pode digitar uma pergunta normal ("quero saber sobre..."). Uma IA (Claude) escreve a resposta direta com base no que foi encontrado — se ela não responder por algum motivo, os resultados brutos continuam aparecendo embaixo.</p>
       <input type="text" id="busca-global-input" placeholder="Digite um assunto, sistema, regra de negócio..." style="width:100%;margin-top:14px;font-family:inherit;font-size:15px;padding:12px 14px;border-radius:10px;border:1px solid var(--border-light);" oninput="buscarFichaGlobal()">
       <div id="busca-global-resultados" style="margin-top:20px;"></div>
     </div>
@@ -2238,6 +2249,22 @@ function clienteMencionadoNoTermo(palavras) {
   });
 }
 
+const BUSCA_IA_FN_URL = `${SUPABASE_URL}/functions/v1/buscar-ia`;
+
+async function consultarBuscaIA(pergunta, candidatos) {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(BUSCA_IA_FN_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pergunta, candidatos })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || `Erro ${res.status} na busca com IA.`);
+  return json;
+}
+
+let buscaGlobalSeq = 0;
+
 function buscarFichaGlobal() {
   clearTimeout(buscaGlobalTimeout);
   const termoOriginal = document.getElementById('busca-global-input').value.trim();
@@ -2247,8 +2274,14 @@ function buscarFichaGlobal() {
 
   resultadosEl.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Buscando...</p>`;
   buscaGlobalTimeout = setTimeout(async () => {
+    // A resposta da IA demora bem mais que a busca normal — se a pessoa
+    // digitar de novo antes dela voltar, essa consulta antiga não pode mais
+    // pisar na tela da busca nova que já começou. `minhaSeq` trava isso.
+    const minhaSeq = ++buscaGlobalSeq;
+
     const termoLimpo = limparTermoBuscaGlobal(termoOriginal);
     let { data, error } = await sb.rpc('buscar_ficha_clientes', { p_termo: termoLimpo });
+    if (minhaSeq !== buscaGlobalSeq) return;
     if (error) {
       resultadosEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Erro na busca: ${escapeHtml(error.message)}</p>`;
       return;
@@ -2257,6 +2290,7 @@ function buscarFichaGlobal() {
     const palavras = termoLimpo.split(/\s+/).filter(Boolean);
     if ((!data || !data.length) && palavras.length > 1) {
       const resultadoOu = await sb.rpc('buscar_ficha_clientes', { p_termo: palavras.join(' OR ') });
+      if (minhaSeq !== buscaGlobalSeq) return;
       if (!resultadoOu.error && resultadoOu.data && resultadoOu.data.length) {
         data = resultadoOu.data;
         aproximado = true;
@@ -2269,16 +2303,40 @@ function buscarFichaGlobal() {
       data = data.filter(r => r.id === clienteMencionado.id);
       clienteFiltrado = clienteMencionado.nome;
     }
-    renderResultadosBuscaGlobal(data, aproximado, clienteFiltrado);
+
+    if (!data.length) { renderResultadosBuscaGlobal(data, aproximado, clienteFiltrado, null); return; }
+
+    // Mostra os cartões estruturados na hora (já é uma resposta útil
+    // sozinha) e só depois encaixa a resposta da IA por cima, assim que
+    // ela chegar — evita deixar a tela em branco enquanto espera a Claude.
+    renderResultadosBuscaGlobal(data, aproximado, clienteFiltrado, 'carregando');
+    let respostaIA;
+    try {
+      respostaIA = await consultarBuscaIA(termoOriginal, data);
+    } catch (e) {
+      respostaIA = { erro: e.message };
+    }
+    if (minhaSeq !== buscaGlobalSeq) return;
+    renderResultadosBuscaGlobal(data, aproximado, clienteFiltrado, respostaIA);
   }, 300);
 }
 
-function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado) {
+function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
   const el = document.getElementById('busca-global-resultados');
   if (!rows.length) {
     el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nada encontrado com esse termo na Ficha nem nas Atividades concluídas de nenhum cliente.</p>`;
     return;
   }
+
+  let blocoIA = '';
+  if (ia === 'carregando') {
+    blocoIA = `<div class="busca-ia-resposta busca-ia-carregando">🤖 Pensando na resposta...</div>`;
+  } else if (ia && ia.resposta) {
+    blocoIA = `<div class="busca-ia-resposta"><div class="busca-ia-label">🤖 Resposta</div><div class="busca-ia-texto">${escapeHtml(ia.resposta)}</div></div>`;
+  } else if (ia && ia.erro) {
+    blocoIA = `<div class="busca-ia-resposta busca-ia-erro">🤖 Não consegui gerar uma resposta com IA agora (${escapeHtml(ia.erro)}) — veja os resultados encontrados abaixo.</div>`;
+  }
+
   const avisos = [
     clienteFiltrado ? `mostrando só o cliente "${clienteFiltrado}", identificado na sua busca` : '',
     aproximado ? 'busca exata não achou nada — resultado aproximado, nem toda palavra digitada bateu junto' : ''
@@ -2299,6 +2357,7 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado) {
   });
 
   el.innerHTML = `
+    ${blocoIA}
     <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${porCliente.size} cliente${porCliente.size === 1 ? '' : 's'} com esse assunto${avisos ? ' (' + avisos + ')' : ''}:</p>
     ${[...porCliente.values()].map(c => `
       <div class="busca-resultado-card">
@@ -3106,8 +3165,29 @@ function renderPrazoImplantacaoLista() {
   }).join('');
 }
 
+async function renderUsoBuscaIA() {
+  const el = document.getElementById('uso-busca-ia-cards');
+  if (!el) return;
+  const inicioMes = todayStr().slice(0, 7) + '-01';
+  const { data, error } = await sb.from('busca_ia_uso').select('custo_estimado, created_at');
+  if (error) {
+    el.innerHTML = `<p style="font-size:12.5px;color:var(--gray-text);">Ainda sem dados de uso (a tabela \`busca_ia_uso\` precisa existir em produção).</p>`;
+    return;
+  }
+  const todas = data || [];
+  const doMes = todas.filter(r => r.created_at >= inicioMes);
+  const custoMes = doMes.reduce((soma, r) => soma + Number(r.custo_estimado || 0), 0);
+  const custoTotal = todas.reduce((soma, r) => soma + Number(r.custo_estimado || 0), 0);
+  el.innerHTML = `
+    <div class="stat-card"><div class="num">${doMes.length}</div><div class="lbl">Buscas com IA este mês</div></div>
+    <div class="stat-card"><div class="num">$${custoMes.toFixed(3)}</div><div class="lbl">Custo estimado este mês</div></div>
+    <div class="stat-card"><div class="num">$${custoTotal.toFixed(3)}</div><div class="lbl">Custo total (desde o início)</div></div>
+  `;
+}
+
 function renderIndicadores() {
   renderPrazoImplantacaoLista();
+  renderUsoBuscaIA();
   renderPessoaFilterInto('pessoa-filter-indicadores');
 
   const atividadesFiltradas = atividades.filter(a => !a.cancelado &&
