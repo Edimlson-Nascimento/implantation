@@ -306,6 +306,13 @@
   .busca-resultado-nome { font-weight:700; font-size:14px; color:var(--text-main); margin-bottom:6px; }
   .busca-resultado-trecho { font-size:13px; color:var(--gray-text); line-height:1.5; white-space:pre-wrap; }
   .busca-resultado-trecho mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
+  .busca-secao-label { font-size:11px; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:.04em; margin:12px 0 6px; }
+  .busca-secao-label:first-child { margin-top:0; }
+  .busca-atividade-item { background:var(--white); border:1px solid var(--border-light); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .busca-atividade-titulo { font-weight:700; font-size:13.5px; color:var(--text-main); margin-bottom:2px; }
+  .busca-atividade-meta { font-size:11.5px; color:var(--gray-text); margin-bottom:6px; }
+  .busca-atividade-resumo { font-size:13px; color:var(--text-main); line-height:1.5; white-space:pre-wrap; }
+  .busca-atividade-resumo mark { background:#FDE68A; color:#111; border-radius:2px; padding:0 1px; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
   .pendencias-cards-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
@@ -2276,12 +2283,40 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado) {
     clienteFiltrado ? `mostrando só o cliente "${clienteFiltrado}", identificado na sua busca` : '',
     aproximado ? 'busca exata não achou nada — resultado aproximado, nem toda palavra digitada bateu junto' : ''
   ].filter(Boolean).join(' · ');
+
+  // As linhas chegam uma por match (origem 'ficha' ou 'atividade'), já
+  // ordenadas por relevância (rank) — agrupa por cliente preservando essa
+  // ordem, pra montar um cartão por cliente com cada atividade destacada
+  // separadamente (título/data/responsável/resumo), em vez de um texto
+  // corrido só. É a parte que faltava pra responder "quando foi feito X"
+  // de forma direta, não só "achei X em algum lugar".
+  const porCliente = new Map();
+  rows.forEach(r => {
+    if (!porCliente.has(r.id)) porCliente.set(r.id, { id: r.id, nome: r.nome, codigo: r.codigo, ficha: [], atividades: [] });
+    const grupo = porCliente.get(r.id);
+    if (r.origem === 'atividade') grupo.atividades.push(r);
+    else grupo.ficha.push(r);
+  });
+
   el.innerHTML = `
-    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${rows.length} cliente${rows.length === 1 ? '' : 's'} com esse assunto${avisos ? ' (' + avisos + ')' : ''}:</p>
-    ${rows.map(r => `
-      <div class="busca-resultado-card" onclick="openModal('${r.id}')">
-        <div class="busca-resultado-nome">${r.codigo ? `<span class="codigo-tag">${escapeHtml(r.codigo)}</span>` : ''}${escapeHtml(r.nome)}</div>
-        <div class="busca-resultado-trecho">${escapeExcetoMarks(r.trecho || '')}</div>
+    <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${porCliente.size} cliente${porCliente.size === 1 ? '' : 's'} com esse assunto${avisos ? ' (' + avisos + ')' : ''}:</p>
+    ${[...porCliente.values()].map(c => `
+      <div class="busca-resultado-card">
+        <div class="busca-resultado-nome" onclick="openModal('${c.id}')" style="cursor:pointer;">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+        ${c.atividades.length ? `
+          <div class="busca-secao-label">📌 Atividades concluídas</div>
+          ${c.atividades.map(a => `
+            <div class="busca-atividade-item">
+              <div class="busca-atividade-titulo">${escapeHtml(a.titulo || 'Atividade')}</div>
+              <div class="busca-atividade-meta">📅 ${a.data ? formatDate(a.data) : 'sem data'} · 👤 Feito por: ${escapeHtml(a.responsavel || '—')}</div>
+              ${a.trecho ? `<div class="busca-atividade-resumo">${escapeExcetoMarks(a.trecho)}</div>` : ''}
+            </div>
+          `).join('')}
+        ` : ''}
+        ${c.ficha.length ? `
+          <div class="busca-secao-label">📋 Ficha do Cliente</div>
+          ${c.ficha.map(f => `<div class="busca-resultado-trecho">${escapeExcetoMarks(f.trecho || '')}</div>`).join('')}
+        ` : ''}
       </div>
     `).join('')}
   `;
