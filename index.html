@@ -285,6 +285,19 @@
   .modal-box h2 { font-size: 20px; color: var(--text-main); font-weight: 800; margin-bottom: 18px; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-field { display:flex; flex-direction: column; gap: 5px; }
+  /* Corretor ortográfico próprio (Typo.js + dicionário PT-BR) — funciona
+     igual em qualquer navegador, sem depender de cada pessoa configurar o
+     idioma nas próprias preferências. O overlay fica atrás do textarea
+     (que é transparente), mostrando só o sublinhado ondulado sob as
+     palavras não reconhecidas — texto em si sempre vem do textarea normal. */
+  .ortografia-wrap { position:relative; }
+  .ortografia-overlay {
+    position:absolute; inset:0; margin:0; pointer-events:none; overflow:hidden;
+    font-family:inherit; font-size:13px; line-height:normal; padding:10px;
+    white-space:pre-wrap; word-wrap:break-word; color:transparent; border:1px solid transparent;
+  }
+  .ortografia-wrap textarea { position:relative; background:transparent; }
+  .ortografia-erro { text-decoration:underline wavy var(--red); text-decoration-thickness:1.5px; text-underline-offset:3px; }
   .form-field.full { grid-column: 1 / -1; }
   .form-field label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); }
   .form-field input, .form-field select {
@@ -1209,7 +1222,10 @@
       <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
       <div class="form-field full">
         <label>Observação</label>
-        <textarea id="ag-obs" placeholder="Opcional" spellcheck="true" lang="pt-BR" style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <div class="ortografia-wrap">
+          <div class="ortografia-overlay" id="ag-obs-overlay" aria-hidden="true"></div>
+          <textarea id="ag-obs" placeholder="Opcional" spellcheck="false" oninput="atualizarDestaqueOrtografico('ag-obs','ag-obs-overlay')" onscroll="sincronizarScrollOrtografico('ag-obs','ag-obs-overlay')" style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1237,7 +1253,10 @@
       </div>
       <div class="form-field full">
         <label>Descrição</label>
-        <textarea id="at-titulo" spellcheck="true" lang="pt-BR" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <div class="ortografia-wrap">
+          <div class="ortografia-overlay" id="at-titulo-overlay" aria-hidden="true"></div>
+          <textarea id="at-titulo" spellcheck="false" oninput="atualizarDestaqueOrtografico('at-titulo','at-titulo-overlay')" onscroll="sincronizarScrollOrtografico('at-titulo','at-titulo-overlay')" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        </div>
       </div>
       <div class="form-field"><label>Criado por</label><select id="at-criado-por"></select></div>
       <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
@@ -1452,6 +1471,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/typo-js@1.3.2/typo.js"></script>
 <script>
 const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
@@ -2192,6 +2212,76 @@ function escapeExcetoMarks(raw) {
   return raw.split(/(<mark>|<\/mark>)/g).map(parte =>
     (parte === '<mark>' || parte === '</mark>') ? parte : escapeHtml(parte)
   ).join('');
+}
+
+// Corretor ortográfico PT-BR próprio (não depende do navegador) — pedido do
+// Edimilson depois que o corretor nativo do Chrome exigia cada pessoa da
+// equipe configurar manualmente o idioma nas próprias preferências do
+// navegador (e teria que repetir isso de novo no Firefox/Edge). Usa Typo.js
+// (biblioteca livre, roda inteira no navegador, carregada via CDN) com um
+// dicionário Hunspell de Português (Brasil) de domínio público, carregado
+// sob demanda na primeira vez que algum campo com correção precisa dele —
+// não trava o carregamento inicial do painel com ~1-2MB de dicionário que
+// pode nunca ser usado numa sessão. Usado nos campos "Descrição"
+// (Atividades, `#at-titulo`) e "Observação" (Agenda, `#ag-obs`).
+let dicionarioOrtografico = null;
+let dicionarioOrtograficoPromise = null;
+const DICIONARIO_PT_AFF_URL = 'https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(Brazilian).aff';
+const DICIONARIO_PT_DIC_URL = 'https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(Brazilian).dic';
+
+function carregarDicionarioOrtografico() {
+  if (dicionarioOrtograficoPromise) return dicionarioOrtograficoPromise;
+  dicionarioOrtograficoPromise = (async () => {
+    try {
+      const [affRes, dicRes] = await Promise.all([fetch(DICIONARIO_PT_AFF_URL), fetch(DICIONARIO_PT_DIC_URL)]);
+      const [affData, dicData] = await Promise.all([affRes.text(), dicRes.text()]);
+      dicionarioOrtografico = new Typo('pt_BR', affData, dicData);
+    } catch (e) {
+      console.warn('Não consegui carregar o dicionário de correção ortográfica (segue sem marcar erros):', e);
+    }
+  })();
+  return dicionarioOrtograficoPromise;
+}
+
+// Checa a palavra como veio, tudo minúsculo, e com só a primeira letra
+// maiúscula — Typo.js/Hunspell costuma guardar só uma forma de
+// capitalização no dicionário, então sem isso "Fernando" ou "FEITO"
+// apareceriam como erro só por causa da caixa.
+function palavraCorreta(palavra) {
+  if (!dicionarioOrtografico) return true;
+  return dicionarioOrtografico.check(palavra)
+    || dicionarioOrtografico.check(palavra.toLowerCase())
+    || dicionarioOrtografico.check(palavra[0].toUpperCase() + palavra.slice(1).toLowerCase());
+}
+
+function destacarErrosOrtograficos(texto) {
+  if (!texto) return '';
+  if (!dicionarioOrtografico) return escapeHtml(texto);
+  return texto.split(/(\s+)/).map(parte => {
+    if (!parte || /^\s+$/.test(parte)) return escapeHtml(parte);
+    const palavra = parte.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+    if (!palavra || palavra.length < 2 || /^\d+$/.test(palavra)) return escapeHtml(parte);
+    return palavraCorreta(palavra) ? escapeHtml(parte) : `<span class="ortografia-erro">${escapeHtml(parte)}</span>`;
+  }).join('') + '​'; // zero-width space: evita cortar a última linha quando termina em branco
+}
+
+async function atualizarDestaqueOrtografico(textareaId, overlayId) {
+  const ta = document.getElementById(textareaId);
+  const overlay = document.getElementById(overlayId);
+  if (!ta || !overlay) return;
+  if (!dicionarioOrtografico) await carregarDicionarioOrtografico();
+  if (!overlay.isConnected) return; // modal pode ter fechado enquanto o dicionário carregava
+  overlay.innerHTML = destacarErrosOrtograficos(ta.value);
+  overlay.scrollTop = ta.scrollTop;
+  overlay.scrollLeft = ta.scrollLeft;
+}
+
+function sincronizarScrollOrtografico(textareaId, overlayId) {
+  const ta = document.getElementById(textareaId);
+  const overlay = document.getElementById(overlayId);
+  if (!ta || !overlay) return;
+  overlay.scrollTop = ta.scrollTop;
+  overlay.scrollLeft = ta.scrollLeft;
 }
 
 // Palavras/expressões de "pergunta" que não ajudam a busca por palavra-chave
@@ -3952,6 +4042,7 @@ function openAgendamentoModal(id) {
   document.getElementById('ag-data').value = a.data;
   document.getElementById('ag-hora').value = a.hora;
   document.getElementById('ag-obs').value = a.observacao;
+  atualizarDestaqueOrtografico('ag-obs', 'ag-obs-overlay');
   renderAgClienteContatos();
 
   document.getElementById('agendamento-modal-overlay').classList.add('open');
@@ -4048,6 +4139,7 @@ async function converterAgendamentoEmAtividade() {
   openAtividadeModal(null, 'afazer');
   document.getElementById('at-cliente-nome').value = clienteNome;
   document.getElementById('at-titulo').value = titulo + (observacao ? '\n\n' + observacao : '');
+  atualizarDestaqueOrtografico('at-titulo', 'at-titulo-overlay');
   if (responsavel) {
     document.getElementById('at-responsavel').value = responsavel;
     document.getElementById('at-criado-por').value = responsavel;
@@ -4539,6 +4631,7 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('at-responsavel').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('at-criado-por').innerHTML = PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('at-titulo').value = a.titulo;
+  atualizarDestaqueOrtografico('at-titulo', 'at-titulo-overlay');
   document.getElementById('at-responsavel').value = a.responsavel;
   document.getElementById('at-criado-por').value = a.criadoPor || a.responsavel;
   document.getElementById('at-coluna').value = a.coluna;
