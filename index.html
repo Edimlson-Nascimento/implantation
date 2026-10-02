@@ -687,7 +687,7 @@
   .ind-bloco.bloco-grafana { --bloco-accent: #F46800; }
   .ind-bloco.bloco-prazo { --bloco-accent: #14B8A6; }
   .ind-bloco.bloco-ia { --bloco-accent: #EC4899; }
-  .prazo-lista-linha { display:grid; grid-template-columns:160px 1fr 150px; align-items:center; gap:12px; padding:6px 0; }
+  .prazo-lista-linha { display:grid; grid-template-columns:160px 1fr 170px; align-items:center; gap:12px; padding:6px 0; }
   .prazo-lista-nome { font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .prazo-lista-barra-fundo { background:var(--border-light); border-radius:100px; height:10px; overflow:hidden; }
   .prazo-lista-barra { height:100%; border-radius:100px; }
@@ -695,7 +695,13 @@
   .prazo-lista-barra.ok { background:var(--green); }
   .prazo-lista-barra.atencao { background:var(--amber); }
   .prazo-lista-barra.atrasado { background:var(--red); }
-  .prazo-lista-texto { font-size:11.5px; color:var(--gray-text); text-align:right; white-space:nowrap; }
+  .prazo-lista-texto { text-align:right; line-height:1.4; white-space:nowrap; }
+  .prazo-lista-dias { font-size:11px; color:var(--gray-text); }
+  .prazo-lista-termino { font-size:12.5px; font-weight:700; }
+  .prazo-lista-termino.ok { color:var(--green); }
+  .prazo-lista-termino.atencao { color:var(--amber); }
+  .prazo-lista-termino.atrasado { color:var(--red); }
+  .prazo-lista-termino.neutro { color:var(--gray-text); font-weight:600; }
   .ind-bloco .pizza-row, .ind-bloco #indicadores-chart { margin-top:20px; }
 
   #quadro-grafana-tabela { overflow-x:auto; }
@@ -1203,7 +1209,7 @@
       <div class="form-field"><label>Hora</label><input type="time" id="ag-hora"></div>
       <div class="form-field full">
         <label>Observação</label>
-        <textarea id="ag-obs" placeholder="Opcional" style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <textarea id="ag-obs" placeholder="Opcional" spellcheck="true" lang="pt-BR" style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -1231,7 +1237,7 @@
       </div>
       <div class="form-field full">
         <label>Descrição</label>
-        <textarea id="at-titulo" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <textarea id="at-titulo" spellcheck="true" lang="pt-BR" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
       <div class="form-field"><label>Criado por</label><select id="at-criado-por"></select></div>
       <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
@@ -3159,7 +3165,10 @@ function renderPrazoImplantacaoLista() {
       <div class="prazo-lista-linha" onclick="openModal('${c.id}')" style="cursor:pointer;">
         <div class="prazo-lista-nome" title="${escapeHtml(c.nome)}">${escapeHtml(c.nome)}</div>
         <div class="prazo-lista-barra-fundo"><div class="prazo-lista-barra ${prazo.classe}" style="width:${pct}%;"></div></div>
-        <div class="prazo-lista-texto">${prazo.texto}</div>
+        <div class="prazo-lista-texto">
+          <div class="prazo-lista-dias">${prazo.linha1}</div>
+          ${prazo.linha2 ? `<div class="prazo-lista-termino ${prazo.classe}">${prazo.linha2}</div>` : ''}
+        </div>
       </div>
     `;
   }).join('');
@@ -3972,6 +3981,8 @@ async function saveAgendamento() {
   if (!titulo) { alert('Informe um título para o agendamento.'); return; }
   const data = document.getElementById('ag-data').value;
   if (!data) { alert('Informe a data.'); return; }
+  const hora = document.getElementById('ag-hora').value;
+  if (!hora) { alert('Informe o horário do agendamento.'); return; }
 
   const nomeCliente = document.getElementById('ag-cliente-nome').value.trim();
   const clienteMatch = nomeCliente ? state.clients.find(c => c.nome.toLowerCase() === nomeCliente.toLowerCase()) : null;
@@ -3987,7 +3998,7 @@ async function saveAgendamento() {
     titulo,
     tipo: document.getElementById('ag-tipo').value,
     data,
-    hora: document.getElementById('ag-hora').value || null,
+    hora,
     observacao: document.getElementById('ag-obs').value.trim(),
     responsavel: document.getElementById('ag-responsavel').value,
     participantes,
