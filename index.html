@@ -3275,15 +3275,12 @@ async function renderUsoBuscaIA() {
   }
   const todas = data || [];
   const doMes = todas.filter(r => r.created_at >= inicioMes);
-  const custoMes = doMes.reduce((soma, r) => soma + Number(r.custo_estimado || 0), 0);
   const custoTotal = todas.reduce((soma, r) => soma + Number(r.custo_estimado || 0), 0);
   const cotacao = await obterCotacaoDolar();
   const emReais = usd => 'R$ ' + (usd * cotacao.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   el.innerHTML = `
     <div class="stat-card"><div class="num">${doMes.length}</div><div class="lbl">Buscas com IA este mês</div></div>
-    <div class="stat-card"><div class="num">$${custoMes.toFixed(3)}</div><div class="lbl">Custo estimado este mês</div></div>
     <div class="stat-card"><div class="num">$${custoTotal.toFixed(3)}</div><div class="lbl">Custo total (desde o início)</div></div>
-    <div class="stat-card" style="border-color:#EC4899;"><div class="num">${emReais(custoMes)}</div><div class="lbl">Custo estimado este mês (R$)</div></div>
     <div class="stat-card" style="border-color:#EC4899;"><div class="num">${emReais(custoTotal)}</div><div class="lbl">Custo total em R$ (desde o início)</div></div>
     <p style="flex-basis:100%;margin:2px 0 0;font-size:11.5px;color:var(--gray-text);">Conversão a US$ 1 = R$ ${cotacao.valor.toFixed(2).replace('.', ',')} (${cotacao.origem}). Valor aproximado — a cobrança real da Anthropic em reais depende do câmbio e do IOF do seu cartão.</p>
   `;
