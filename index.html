@@ -171,6 +171,8 @@
   .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
 
   main { max-width: 1200px; margin: 0 auto; padding: 20px 32px; }
+  main.main-larga { max-width: none; }
+  .clients-table .stage-badge { white-space: nowrap; }
   #view-atividades { display: flex; flex-direction: column; }
 
   .empty-state {
@@ -1808,6 +1810,7 @@ function render() {
   sincronizarFiltrosDeHoje();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
+  document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes');
   renderStats();
   populateStageOptions();
   populateTipoAgendamentoOptions();
