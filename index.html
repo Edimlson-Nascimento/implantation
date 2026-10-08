@@ -1170,7 +1170,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
-            <button class="btn btn-sm" onclick="carregarQuadroGrafana()">🔄 Atualizar</button>
+            <button class="btn btn-sm" onclick="carregarQuadroGrafana(true)">🔄 Atualizar</button>
           </div>
         </div>
         <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
@@ -3229,12 +3229,17 @@ function mediaIdadeAbertos(lista) {
 const GRAFANA_QUADRO_FN_URL = `${SUPABASE_URL}/functions/v1/grafana-quadro-implantacao`;
 let grafanaQuadroCarregando = false;
 let grafanaQuadroUltimasLinhas = null;
+let grafanaQuadroUltimaBusca = 0;
+let grafanaQuadroHoraUltimoOk = '';
 
-async function carregarQuadroGrafana() {
+// `forcar` = clique em "Atualizar" ou ciclo de 60s; sem ele (redesenho da aba), só consulta se
+// o dado em memória tiver mais de 60s — redesenhar a aba não deve gerar uma consulta nova ao ERP.
+async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
   if (grafanaQuadroCarregando) return;
   const statusEl = document.getElementById('quadro-grafana-status');
   const tabelaEl = document.getElementById('quadro-grafana-tabela');
   if (!statusEl || !tabelaEl) return;
+  if (!forcar && grafanaQuadroUltimasLinhas && Date.now() - grafanaQuadroUltimaBusca < 60000) return;
   grafanaQuadroCarregando = true;
   statusEl.textContent = 'Buscando do Grafana...';
   try {
@@ -3245,12 +3250,27 @@ async function carregarQuadroGrafana() {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar dados do Grafana.`);
     grafanaQuadroUltimasLinhas = json.rows || [];
+    grafanaQuadroUltimaBusca = Date.now();
     renderQuadroGrafana(grafanaQuadroUltimasLinhas);
-    const hora = new Date(json.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    statusEl.textContent = `Atualizado às ${hora}`;
+    grafanaQuadroHoraUltimoOk = new Date(json.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    statusEl.textContent = `Atualizado às ${grafanaQuadroHoraUltimoOk}`;
+    statusEl.style.color = '';
   } catch (e) {
-    statusEl.textContent = '';
-    tabelaEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Erro ao buscar dados do Grafana: ${escapeHtml(e.message)}</p>`;
+    // O banco do ERP (outro projeto Supabase, ligado ao Grafana) tem um teto de conexões simultâneas;
+    // quando enche, o erro vem cru e enorme. Traduz, mantém a última tabela na tela e tenta de novo.
+    const ocupado = /max clients reached|too many clients|failed to acquire connection/i.test(e.message);
+    const resumo = ocupado ? 'o banco do ERP está com o limite de conexões cheio agora' : e.message;
+    if (grafanaQuadroUltimasLinhas) {
+      statusEl.textContent = `⚠ Não consegui atualizar (${resumo}) — mostrando os dados de ${grafanaQuadroHoraUltimoOk}`;
+      statusEl.style.color = 'var(--amber)';
+    } else {
+      statusEl.textContent = '';
+      tabelaEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Não consegui buscar os dados do Grafana: ${escapeHtml(resumo)}.${ocupado ? ' Tentando de novo automaticamente — ou clique em "Atualizar".' : ''}</p>
+        <details style="margin-top:6px;font-size:11.5px;color:var(--gray-text);"><summary style="cursor:pointer;">Detalhe técnico</summary><div style="margin-top:4px;word-break:break-word;">${escapeHtml(e.message)}</div></details>`;
+    }
+    if (ocupado && tentativa < 3) {
+      setTimeout(() => { if (activeTab === 'indicadores') carregarQuadroGrafana(true, tentativa + 1); }, 15000);
+    }
   } finally {
     grafanaQuadroCarregando = false;
   }
@@ -3285,7 +3305,7 @@ function renderQuadroGrafana(rows) {
   `;
 }
 
-setInterval(() => { if (activeTab === 'indicadores') carregarQuadroGrafana(); }, 60000);
+setInterval(() => { if (activeTab === 'indicadores' && !document.hidden) carregarQuadroGrafana(true); }, 60000);
 
 function renderPrazoImplantacaoLista() {
   const el = document.getElementById('prazo-implantacao-lista');
