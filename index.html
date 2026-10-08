@@ -1471,7 +1471,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/typo-js@1.3.2/typo.js"></script>
 <script>
 const SUPABASE_URL = 'https://qutwlewxaltkhcfskizl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bFNfR77lqCgPunujHclAvg_c1tohjDl';
@@ -2224,44 +2223,88 @@ function escapeExcetoMarks(raw) {
 // não trava o carregamento inicial do painel com ~1-2MB de dicionário que
 // pode nunca ser usado numa sessão. Usado nos campos "Descrição"
 // (Atividades, `#at-titulo`) e "Observação" (Agenda, `#ag-obs`).
-let dicionarioOrtografico = null;
-let dicionarioOrtograficoPromise = null;
+//
+// O dicionário (~5MB) leva vários segundos pra ser montado pelo Typo.js — e
+// fazer isso na thread principal congelava a página inteira (o campo "Buscar
+// cliente" do modal de Atividade só respondia depois, reportado em
+// 2026-10-08, medido ~15s). Por isso o Typo.js roda dentro de um Web Worker
+// (thread separada): a tela continua responsiva e os sublinhados aparecem
+// quando o dicionário termina de carregar. O worker só responde "quais
+// dessas palavras estão erradas"; o resultado fica em cache por palavra.
 const DICIONARIO_PT_AFF_URL = 'https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(Brazilian).aff';
 const DICIONARIO_PT_DIC_URL = 'https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(Brazilian).dic';
+const TYPO_JS_URL = 'https://cdn.jsdelivr.net/npm/typo-js@1.3.2/typo.js';
 
-function carregarDicionarioOrtografico() {
-  if (dicionarioOrtograficoPromise) return dicionarioOrtograficoPromise;
-  dicionarioOrtograficoPromise = (async () => {
-    try {
-      const [affRes, dicRes] = await Promise.all([fetch(DICIONARIO_PT_AFF_URL), fetch(DICIONARIO_PT_DIC_URL)]);
-      const [affData, dicData] = await Promise.all([affRes.text(), dicRes.text()]);
-      dicionarioOrtografico = new Typo('pt_BR', affData, dicData);
-    } catch (e) {
-      console.warn('Não consegui carregar o dicionário de correção ortográfica (segue sem marcar erros):', e);
+let ortografiaWorker = null;
+let ortografiaPronto = false;
+let ortografiaSeq = 0;
+const ortografiaPendentes = new Map();   // id da requisição -> resolve
+const ortografiaCache = new Map();       // palavra -> true (correta) | false (errada)
+const ortografiaCampos = new Set();      // 'textareaId|overlayId' já usados, pra redesenhar quando o dicionário ficar pronto
+
+function iniciarCorretorOrtografico() {
+  if (ortografiaWorker) return;
+  const src = `
+    importScripts('${TYPO_JS_URL}');
+    let dict = null;
+    (async () => {
+      try {
+        const [a, d] = await Promise.all([fetch('${DICIONARIO_PT_AFF_URL}'), fetch('${DICIONARIO_PT_DIC_URL}')]);
+        const [aff, dic] = await Promise.all([a.text(), d.text()]);
+        dict = new Typo('pt_BR', aff, dic);
+        postMessage({ tipo: 'pronto' });
+      } catch (e) { postMessage({ tipo: 'erro', msg: String(e) }); }
+    })();
+    // Testa a palavra como veio, minúscula e com só a 1ª maiúscula — o dicionário
+    // guarda uma forma só de capitalização, senão "Fernando" viraria erro.
+    onmessage = e => {
+      if (!dict) return;
+      const { id, palavras } = e.data;
+      const erradas = palavras.filter(p => !(dict.check(p) || dict.check(p.toLowerCase()) || dict.check(p[0].toUpperCase() + p.slice(1).toLowerCase())));
+      postMessage({ tipo: 'resultado', id, erradas });
+    };`;
+  try {
+    ortografiaWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  } catch (e) {
+    console.warn('Corretor ortográfico indisponível neste navegador (segue sem marcar erros):', e);
+    return;
+  }
+  ortografiaWorker.onmessage = e => {
+    const m = e.data;
+    if (m.tipo === 'pronto') {
+      ortografiaPronto = true;
+      ortografiaCampos.forEach(par => { const [ta, ov] = par.split('|'); atualizarDestaqueOrtografico(ta, ov); });
+    } else if (m.tipo === 'resultado') {
+      const resolve = ortografiaPendentes.get(m.id);
+      if (resolve) { ortografiaPendentes.delete(m.id); resolve(m.erradas); }
+    } else if (m.tipo === 'erro') {
+      console.warn('Não consegui carregar o dicionário de correção ortográfica (segue sem marcar erros):', m.msg);
     }
-  })();
-  return dicionarioOrtograficoPromise;
+  };
+  ortografiaWorker.onerror = e => console.warn('Erro no corretor ortográfico (segue sem marcar erros):', e.message);
 }
 
-// Checa a palavra como veio, tudo minúsculo, e com só a primeira letra
-// maiúscula — Typo.js/Hunspell costuma guardar só uma forma de
-// capitalização no dicionário, então sem isso "Fernando" ou "FEITO"
-// apareceriam como erro só por causa da caixa.
-function palavraCorreta(palavra) {
-  if (!dicionarioOrtografico) return true;
-  return dicionarioOrtografico.check(palavra)
-    || dicionarioOrtografico.check(palavra.toLowerCase())
-    || dicionarioOrtografico.check(palavra[0].toUpperCase() + palavra.slice(1).toLowerCase());
+function verificarPalavrasNoWorker(palavras) {
+  return new Promise(resolve => {
+    const id = ++ortografiaSeq;
+    ortografiaPendentes.set(id, resolve);
+    ortografiaWorker.postMessage({ id, palavras });
+  });
+}
+
+function palavraParaChecar(parte) {
+  const palavra = parte.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+  if (!palavra || palavra.length < 2 || /^\d+$/.test(palavra)) return null;
+  return palavra;
 }
 
 function destacarErrosOrtograficos(texto) {
   if (!texto) return '';
-  if (!dicionarioOrtografico) return escapeHtml(texto);
   return texto.split(/(\s+)/).map(parte => {
     if (!parte || /^\s+$/.test(parte)) return escapeHtml(parte);
-    const palavra = parte.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
-    if (!palavra || palavra.length < 2 || /^\d+$/.test(palavra)) return escapeHtml(parte);
-    return palavraCorreta(palavra) ? escapeHtml(parte) : `<span class="ortografia-erro">${escapeHtml(parte)}</span>`;
+    const palavra = palavraParaChecar(parte);
+    // palavra ainda não conferida (dicionário carregando) conta como correta
+    return palavra && ortografiaCache.get(palavra) === false ? `<span class="ortografia-erro">${escapeHtml(parte)}</span>` : escapeHtml(parte);
   }).join('') + '​'; // zero-width space: evita cortar a última linha quando termina em branco
 }
 
@@ -2269,7 +2312,16 @@ async function atualizarDestaqueOrtografico(textareaId, overlayId) {
   const ta = document.getElementById(textareaId);
   const overlay = document.getElementById(overlayId);
   if (!ta || !overlay) return;
-  if (!dicionarioOrtografico) await carregarDicionarioOrtografico();
+  ortografiaCampos.add(textareaId + '|' + overlayId);
+  iniciarCorretorOrtografico();
+
+  if (ortografiaPronto) {
+    const novas = [...new Set(ta.value.split(/\s+/).map(palavraParaChecar).filter(p => p && !ortografiaCache.has(p)))];
+    if (novas.length) {
+      const erradas = new Set(await verificarPalavrasNoWorker(novas));
+      novas.forEach(p => ortografiaCache.set(p, !erradas.has(p)));
+    }
+  }
   if (!overlay.isConnected) return; // modal pode ter fechado enquanto o dicionário carregava
   overlay.innerHTML = destacarErrosOrtograficos(ta.value);
   overlay.scrollTop = ta.scrollTop;
