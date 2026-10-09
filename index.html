@@ -4228,8 +4228,6 @@ async function deleteAgendamento() {
 }
 
 async function converterAgendamentoEmAtividade() {
-  const wasEditingId = editingAgendamentoId; // null se for "Novo Agendamento" ainda não salvo
-
   const titulo = document.getElementById('ag-titulo').value.trim();
   if (!titulo) { alert('Informe um título para o agendamento.'); return; }
   if (!document.getElementById('ag-data').value) { alert('Informe a data.'); return; }
@@ -4254,14 +4252,7 @@ async function converterAgendamentoEmAtividade() {
   document.querySelectorAll('#at-participantes-list input').forEach(el => {
     el.checked = participantes.includes(el.value);
   });
-
-  // se já era um agendamento existente (reunião que já tinha sido marcada antes),
-  // marca como feito — pra um agendamento recém-criado agora, não mexe nisso,
-  // já que ele pode ser pra uma data futura
-  if (wasEditingId) {
-    const a = agendamentos.find(a => a.id === wasEditingId);
-    if (a && !a.feito) toggleAgendamentoFeito(wasEditingId);
-  }
+  // O agendamento NÃO é marcado como feito aqui: continua em aberto até a pessoa concluir à mão.
 }
 
 async function toggleAgendamentoFeito(id) {
