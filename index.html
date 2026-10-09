@@ -950,6 +950,8 @@
         <option value="base">Na Base</option>
         <option value="">Todos</option>
       </select>
+      <div class="spacer"></div>
+      <div class="stats-row" id="pend-analistas-cards"></div>
     </div>
     <div class="pendencias-cards-grid" id="pendencias-cards-wrap"></div>
   </section>
@@ -2680,6 +2682,19 @@ function renderPendencias() {
     if (!isNaN(codB)) return 1;
     return a.nome.localeCompare(b.nome);
   });
+
+  // Um card por analista com a quantidade de clientes dele. Respeita só o filtro de fase (não a
+  // busca por nome), pra o número não mudar a cada letra digitada. Cliente sem analista fica de fora.
+  const porAnalista = new Map();
+  state.clients.forEach(c => {
+    if (filterFase && (c.fase || 'implantacao') !== filterFase) return;
+    if (!c.analistaResponsavel) return;
+    porAnalista.set(c.analistaResponsavel, (porAnalista.get(c.analistaResponsavel) || 0) + 1);
+  });
+  document.getElementById('pend-analistas-cards').innerHTML = [...porAnalista.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([nome, qtd]) => `<div class="stat-card" title="${qtd} cliente${qtd === 1 ? '' : 's'} com ${escapeHtml(nome)} como analista"><div class="num">${qtd}</div><div class="lbl">${escapeHtml(nome)}</div></div>`)
+    .join('');
 
   const today = todayStr();
   container.innerHTML = clientesOrdenados.map(c => `
