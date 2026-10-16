@@ -1223,6 +1223,8 @@
   .ativ-chip em { font-style: normal; font-weight: 700; color: var(--gray-text); margin-left: 4px; }
   .ativ-chip.active { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
   .ativ-chip.active em { color: var(--on-navy); }
+
+  .at-label-nome { font-size: 12px; color: var(--gray-text); margin-top: 8px; }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
@@ -1783,7 +1785,7 @@
         <label>Resolução (o que foi feito)</label>
         <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
-      <div class="form-field full"><label>Etiqueta</label><div class="label-swatches" id="at-label-swatches"></div></div>
+      <div class="form-field full"><label>Prioridade (etiqueta)</label><div class="label-swatches" id="at-label-swatches"></div><div id="at-label-nome" class="at-label-nome"></div></div>
     </div>
     <div class="modal-section">
       <h3>Imagens</h3>
@@ -5541,6 +5543,13 @@ function renderAtividadeLabelSwatches() {
     sw.onclick = () => { editingAtividadeLabel = opt.key; renderAtividadeLabelSwatches(); };
     wrap.appendChild(sw);
   });
+  const nomeEl = document.getElementById('at-label-nome');
+  if (nomeEl) {
+    const dias = (typeof DESEMP_SLA_ETIQUETA !== 'undefined' && editingAtividadeLabel) ? DESEMP_SLA_ETIQUETA[editingAtividadeLabel] : null;
+    nomeEl.textContent = editingAtividadeLabel
+      ? ATIV_LABEL_NAMES[editingAtividadeLabel] + (dias ? ' · prazo padrão de ' + dias + (dias === 1 ? ' dia' : ' dias') + ' (se o card não tiver Prazo)' : '')
+      : 'Sem prioridade definida';
+  }
 }
 
 function renderAtividadeDangerActions(isNew, cancelado) {
@@ -6371,8 +6380,15 @@ function etApagarMeu(i) { const meus = temasMeus(); meus.splice(i, 1); try { loc
   .dm-tile b { display:block; font-size:22px; font-weight:800; color:#0F172A; line-height:1.1; }
   .dm-tile span { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#64748B; }
   .desemp-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); column-gap:16px; row-gap:0; align-items:stretch; }
-  .dm-card { border:2px solid #C3CEDC; border-radius:14px; padding:18px 18px 16px; background:#fff; margin-bottom:16px; display:grid; grid-row:span 12; grid-template-rows:subgrid; }
+  .dm-card { border:2px solid #C3CEDC; border-radius:14px; padding:18px 18px 16px; background:#fff; margin-bottom:16px; display:grid; grid-row:span 13; grid-template-rows:subgrid; }
   .dm-faixa { min-width:0; }
+  .dm-prio { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+  .dm-prio th:nth-child(1) { width:44%; } .dm-prio th:nth-child(2), .dm-prio th:nth-child(3), .dm-prio th:nth-child(4) { width:18.6%; }
+  .dm-prio th { text-align:right; font-weight:700; color:#64748B; font-size:9.5px; text-transform:uppercase; letter-spacing:.02em; padding:0 0 4px; white-space:nowrap; }
+  .dm-prio td { padding:3px 0; color:#334155; text-align:right; white-space:nowrap; }
+  .dm-prio th:first-child, .dm-prio td:first-child { text-align:left; }
+  .dm-prio td:first-child { color:#0F172A; font-weight:600; white-space:normal; }
+  .dm-prio i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
   @supports not (grid-template-rows: subgrid) { .dm-card { display:block; grid-row:auto; } }
   .dm-top { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
   .dm-av { width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#fff; flex:none; }
@@ -6508,7 +6524,14 @@ function desempMetricas(nome, ini, fim, modo) {
   const somaPrev = prev.reduce((s, n) => s + n, 0);
   const clientes = new Map();
   entregues.forEach(a => { const c = a.clienteNome || '—'; clientes.set(c, (clientes.get(c) || 0) + 1); });
+  const PRIO = [['red', 'Incidente Crítico', '#DC2626'], ['orange', 'Alta Urgência', '#F59E0B'], ['yellow', 'Atenção', '#F2C94C'], ['blue', 'Rotina', '#4A90D9'], [null, 'Sem prioridade', '#94A3B8']];
+  const porPrioridade = PRIO.map(([k, nomeP, cor]) => {
+    const ent = entregues.filter(a => (a.label || null) === k);
+    const leadP = ent.filter(a => a.criadoEm).map(a => Math.max(0, daysBetween(desempDataLocal(a.criadoEm), a.concluidoEm)));
+    return { k, nome: nomeP, cor, entregues: ent.length, lead: leadP.length ? leadP.reduce((x, y) => x + y, 0) / leadP.length : null, abertas: abertas.filter(a => (a.label || null) === k).length };
+  });
   const m = {
+    porPrioridade,
     entregues, noPrazo, comAtraso, semPrazo, curtas, den,
     pct: den ? Math.round((noPrazo / den) * 100) : null,
     lead: entregues.length ? somaLead / entregues.length : null,
@@ -6589,6 +6612,8 @@ function desempLeitura(m, ticketsMedia) {
   if (m.cart.total) perfil.push('Responsável por ' + desempPlural(m.cart.total, 'cliente', 'clientes') + ' em implantação.');
   if (m.tickets) perfil.push('Carga de ' + desempPlural(m.tickets.total, 'ticket', 'tickets') + ' no quadro do Grafana.');
   if (m.plano.previsto > 0 && m.plano.fora > 0) perfil.push(desempPlural(m.plano.fora, 'entrega fora do plano da sprint', 'entregas fora do plano da sprint') + ' (demanda não prevista na Planning).');
+  const urg = m.porPrioridade.filter(p => p.k === 'red' || p.k === 'orange').reduce((x, p) => x + p.entregues, 0);
+  if (nEnt > 0 && urg > 0) perfil.push(Math.round(urg / nEnt * 100) + '% das entregas foram urgentes (incidente crítico ou alta urgência).');
 
   if (m.pct !== null && m.pct >= 90) fortes.push('Alto cumprimento de prazo (' + m.pct + '%).');
   if (m.atrasados.length === 0 && m.abertas > 0) fortes.push('Nenhuma atividade aberta com prazo vencido.');
@@ -6597,6 +6622,8 @@ function desempLeitura(m, ticketsMedia) {
   if (m.cart.total > 0 && m.cart.semContato7 === 0) fortes.push('Carteira com contato em dia (nenhum cliente sem contato há mais de 7 dias).');
 
   if (m.plano.previsto >= 3 && m.plano.pct >= 90) fortes.push('Cumpriu o combinado da sprint (' + m.plano.entregue + ' de ' + m.plano.previsto + ' planejadas).');
+  const semPrio = m.porPrioridade.find(p => p.k === null), crit = m.porPrioridade.find(p => p.k === 'red');
+  if (crit.entregues > 0 && crit.lead !== null && crit.lead <= DESEMP_SLA_ETIQUETA.red) fortes.push('Incidentes críticos resolvidos dentro do padrão (' + desempF1(crit.lead) + ' dia(s) em média).');
   const item = (ponto, acao) => { melhorar.push(ponto); acoes.push(acao); };
   if (m.atrasados.length) {
     const ex = m.atrasados.slice(0, 2).map(x => (x.cliente ? x.cliente + ' — ' : '') + desempCortar(x.titulo, 45)).join('; ');
@@ -6630,6 +6657,10 @@ function desempLeitura(m, ticketsMedia) {
     item(desempPlural(m.impedidos.length, 'atividade impedida aguardando retorno', 'atividades impedidas aguardando retorno') + ' (' + ex2 + ')',
       'Cobrar o retorno do cliente com data combinada, registrar o motivo no card e avisar o gestor se passar de 3 dias.');
   }
+  if (nEnt > 0 && semPrio.entregues / nEnt > 0.5) item(semPrio.entregues + ' de ' + nEnt + ' entregas sem prioridade definida',
+    'Definir a prioridade (etiqueta) ao criar o card; sem ela não dá para medir o atendimento por nível de urgência.');
+  if (crit.entregues > 0 && crit.lead !== null && crit.lead > DESEMP_SLA_ETIQUETA.red) item('Incidentes críticos levaram ' + desempF1(crit.lead) + ' dias em média (padrão: ' + DESEMP_SLA_ETIQUETA.red + ' dia)',
+    'Tratar os incidentes críticos antes do restante e registrar no card o que atrasou a resolução.');
   if (!melhorar.length) acoes.push('Manter o ritmo e avaliar com o gestor a possibilidade de assumir demandas de maior complexidade.');
   return { perfil, fortes, melhorar, acoes };
 }
@@ -6731,6 +6762,10 @@ function renderDesempenho() {
       : '<div style="font-size:12.5px;color:#64748B;">' + (desempTicketsErro ? 'Indisponível agora (' + escapeHtml(desempTicketsErro) + ').' : 'Carregando…') + '</div>';
     const ul = arr => '<ul>' + arr.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
     const obs = desempLerObs(a.nome);
+    const prioLinhas = m.porPrioridade.filter(p => p.entregues || p.abertas);
+    const prioHtml = prioLinhas.length
+      ? '<table class="dm-prio"><thead><tr><th></th><th>Entreg.</th><th>Lead</th><th>Abertas</th></tr></thead><tbody>' + prioLinhas.map(p => '<tr><td><i style="background:' + p.cor + '"></i>' + escapeHtml(p.nome) + '</td><td>' + p.entregues + '</td><td>' + (p.lead === null ? '—' : desempF1(p.lead) + 'd') + '</td><td>' + p.abertas + '</td></tr>').join('') + '</tbody></table>'
+      : '<div style="font-size:12.5px;color:#64748B;">Sem atividades.</div>';
     const faixa = h => '<div class="dm-faixa">' + h + '</div>';
     return '<div class="dm-card">'
       + faixa('<div class="dm-top"><span class="dm-av" style="background:' + a.cor + '">' + inicialDe(a.nome) + '</span><b>' + escapeHtml(a.nome) + '</b></div>'
@@ -6746,6 +6781,7 @@ function renderDesempenho() {
       + faixa('<div class="dm-sec">Entregas nos últimos 4 ' + (ehMes ? 'meses' : 'semanas') + '</div><div class="dm-trend">' + trend + '</div>')
       + faixa('<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml + impedidosHtml)
       + faixa('<div class="dm-sec">Entregues ' + noPer + '</div>' + entreguesHtml)
+      + faixa('<div class="dm-sec">Prioridade das atividades</div>' + prioHtml)
       + faixa('<div class="dm-sec">Tickets (Grafana)</div>' + tk)
       + faixa('<div class="dm-sec">Carteira</div>' + cart)
       + faixa('<div class="dm-sec">Agenda ' + (ehMes ? 'do mês' : 'da semana') + '</div><div style="font-size:12.5px;color:#334155;"><b>' + m.agenda.feitas + '</b> de <b>' + m.agenda.semana + '</b> concluídos · ' + m.agenda.reagendadas + ' reagendado(s) · ' + m.agenda.atrasadas + ' vencido(s) sem baixa</div>')
@@ -6793,6 +6829,7 @@ function desempTextoRelatorio() {
     L.push('Cumprimento de prazo: ' + (m.pct === null ? 'sem entregas com prazo' : m.pct + '% (' + m.noPrazo + ' de ' + m.den + ' no prazo)'));
     L.push('Entregues: ' + m.entregues.length + ' · Com atraso: ' + m.comAtraso + ' · Atrasados em aberto: ' + m.atrasados.length + ' · Em andamento: ' + m.emAndamento + ' · Lead time: ' + (m.lead === null ? '—' : desempF1(m.lead) + ' dias') + (m.tickets ? ' · Tickets: ' + m.tickets.total : ''));
     L.push('Planejado na sprint: ' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + ' · Tempo parado aguardando cliente: ' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—'));
+    L.push('Por prioridade (entregues/abertas): ' + (m.porPrioridade.filter(p => p.entregues || p.abertas).map(p => p.nome + ' ' + p.entregues + '/' + p.abertas).join(' · ') || '—'));
     L.push('Perfil: ' + lt.perfil.join(' '));
     if (lt.fortes.length) L.push('Pontos fortes: ' + lt.fortes.join(' '));
     if (lt.melhorar.length) { L.push('Pontos a melhorar:'); lt.melhorar.forEach(x => L.push('  - ' + x)); }
