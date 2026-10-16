@@ -1202,6 +1202,27 @@
   .kc-prazo.atencao { color: var(--amber); background: rgba(245,158,11,.14); }
   .kc-prazo.atrasado { color: var(--red); background: rgba(220,38,38,.12); }
   .kc-prazo.ok { color: var(--green-mid); background: rgba(0,200,83,.12); }
+
+  /* Planejado na sprint / Impedido */
+  .at-checkins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .at-check { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 10px; cursor: pointer; background: var(--white); }
+  .at-check input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+  .form-field .at-check { text-transform: none; letter-spacing: normal; font-weight: 400; margin: 0; }
+  .form-field .at-check b { text-transform: none; letter-spacing: normal; font-weight: 700; font-size: 13px; }
+  .form-field .at-check small { text-transform: none; letter-spacing: normal; font-weight: 400; }
+  .at-check b { display: block; font-size: 13px; color: var(--text-main); }
+  .at-check small { display: block; font-size: 11.5px; color: var(--gray-text); margin-top: 2px; }
+  .at-check small a { color: var(--accent-ink, #0B5CAD); text-decoration: underline; }
+  #at-impedido-motivo { margin-top: 8px; width: 100%; }
+  @media (max-width: 600px) { .at-checkins { grid-template-columns: 1fr; } }
+  .kc-impedido, .kc-sprint { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .kc-impedido { color: var(--amber); background: rgba(245,158,11,.14); }
+  .kc-sprint { color: var(--accent-ink, #0B5CAD); background: var(--accent-soft, rgba(11,92,173,.12)); }
+  #ativ-filtro-especial { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ativ-chip { border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); border-radius: 99px; padding: 5px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .ativ-chip em { font-style: normal; font-weight: 700; color: var(--gray-text); margin-left: 4px; }
+  .ativ-chip.active { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
+  .ativ-chip.active em { color: var(--on-navy); }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
@@ -1535,6 +1556,7 @@
     </div>
     <div class="atividades-toolbar toolbar">
       <div class="pessoa-filter" id="pessoa-filter-atividades"></div>
+      <div id="ativ-filtro-especial"></div>
       <div class="ativ-legenda" id="ativ-legenda"></div>
     </div>
     <div class="kanban-board" id="kanban-board"></div>
@@ -1746,6 +1768,13 @@
         </select>
       </div>
       <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"></div>
+      <div class="form-field full">
+        <div class="at-checkins">
+          <label class="at-check"><input type="checkbox" id="at-sprint" onchange="atSprintMudou()"><span><b>Planejado na sprint</b><small id="at-sprint-info">Marque para entrar no previsto × entregue da semana.</small></span></label>
+          <label class="at-check"><input type="checkbox" id="at-impedido" onchange="atImpedidoMudou()"><span><b>Impedido / aguardando cliente</b><small>O tempo parado é contado até desmarcar.</small></span></label>
+        </div>
+        <input type="text" id="at-impedido-motivo" placeholder="Motivo (ex.: aguardando acesso do cliente)" style="display:none;">
+      </div>
       <div class="form-field full" id="at-resolucao-field" style="display:none;">
         <label>Resolução (o que foi feito)</label>
         <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
@@ -2304,6 +2333,7 @@ async function loadState() {
       id: a.id, responsavel: a.responsavel, criadoPor: a.criado_por || '', titulo: a.titulo, clienteNome: a.cliente_nome || '',
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
+      sprintSemana: a.sprint_semana || null, impedidoDesde: a.impedido_desde || null, impedidoTotalMin: a.impedido_total_min || 0, impedidoMotivo: a.impedido_motivo || '',
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -5192,6 +5222,7 @@ function limparFiltroConcluido() {
 
 function renderAtividades() {
   renderPessoaFilterInto('pessoa-filter-atividades');
+  renderFiltroEspecialAtividades();
   const leg = document.getElementById('ativ-legenda');
   if (leg) leg.innerHTML = [['red', 'var(--red)'], ['orange', 'var(--amber)'], ['yellow', '#F2C94C'], ['blue', '#4A90D9']].map(([k, c]) => `<span><i style="background:${c}"></i>${escapeHtml(ATIV_LABEL_NAMES[k])}</span>`).join('');
   const board = document.getElementById('kanban-board');
@@ -5200,6 +5231,7 @@ function renderAtividades() {
   KANBAN_COLUMNS.forEach(col => {
     let cards = atividades.filter(a => a.coluna === col.id);
     if (pessoaFiltro !== 'Todos') cards = cards.filter(a => a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)));
+    cards = cards.filter(ativPassaFiltroEspecial);
 
     let filtrosHtml = '';
     if (col.id === 'concluida') {
@@ -5297,6 +5329,75 @@ window.addEventListener('resize', () => {
   if (activeTab === 'atividades') sizeKanbanBoard();
 });
 
+// ── Planejado na sprint / Impedido (check-ins do card) + filtro especial do quadro ──
+function segundaDe(ds) {
+  const d = new Date(ds + 'T00:00:00');
+  return addDays(ds, -((d.getDay() + 6) % 7));
+}
+function formatarDuracaoMin(min) {
+  min = Math.max(0, Math.round(min));
+  if (min < 60) return min + 'min';
+  if (min < 1440) return Math.floor(min / 60) + 'h' + (min % 60 ? ' ' + (min % 60) + 'min' : '');
+  const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60);
+  return d + 'd' + (h ? ' ' + h + 'h' : '');
+}
+// Tempo parado esperando (acumulado das vezes que ficou impedido + o impedimento em curso)
+function impedidoMinAtual(a) {
+  return (a.impedidoTotalMin || 0) + (a.impedidoDesde ? Math.max(0, (Date.now() - new Date(a.impedidoDesde).getTime()) / 60000) : 0);
+}
+
+let editingSprintReplanejar = false;
+function atPreencherCheckins(a) {
+  editingSprintReplanejar = false;
+  document.getElementById('at-sprint').checked = !!a.sprintSemana;
+  document.getElementById('at-impedido').checked = !!a.impedidoDesde;
+  document.getElementById('at-impedido-motivo').value = a.impedidoMotivo || '';
+  atSprintMudou();
+  atImpedidoMudou();
+}
+function atSprintMudou() {
+  const info = document.getElementById('at-sprint-info');
+  if (!info) return;
+  const marcado = document.getElementById('at-sprint').checked;
+  const ant = editingAtividadeId ? atividades.find(x => x.id === editingAtividadeId) : null;
+  const sem = ant && ant.sprintSemana;
+  const atual = segundaDe(todayStr());
+  if (!marcado) info.textContent = 'Marque para entrar no previsto × entregue da semana.';
+  else if (sem && sem !== atual && !editingSprintReplanejar) info.innerHTML = 'Planejado na sprint de ' + formatDate(sem).slice(0, 5) + '. <a href="#" onclick="atReplanejarSprint(); return false;">Replanejar para esta semana</a>';
+  else info.textContent = 'Entra na sprint da semana de ' + formatDate(sem && !editingSprintReplanejar ? sem : atual).slice(0, 5) + '.';
+}
+function atReplanejarSprint() {
+  editingSprintReplanejar = true;
+  atSprintMudou();
+}
+function atImpedidoMudou() {
+  const campo = document.getElementById('at-impedido-motivo');
+  if (campo) campo.style.display = document.getElementById('at-impedido').checked ? '' : 'none';
+}
+
+let ativFiltroEspecial = '';
+function ativCorresponde(tipo, a) {
+  if (tipo === 'sprint') return a.sprintSemana === segundaDe(todayStr());
+  if (tipo === 'impedidas') return !!a.impedidoDesde && a.coluna !== 'concluida';
+  if (tipo === 'atrasadas') { const p = prazoAtividadeInfo(a); return a.coluna !== 'concluida' && !!p && p.classe === 'atrasado'; }
+  return true;
+}
+function ativPassaFiltroEspecial(a) {
+  return !ativFiltroEspecial || ativCorresponde(ativFiltroEspecial, a);
+}
+function setAtivFiltroEspecial(v) {
+  ativFiltroEspecial = ativFiltroEspecial === v ? '' : v;
+  render();
+}
+function renderFiltroEspecialAtividades() {
+  const wrap = document.getElementById('ativ-filtro-especial');
+  if (!wrap) return;
+  const base = atividades.filter(a => !a.cancelado && (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes || []).includes(pessoaFiltro)));
+  wrap.innerHTML = [['sprint', 'Planejadas na sprint'], ['impedidas', 'Impedidas'], ['atrasadas', 'Atrasadas']].map(([k, rot]) =>
+    '<button type="button" class="ativ-chip ' + (ativFiltroEspecial === k ? 'active' : '') + '" onclick="setAtivFiltroEspecial(\'' + k + '\')">' + rot + ' <em>' + base.filter(a => ativCorresponde(k, a)).length + '</em></button>'
+  ).join('');
+}
+
 // Situação do prazo de uma atividade (selo no card e, depois, o relatório de Desempenho).
 // Aberta: venceu / vence hoje / falta pouco / folga. Concluída: no prazo ou com atraso.
 function prazoAtividadeInfo(a) {
@@ -5341,6 +5442,8 @@ function renderAtividadeCard(a) {
         return `<span class="kc-idade${classeIdade}" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${dias === 0 ? 'hoje' : dias + 'd'}</span>`;
       })() : ''}
       ${(p => p ? `<span class="kc-prazo ${p.classe}" title="${p.title}">${p.texto}</span>` : '')(prazoAtividadeInfo(a))}
+      ${a.impedidoDesde ? `<span class="kc-impedido" title="Impedido: ${escapeHtml(a.impedidoMotivo || 'aguardando retorno')}">Impedido ${formatarDuracaoMin(impedidoMinAtual(a))}</span>` : ''}
+      ${a.sprintSemana ? `<span class="kc-sprint" title="Planejado na sprint da semana de ${formatDate(a.sprintSemana)}">Sprint</span>` : ''}
     </div>
     <div class="kc-footer">
       <span class="kc-pessoa">${avatarHtml(a.responsavel)}${escapeHtml(a.responsavel)}</span>
@@ -5389,6 +5492,7 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
   document.getElementById('at-prazo').value = a.prazo || '';
+  atPreencherCheckins(a);
   toggleResolucaoField(a.coluna);
 
   const criadoEl = document.getElementById('atividade-modal-criado');
@@ -5558,6 +5662,23 @@ async function saveAtividade(silent) {
   const prazo = document.getElementById('at-prazo').value || null;
   const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes };
   if (prazo || (anterior && anterior.prazo)) payload.prazo = prazo;
+  // Planejado na sprint e Impedido (colunas novas: só vão no payload quando há o que gravar)
+  const sprintMarcado = document.getElementById('at-sprint').checked;
+  const impedidoMarcado = document.getElementById('at-impedido').checked && coluna !== 'concluida';
+  let sprintSemana = null;
+  if (sprintMarcado) sprintSemana = (anterior && anterior.sprintSemana && !editingSprintReplanejar) ? anterior.sprintSemana : segundaDe(todayStr());
+  let impedidoDesde = anterior ? (anterior.impedidoDesde || null) : null;
+  let impedidoTotalMin = anterior ? (anterior.impedidoTotalMin || 0) : 0;
+  if (impedidoDesde && !impedidoMarcado) {
+    impedidoTotalMin += Math.max(0, Math.round((Date.now() - new Date(impedidoDesde).getTime()) / 60000));
+    impedidoDesde = null;
+  } else if (!impedidoDesde && impedidoMarcado) {
+    impedidoDesde = new Date().toISOString();
+  }
+  const impedidoMotivo = impedidoMarcado ? document.getElementById('at-impedido-motivo').value.trim() : '';
+  if (sprintSemana || impedidoDesde || impedidoTotalMin || (anterior && (anterior.sprintSemana || anterior.impedidoDesde || anterior.impedidoTotalMin || anterior.impedidoMotivo))) {
+    Object.assign(payload, { sprint_semana: sprintSemana, impedido_desde: impedidoDesde, impedido_total_min: impedidoTotalMin, impedido_motivo: impedidoMotivo });
+  }
   if (coluna === 'concluida') {
     payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
   } else {
@@ -5568,18 +5689,18 @@ async function saveAtividade(silent) {
   if (isNew) {
     payload.ordem = atividades.length ? Math.max(...atividades.map(a => a.ordem || 0)) + 1 : 1;
     const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
-    if (error) { alert('Erro ao criar atividade: ' + error.message + (/prazo/i.test(error.message) ? '\n\nA coluna "prazo" ainda não existe no banco. Rode o SQL: alter table public.atividades add column if not exists prazo date;' : '')); return; }
+    if (error) { alert('Erro ao criar atividade: ' + error.message + (/prazo|sprint_semana|impedido/i.test(error.message) ? '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.' : '')); return; }
     atividadeSalva = {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
-      criadoEm: row.created_at, prazo
+      criadoEm: row.created_at, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
-    if (error) { alert('Erro ao salvar atividade: ' + error.message + (/prazo/i.test(error.message) ? '\n\nA coluna "prazo" ainda não existe no banco. Rode o SQL: alter table public.atividades add column if not exists prazo date;' : '')); return; }
-    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo });
+    if (error) { alert('Erro ao salvar atividade: ' + error.message + (/prazo|sprint_semana|impedido/i.test(error.message) ? '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.' : '')); return; }
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo });
     atividadeSalva = anterior;
   }
 
@@ -6333,10 +6454,15 @@ function desempMetricas(nome, ini, fim) {
   const abertas = minhas.filter(a => a.coluna !== 'concluida');
   const atrasados = abertas
     .map(a => ({ a, pz: desempPrazoEfetivo(a) }))
-    .filter(x => x.pz && x.pz.data < hoje)
+    .filter(x => x.pz && x.pz.data < hoje && !x.a.impedidoDesde)
     .sort((x, y) => x.pz.data.localeCompare(y.pz.data))
     .map(x => ({ cliente: x.a.clienteNome, titulo: x.a.titulo, dias: daysBetween(x.pz.data, hoje) }));
   const den = noPrazo + comAtraso + atrasados.length;
+  const impedidos = abertas.filter(a => a.impedidoDesde).map(a => ({ cliente: a.clienteNome, titulo: a.titulo, motivo: a.impedidoMotivo || '', min: impedidoMinAtual(a) })).sort((x, y) => y.min - x.min);
+  const doPlano = minhas.filter(a => a.sprintSemana === ini);
+  const planEntregues = doPlano.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm <= fim).length;
+  const plano = { previsto: doPlano.length, entregue: planEntregues, pct: doPlano.length ? Math.round(planEntregues / doPlano.length * 100) : null, fora: entregues.filter(a => a.sprintSemana !== ini).length };
+  const paradoMin = minhas.filter(a => a.coluna !== 'concluida' || (a.concluidoEm && a.concluidoEm >= ini && a.concluidoEm <= fim)).reduce((s2, a) => s2 + impedidoMinAtual(a), 0);
   const idades = abertas.filter(a => a.criadoEm).map(a => diasDesde(a.criadoEm));
   const tendencia = [];
   for (let k = 3; k >= 0; k--) {
@@ -6351,7 +6477,7 @@ function desempMetricas(nome, ini, fim) {
     entregues, noPrazo, comAtraso, semPrazo, curtas, den,
     pct: den ? Math.round((noPrazo / den) * 100) : null,
     lead: entregues.length ? somaLead / entregues.length : null,
-    atrasados,
+    atrasados, impedidos, plano, paradoMin,
     emAndamento: abertas.filter(a => a.coluna === 'andamento').length,
     abertas: abertas.length,
     abertas15: idades.filter(d => d >= 15).length,
@@ -6426,6 +6552,7 @@ function desempLeitura(m, ticketsMedia) {
   }
   if (m.cart.total) perfil.push('Responsável por ' + desempPlural(m.cart.total, 'cliente', 'clientes') + ' em implantação.');
   if (m.tickets) perfil.push('Carga de ' + desempPlural(m.tickets.total, 'ticket', 'tickets') + ' no quadro do Grafana.');
+  if (m.plano.previsto > 0 && m.plano.fora > 0) perfil.push(desempPlural(m.plano.fora, 'entrega fora do plano da sprint', 'entregas fora do plano da sprint') + ' (demanda não prevista na Planning).');
 
   if (m.pct !== null && m.pct >= 90) fortes.push('Alto cumprimento de prazo (' + m.pct + '%).');
   if (m.atrasados.length === 0 && m.abertas > 0) fortes.push('Nenhuma atividade aberta com prazo vencido.');
@@ -6433,6 +6560,7 @@ function desempLeitura(m, ticketsMedia) {
   if (nEnt > 0 && m.curtas === 0) fortes.push('Resoluções bem registradas (nenhuma curta demais).');
   if (m.cart.total > 0 && m.cart.semContato7 === 0) fortes.push('Carteira com contato em dia (nenhum cliente sem contato há mais de 7 dias).');
 
+  if (m.plano.previsto >= 3 && m.plano.pct >= 90) fortes.push('Cumpriu o combinado da sprint (' + m.plano.entregue + ' de ' + m.plano.previsto + ' planejadas).');
   const item = (ponto, acao) => { melhorar.push(ponto); acoes.push(acao); };
   if (m.atrasados.length) {
     const ex = m.atrasados.slice(0, 2).map(x => (x.cliente ? x.cliente + ' — ' : '') + desempCortar(x.titulo, 45)).join('; ');
@@ -6459,6 +6587,13 @@ function desempLeitura(m, ticketsMedia) {
     'Entender no 1:1 o que reduziu o ritmo (demandas maiores, tickets, bloqueios) e ajustar a carga.');
   if (m.tickets && ticketsMedia && m.tickets.total > ticketsMedia * 1.5) item('Carga de tickets (' + m.tickets.total + ') acima da média da equipe (' + desempF1(ticketsMedia) + ')',
     'Avaliar redistribuição de tickets ou apoio, para equilibrar a carga entre os analistas.');
+  if (m.plano.previsto > 0 && m.plano.pct < 70) item('Entregou ' + m.plano.entregue + ' de ' + m.plano.previsto + ' atividades planejadas na sprint (' + m.plano.pct + '%)',
+    'Planejar menos cards na Planning ou dividir os maiores, e avisar o gestor assim que um card da sprint estiver em risco.');
+  if (m.impedidos.length) {
+    const ex2 = m.impedidos.slice(0, 2).map(x => (x.cliente ? x.cliente + ' — ' : '') + desempCortar(x.motivo || x.titulo, 40) + ' (parado há ' + formatarDuracaoMin(x.min) + ')').join('; ');
+    item(desempPlural(m.impedidos.length, 'atividade impedida aguardando retorno', 'atividades impedidas aguardando retorno') + ' (' + ex2 + ')',
+      'Cobrar o retorno do cliente com data combinada, registrar o motivo no card e avisar o gestor se passar de 3 dias.');
+  }
   if (!melhorar.length) acoes.push('Manter o ritmo e avaliar com o gestor a possibilidade de assumir demandas de maior complexidade.');
   return { perfil, fortes, melhorar, acoes };
 }
@@ -6503,6 +6638,7 @@ function renderDesempenho() {
     + tile(eq.pct === null ? '—' : eq.pct + '%', 'Cumprimento de prazo')
     + tile(eq.atrasados.length, 'Atrasados em aberto')
     + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Lead time médio')
+    + tile(eq.plano.pct === null ? '—' : eq.plano.pct + '%', 'Previsto × entregue')
     + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets (Grafana)')
     + '</div>';
 
@@ -6518,6 +6654,9 @@ function renderDesempenho() {
     const atrasadosHtml = m.atrasados.length
       ? '<ul class="dm-lista">' + m.atrasados.slice(0, 5).map(x => '<li><b>' + escapeHtml(x.cliente || '—') + '</b> — ' + escapeHtml(desempCortar(x.titulo, 70)) + ' <span>venceu há ' + x.dias + 'd</span></li>').join('') + (m.atrasados.length > 5 ? '<li>… e mais ' + (m.atrasados.length - 5) + '</li>' : '') + '</ul>'
       : '<div style="font-size:12.5px;color:#64748B;">Nenhuma atividade vencida.</div>';
+    const impedidosHtml = m.impedidos.length
+      ? '<div class="dm-sec">Aguardando cliente agora</div><ul class="dm-lista">' + m.impedidos.slice(0, 5).map(x => '<li><b>' + escapeHtml(x.cliente || '—') + '</b> — ' + escapeHtml(desempCortar(x.motivo || x.titulo, 70)) + ' <span>parado há ' + formatarDuracaoMin(x.min) + '</span></li>').join('') + '</ul>'
+      : '';
     const entreguesHtml = m.clientesAtendidos.length
       ? '<ul class="dm-lista">' + m.clientesAtendidos.slice(0, 8).map(c => '<li><b>' + escapeHtml(c[0]) + '</b> — ' + desempPlural(c[1], 'entrega', 'entregas') + '</li>').join('') + '</ul>'
       : '<div style="font-size:12.5px;color:#64748B;">Nenhuma entrega concluída na semana.</div>';
@@ -6541,9 +6680,10 @@ function renderDesempenho() {
       + '<div>Entregues<b>' + m.entregues.length + '</b></div><div>Com atraso<b>' + m.comAtraso + '</b></div>'
       + '<div>Em andamento<b>' + m.emAndamento + '</b></div><div>Atrasados<b>' + m.atrasados.length + '</b></div>'
       + '<div>Lead time<b>' + (m.lead === null ? '—' : desempF1(m.lead) + 'd') + '</b></div><div>Tickets<b>' + (m.tickets ? m.tickets.total : '—') + '</b></div>'
+      + '<div>Planejado<b>' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + '</b></div><div>Tempo parado<b>' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—') + '</b></div>'
       + '</div>'
       + '<div class="dm-sec">Entregas nas últimas 4 semanas</div><div class="dm-trend">' + trend + '</div>'
-      + '<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml
+      + '<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml + impedidosHtml
       + '<div class="dm-sec">Entregues na semana</div>' + entreguesHtml
       + '<div class="dm-sec">Tickets (Grafana)</div>' + tk
       + '<div class="dm-sec">Carteira</div>' + cart
@@ -6562,7 +6702,7 @@ function renderDesempenho() {
   const nota = '<p class="desemp-nota">Como ler: os números orientam a conversa e não substituem a avaliação do gestor — uma atividade pode demorar por ser complexa ou depender do cliente. '
     + 'O cumprimento de prazo é <b>entregues no prazo ÷ (entregues + atrasados em aberto)</b>. O prazo vem do campo Prazo do card; quando não há, usa-se o padrão pela etiqueta '
     + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta ficam fora do cálculo' + (semPrazoTotal ? ' (' + semPrazoTotal + ' entrega(s) nesta semana)' : '') + '. '
-    + 'Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se à semana escolhida. Atividades feitas em conjunto contam para cada participante.</p>';
+    + 'Cards marcados como impedidos (aguardando cliente) não contam como atrasados e têm o tempo parado medido à parte. Previsto × entregue considera os cards marcados como planejados na sprint da semana. Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se à semana escolhida. Atividades feitas em conjunto contam para cada participante.</p>';
 
   raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
     + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>Desempenho da Sprint</h1><p>' + escapeHtml('Equipe de Implantação · semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim)) + '</p></div>'
@@ -6585,12 +6725,14 @@ function desempTextoRelatorio() {
   L.push('• Cumprimento de prazo: ' + (eq.pct === null ? '—' : eq.pct + '% (' + eq.noPrazo + ' de ' + eq.den + ' no prazo)'));
   L.push('• Atrasados em aberto: ' + eq.atrasados.length);
   L.push('• Lead time médio: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
+  L.push('• Previsto × entregue na sprint: ' + (eq.plano.previsto ? eq.plano.entregue + ' de ' + eq.plano.previsto + ' (' + eq.plano.pct + '%)' : '—'));
   if (d.ticketsTotal !== null) L.push('• Tickets (Grafana): ' + d.ticketsTotal);
   d.analistas.forEach(a => {
     const m = a.m, lt = a.leitura;
     L.push(''); L.push('────────────────────────'); L.push(a.nome.toUpperCase());
     L.push('Cumprimento de prazo: ' + (m.pct === null ? 'sem entregas com prazo' : m.pct + '% (' + m.noPrazo + ' de ' + m.den + ' no prazo)'));
     L.push('Entregues: ' + m.entregues.length + ' · Com atraso: ' + m.comAtraso + ' · Atrasados em aberto: ' + m.atrasados.length + ' · Em andamento: ' + m.emAndamento + ' · Lead time: ' + (m.lead === null ? '—' : desempF1(m.lead) + ' dias') + (m.tickets ? ' · Tickets: ' + m.tickets.total : ''));
+    L.push('Planejado na sprint: ' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + ' · Tempo parado aguardando cliente: ' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—'));
     L.push('Perfil: ' + lt.perfil.join(' '));
     if (lt.fortes.length) L.push('Pontos fortes: ' + lt.fortes.join(' '));
     if (lt.melhorar.length) { L.push('Pontos a melhorar:'); lt.melhorar.forEach(x => L.push('  - ' + x)); }
