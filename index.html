@@ -2298,7 +2298,7 @@ function render() {
   sincronizarFiltrosDeHoje();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
-  document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes');
+  document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes' || activeTab === 'pendencias');
   renderStats();
   populateStageOptions();
   populateTipoAgendamentoOptions();
