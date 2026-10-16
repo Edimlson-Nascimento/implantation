@@ -6421,6 +6421,7 @@ function etApagarMeu(i) { const meus = temasMeus(); meus.splice(i, 1); try { loc
 /* ── DESEMPENHO: módulo isolado (só lê os dados que o painel já carregou; não grava nada no banco) ── */
 const DESEMP_USUARIOS = ['edimilson', 'gilson'];
 const DESEMP_SLA_ETIQUETA = { red: 1, orange: 2, yellow: 5, blue: 10 }; // prazo padrão (dias) quando o card não tem Prazo
+const DESEMP_SLA_PADRAO = 10; // dias: prazo de card sem Prazo e sem etiqueta (igual a Rotina)
 const DESEMP_LIMITE_WIP = 3;
 const DESEMP_CORES = ['#0B5CAD', '#0F9D58', '#9333EA', '#EA580C', '#0891B2', '#BE185D'];
 let desempSemanaIni = null;
@@ -6476,6 +6477,7 @@ function desempPlural(n, um, varios) { return n + ' ' + (n === 1 ? um : varios);
 function desempPrazoEfetivo(a) {
   if (a.prazo) return { data: a.prazo, origem: 'manual' };
   if (a.label && DESEMP_SLA_ETIQUETA[a.label] && a.criadoEm) return { data: addDays(desempDataLocal(a.criadoEm), DESEMP_SLA_ETIQUETA[a.label]), origem: 'etiqueta' };
+  if (a.criadoEm) return { data: addDays(desempDataLocal(a.criadoEm), DESEMP_SLA_PADRAO), origem: 'padrao' };
   return null;
 }
 
@@ -6486,9 +6488,10 @@ function desempMetricas(nome, ini, fim, modo) {
   const minhas = atividades.filter(a => !a.cancelado && (nome === null || a.responsavel === nome || (a.participantes || []).includes(nome)));
   const noPeriodo = (lista, i, f) => lista.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= i && a.concluidoEm <= f);
   const entregues = noPeriodo(minhas, ini, fim);
-  let noPrazo = 0, comAtraso = 0, semPrazo = 0, curtas = 0, somaLead = 0;
+  let noPrazo = 0, comAtraso = 0, semPrazo = 0, porPadrao = 0, curtas = 0, somaLead = 0;
   entregues.forEach(a => {
     const pz = desempPrazoEfetivo(a);
+    if (pz && pz.origem === 'padrao') porPadrao++;
     if (!pz) semPrazo++;
     else if (a.concluidoEm <= pz.data) noPrazo++;
     else comAtraso++;
@@ -6532,7 +6535,7 @@ function desempMetricas(nome, ini, fim, modo) {
   });
   const m = {
     porPrioridade,
-    entregues, noPrazo, comAtraso, semPrazo, curtas, den,
+    entregues, noPrazo, comAtraso, semPrazo, porPadrao, curtas, den,
     pct: den ? Math.round((noPrazo / den) * 100) : null,
     lead: entregues.length ? somaLead / entregues.length : null,
     atrasados, impedidos, plano, paradoMin,
@@ -6638,8 +6641,8 @@ function desempLeitura(m, ticketsMedia) {
     'Combinar prazos realistas ao criar o card e avisar o gestor assim que um prazo estiver em risco.');
   if (m.curtas > 0) item(desempPlural(m.curtas, 'resolução com menos de 30 caracteres', 'resoluções com menos de 30 caracteres'),
     'Registrar na resolução o que foi feito, o resultado e o próximo passo, para o histórico do cliente servir de consulta.');
-  if (nEnt > 0 && m.semPrazo / nEnt > 0.5) item(m.semPrazo + ' de ' + nEnt + ' entregas sem prazo definido (ficam fora do cálculo)',
-    'Preencher o campo Prazo (ou a etiqueta) ao criar o card, para que o cumprimento possa ser medido.');
+  if (nEnt > 0 && (m.porPadrao + m.semPrazo) / nEnt > 0.5) item((m.porPadrao + m.semPrazo) + ' de ' + nEnt + ' entregas sem prazo nem prioridade definidos (contadas pelo padrão de ' + DESEMP_SLA_PADRAO + ' dias)',
+    'Preencher o campo Prazo (ou a prioridade) ao criar o card, para o cumprimento refletir o combinado e não o padrão.');
   if (m.cart.semContato7 > 0) item(desempPlural(m.cart.semContato7, 'cliente da carteira sem contato há mais de 7 dias', 'clientes da carteira sem contato há mais de 7 dias'),
     'Fazer contato com esses clientes nesta semana e registrar no painel.');
   if (m.agenda.atrasadas > 0) item(desempPlural(m.agenda.atrasadas, 'compromisso da agenda vencido sem baixa', 'compromissos da agenda vencidos sem baixa'),
@@ -6795,7 +6798,7 @@ function renderDesempenho() {
 
   const nota = '<p class="desemp-nota">Como ler: os números orientam a conversa e não substituem a avaliação do gestor — uma atividade pode demorar por ser complexa ou depender do cliente. '
     + 'O cumprimento de prazo é <b>entregues no prazo ÷ (entregues + atrasados em aberto)</b>. O prazo vem do campo Prazo do card; quando não há, usa-se o padrão pela etiqueta '
-    + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta ficam fora do cálculo' + (semPrazoTotal ? ' (' + semPrazoTotal + ' entrega(s) neste período)' : '') + '. '
+    + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta usam o padrão de ' + DESEMP_SLA_PADRAO + ' dias (como Rotina)' + (eq.porPadrao ? ' — ' + eq.porPadrao + ' entrega(s) neste período' : '') + '. '
     + 'Cards marcados como impedidos (aguardando cliente) não contam como atrasados e têm o tempo parado medido à parte. Previsto × entregue considera os cards marcados como planejados na sprint do período. Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se ao período escolhido. Atividades feitas em conjunto contam para cada participante.</p>';
 
   raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
