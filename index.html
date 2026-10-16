@@ -1313,6 +1313,7 @@
       <button class="nav-item" id="tab-lamina" onclick="setTab('lamina')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16"/></svg>Lâmina</button>
       <button class="nav-item" id="tab-indicadores" onclick="setTab('indicadores')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Indicadores</button>
       <button class="nav-item" id="tab-buscar" onclick="setTab('buscar')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
+      <button class="nav-item" id="tab-desempenho" style="display:none" onclick="setTab('desempenho')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8M15 7h5v5"/></svg>Desempenho</button>
     </nav>
     <div class="sidebar-footer">
       <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
@@ -1622,6 +1623,23 @@
         </div>
         <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
       </div>
+    </div>
+  </section>
+
+  <section id="view-desempenho" style="display:none">
+    <div class="resumo-box">
+      <h2>Desempenho</h2>
+      <p class="desemp-aviso">Área restrita (Edimilson e Gilson). Relatório semanal por analista, para acompanhamento e conversa de desenvolvimento — os números orientam, não substituem a avaliação do gestor.</p>
+      <div class="desemp-barra">
+        <button class="btn btn-sm" onclick="desempMudarSemana(-1)">‹ Semana anterior</button>
+        <span class="desemp-periodo" id="desemp-periodo"></span>
+        <button class="btn btn-sm" onclick="desempMudarSemana(1)">Próxima ›</button>
+        <button class="btn btn-sm" onclick="desempSemanaAtual()">Esta semana</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" onclick="desempCopiarTexto()">📋 Copiar texto</button>
+        <button class="btn btn-sm" onclick="desempBaixarPDF()">📄 Baixar PDF</button>
+      </div>
+      <div id="desempenho-conteudo"></div>
     </div>
   </section>
 
@@ -2292,6 +2310,7 @@ async function loadState() {
 }
 
 function setTab(tab) {
+  if (tab === 'desempenho' && !(typeof podeVerDesempenho === 'function' && podeVerDesempenho())) tab = 'atividades';
   // Agenda sempre abre no padrão: só pendentes (concluídos escondidos)
   if (tab === 'calendario' && activeTab !== 'calendario') {
     const chkConcl = document.getElementById('show-concluidos-agenda');
@@ -2317,10 +2336,13 @@ function setTab(tab) {
   document.getElementById('view-lamina').style.display = tab === 'lamina' ? '' : 'none';
   document.getElementById('view-indicadores').style.display = tab === 'indicadores' ? '' : 'none';
   document.getElementById('view-buscar').style.display = tab === 'buscar' ? '' : 'none';
+  document.getElementById('tab-desempenho').classList.toggle('active', tab === 'desempenho');
+  document.getElementById('view-desempenho').style.display = tab === 'desempenho' ? '' : 'none';
   render();
 }
 
 function render() {
+  if (typeof atualizarMenuDesempenho === 'function') atualizarMenuDesempenho();
   sincronizarFiltrosDeHoje();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
@@ -2340,6 +2362,7 @@ function render() {
   else if (activeTab === 'lamina') renderLamina();
   else if (activeTab === 'indicadores') renderIndicadores();
   else if (activeTab === 'buscar') {}
+  else if (activeTab === 'desempenho') renderDesempenho();
   else renderResumo();
 }
 
@@ -6201,5 +6224,405 @@ function etApagarMeu(i) { const meus = temasMeus(); meus.splice(i, 1); try { loc
 
 
 </script>
+<style id="desempenho-css">
+  /* ── DESEMPENHO (aba isolada; só leitura) ── */
+  .desemp-barra { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:14px 0 6px; }
+  .desemp-barra .desemp-periodo { font-weight:700; font-size:14px; min-width:210px; text-align:center; color:var(--text-main); }
+  .desemp-aviso { font-size:12px; color:var(--gray-text); margin:4px 0 14px; }
+  .desemp-obs-editor { margin-top:18px; display:grid; gap:10px; }
+  .desemp-obs-editor label { font-size:12px; font-weight:700; color:var(--gray-text); display:block; margin-bottom:4px; }
+  .desemp-obs-editor textarea { width:100%; min-height:60px; font-family:inherit; font-size:13px; padding:10px; border-radius:8px; border:1px solid var(--border-light); resize:vertical; background:var(--white); color:var(--text-main); }
+
+  /* a folha (sempre clara, igual à Lâmina, para sair bem no PDF) */
+  .desemp-doc { background:#fff; color:#0F172A; border-radius:14px; overflow:hidden; border:1px solid #E2E8F0; font-family:inherit; }
+  .desemp-head { background:linear-gradient(135deg, #021F33 0%, #063A5E 100%); padding:26px 30px 24px; color:#fff; position:relative; }
+  .desemp-head::after { content:''; position:absolute; left:0; right:0; bottom:0; height:4px; background:linear-gradient(90deg, #00FF7A, #00E676 60%, transparent); }
+  .desemp-head img { height:24px; display:block; margin-bottom:16px; }
+  .desemp-head h1 { margin:0; font-size:21px; font-weight:800; letter-spacing:-.01em; color:#fff; }
+  .desemp-head p { margin:6px 0 0; font-size:12.5px; color:#7FE8B4; font-weight:700; }
+  .desemp-corpo { padding:22px 26px 26px; }
+  .desemp-resumo { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:20px; }
+  .dm-tile { background:#F1F5F9; border-radius:12px; padding:12px 14px; }
+  .dm-tile b { display:block; font-size:22px; font-weight:800; color:#0F172A; line-height:1.1; }
+  .dm-tile span { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#64748B; }
+  .desemp-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:16px; align-items:start; }
+  .dm-card { border:1px solid #E2E8F0; border-radius:14px; padding:18px 18px 16px; background:#fff; }
+  .dm-top { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .dm-av { width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:#fff; flex:none; }
+  .dm-top b { font-size:15px; color:#0F172A; }
+  .dm-pct { font-size:38px; font-weight:800; letter-spacing:-.02em; line-height:1; color:#0F172A; }
+  .dm-pct.sem { color:#94A3B8; font-size:30px; }
+  .dm-pct-sub { font-size:12px; color:#64748B; margin:4px 0 10px; }
+  .dm-bar { display:flex; height:9px; border-radius:6px; overflow:hidden; background:#E2E8F0; margin-bottom:14px; }
+  .dm-bar i { display:block; height:100%; }
+  .dm-bar .ok { background:#16A34A; } .dm-bar .late { background:#F59E0B; } .dm-bar .over { background:#DC2626; }
+  .dm-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; font-size:12.5px; color:#475569; margin-bottom:14px; }
+  .dm-grid b { color:#0F172A; margin-left:4px; }
+  .dm-sec { font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#64748B; margin:14px 0 6px; padding-top:10px; border-top:1px solid #EEF2F6; }
+  .dm-trend { display:flex; align-items:flex-end; gap:8px; height:52px; }
+  .dm-trend div { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; font-size:10.5px; color:#64748B; }
+  .dm-trend i { display:block; width:100%; background:#CBD5E1; border-radius:4px 4px 0 0; min-height:2px; }
+  .dm-trend div.atual i { background:#0B5CAD; }
+  .dm-trend em { font-style:normal; font-weight:700; color:#0F172A; font-size:11px; }
+  .dm-lista { margin:0; padding:0; list-style:none; font-size:12.5px; color:#334155; display:grid; gap:5px; }
+  .dm-lista li b { color:#0F172A; }
+  .dm-lista li span { color:#B91C1C; font-weight:700; }
+  .dm-leitura h4 { margin:10px 0 3px; font-size:11.5px; font-weight:800; color:#0F172A; }
+  .dm-leitura ul { margin:0; padding-left:17px; font-size:12.5px; color:#334155; display:grid; gap:3px; }
+  .dm-leitura .fortes h4 { color:#15803D; } .dm-leitura .melhorar h4 { color:#B45309; } .dm-leitura .acoes h4 { color:#0B5CAD; }
+  .dm-obs { margin-top:12px; padding:10px 12px; border-radius:10px; background:#F1F5F9; font-size:12.5px; color:#334155; white-space:pre-wrap; }
+  .dm-obs b { display:block; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:#64748B; margin-bottom:3px; }
+  .desemp-nota { margin:20px 0 0; font-size:11.5px; line-height:1.5; color:#64748B; }
+</style>
+<script>
+/* ── DESEMPENHO: módulo isolado (só lê os dados que o painel já carregou; não grava nada no banco) ── */
+const DESEMP_USUARIOS = ['edimilson', 'gilson'];
+const DESEMP_SLA_ETIQUETA = { red: 1, orange: 2, yellow: 5, blue: 10 }; // prazo padrão (dias) quando o card não tem Prazo
+const DESEMP_LIMITE_WIP = 3;
+const DESEMP_CORES = ['#0B5CAD', '#0F9D58', '#9333EA', '#EA580C', '#0891B2', '#BE185D'];
+let desempSemanaIni = null;
+let desempTicketsRows = null, desempTicketsBusca = 0, desempTicketsErro = '';
+
+function podeVerDesempenho() {
+  const n = (currentPessoaNome || '').trim().toLowerCase();
+  return DESEMP_USUARIOS.some(u => n.startsWith(u));
+}
+function atualizarMenuDesempenho() {
+  const b = document.getElementById('tab-desempenho');
+  if (b) b.style.display = podeVerDesempenho() ? '' : 'none';
+}
+
+function desempSegunda(ds) {
+  const d = new Date(ds + 'T00:00:00');
+  return addDays(ds, -((d.getDay() + 6) % 7));
+}
+function desempDataLocal(iso) {
+  const d = new Date(iso);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function desempCurto(ds) { return formatDate(ds).slice(0, 5); }
+function desempF1(n) { return String(n.toFixed(1)).replace('.', ','); }
+function desempCortar(t, n) {
+  const x = String(t || '').replace(/\s+/g, ' ').trim();
+  return x.length > n ? x.slice(0, n - 1) + '…' : x;
+}
+function desempPlural(n, um, varios) { return n + ' ' + (n === 1 ? um : varios); }
+
+// Prazo do card: o combinado (campo Prazo) ou, se não houver, o padrão pela etiqueta. Sem nenhum dos dois: fora do cálculo.
+function desempPrazoEfetivo(a) {
+  if (a.prazo) return { data: a.prazo, origem: 'manual' };
+  if (a.label && DESEMP_SLA_ETIQUETA[a.label] && a.criadoEm) return { data: addDays(desempDataLocal(a.criadoEm), DESEMP_SLA_ETIQUETA[a.label]), origem: 'etiqueta' };
+  return null;
+}
+
+// nome === null → equipe toda (cada atividade conta uma vez)
+function desempMetricas(nome, ini, fim) {
+  const hoje = todayStr();
+  const minhas = atividades.filter(a => !a.cancelado && (nome === null || a.responsavel === nome || (a.participantes || []).includes(nome)));
+  const noPeriodo = (lista, i, f) => lista.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= i && a.concluidoEm <= f);
+  const entregues = noPeriodo(minhas, ini, fim);
+  let noPrazo = 0, comAtraso = 0, semPrazo = 0, curtas = 0, somaLead = 0;
+  entregues.forEach(a => {
+    const pz = desempPrazoEfetivo(a);
+    if (!pz) semPrazo++;
+    else if (a.concluidoEm <= pz.data) noPrazo++;
+    else comAtraso++;
+    if (String(a.resolucao || '').trim().length < 30) curtas++;
+    if (a.criadoEm) somaLead += Math.max(0, daysBetween(desempDataLocal(a.criadoEm), a.concluidoEm));
+  });
+  const abertas = minhas.filter(a => a.coluna !== 'concluida');
+  const atrasados = abertas
+    .map(a => ({ a, pz: desempPrazoEfetivo(a) }))
+    .filter(x => x.pz && x.pz.data < hoje)
+    .sort((x, y) => x.pz.data.localeCompare(y.pz.data))
+    .map(x => ({ cliente: x.a.clienteNome, titulo: x.a.titulo, dias: daysBetween(x.pz.data, hoje) }));
+  const den = noPrazo + comAtraso + atrasados.length;
+  const idades = abertas.filter(a => a.criadoEm).map(a => diasDesde(a.criadoEm));
+  const tendencia = [];
+  for (let k = 3; k >= 0; k--) {
+    const i = addDays(ini, -7 * k);
+    tendencia.push({ ini: i, n: noPeriodo(minhas, i, addDays(i, 6)).length });
+  }
+  const prev = tendencia.slice(0, 3).map(t => t.n);
+  const somaPrev = prev.reduce((s, n) => s + n, 0);
+  const clientes = new Map();
+  entregues.forEach(a => { const c = a.clienteNome || '—'; clientes.set(c, (clientes.get(c) || 0) + 1); });
+  const m = {
+    entregues, noPrazo, comAtraso, semPrazo, curtas, den,
+    pct: den ? Math.round((noPrazo / den) * 100) : null,
+    lead: entregues.length ? somaLead / entregues.length : null,
+    atrasados,
+    emAndamento: abertas.filter(a => a.coluna === 'andamento').length,
+    abertas: abertas.length,
+    abertas15: idades.filter(d => d >= 15).length,
+    maisAntiga: idades.length ? Math.max(...idades) : 0,
+    tendencia, mediaPrev: somaPrev ? somaPrev / 3 : null,
+    clientesAtendidos: [...clientes.entries()].sort((a, b) => b[1] - a[1])
+  };
+  if (nome !== null) {
+    const ags = agendamentos.filter(g => g.responsavel === nome || (g.participantes || []).includes(nome));
+    m.agenda = {
+      semana: ags.filter(g => g.data >= ini && g.data <= fim).length,
+      feitas: ags.filter(g => g.data >= ini && g.data <= fim && g.feito).length,
+      reagendadas: ags.filter(g => g.data >= ini && g.data <= fim && g.reagendadoDe).length,
+      atrasadas: ags.filter(g => !g.feito && g.data < hoje).length
+    };
+    const cart = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao' && c.analistaResponsavel === nome);
+    m.cart = {
+      total: cart.length,
+      risco: cart.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho').length,
+      prazoVencido: cart.filter(c => prazoImplantacaoInfo(c).classe === 'atrasado').length,
+      semContato7: cart.filter(c => !c.ultimoContato || diasDesde(c.ultimoContato) > 7).length,
+      pendIntelipulse: cart.reduce((s, c) => s + (c.pendencias || []).filter(p => !p.feito && p.responsavel === 'rscrm').length, 0),
+      pendCliente: cart.reduce((s, c) => s + (c.pendencias || []).filter(p => !p.feito && p.responsavel === 'cliente').length, 0)
+    };
+    m.tickets = desempTickets(nome);
+  }
+  return m;
+}
+
+function desempTickets(nome) {
+  if (!desempTicketsRows || !desempTicketsRows.length) return null;
+  const chaves = Object.keys(desempTicketsRows[0]);
+  const chave = chaves.find(k => k.toLowerCase() === nome.toLowerCase().split(' ')[0]);
+  if (!chave) return null;
+  let total = 0; const porCliente = [];
+  desempTicketsRows.forEach(r => {
+    const v = Number(r[chave]) || 0;
+    if (v > 0) { total += v; porCliente.push({ cliente: String(r[chaves[0]]), n: v }); }
+  });
+  porCliente.sort((a, b) => b.n - a.n);
+  return { total, top: porCliente.slice(0, 3) };
+}
+
+async function desempCarregarTickets() {
+  if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) { desempTicketsRows = grafanaQuadroUltimasLinhas; return; }
+  if (Date.now() - desempTicketsBusca < 120000) return;
+  desempTicketsBusca = Date.now();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(GRAFANA_QUADRO_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
+    desempTicketsRows = json.rows || [];
+    desempTicketsErro = '';
+  } catch (e) {
+    desempTicketsErro = /max clients reached|too many clients|failed to acquire connection/i.test(e.message) ? 'o banco do ERP está com o limite de conexões cheio agora' : e.message;
+  }
+  if (activeTab === 'desempenho') renderDesempenho();
+}
+
+// Perfil, pontos fortes, pontos a melhorar e ações — tudo derivado dos números (regras simples, não é julgamento).
+function desempLeitura(m, ticketsMedia) {
+  const perfil = [], fortes = [], melhorar = [], acoes = [];
+  const nEnt = m.entregues.length;
+  perfil.push('Entregou ' + desempPlural(nEnt, 'atividade', 'atividades') + ' na semana'
+    + (m.mediaPrev !== null ? ' (média das 3 semanas anteriores: ' + desempF1(m.mediaPrev) + ')' : '')
+    + (m.clientesAtendidos.length ? ', em ' + desempPlural(m.clientesAtendidos.length, 'cliente', 'clientes') : '') + '.');
+  if (m.lead !== null) {
+    if (m.lead <= 2) perfil.push('Ciclo de entrega curto (' + desempF1(m.lead) + ' dia(s) em média): perfil de resolução ágil de demandas pontuais.');
+    else if (m.lead <= 7) perfil.push('Ciclo de entrega regular (' + desempF1(m.lead) + ' dias em média).');
+    else perfil.push('Ciclo de entrega longo (' + desempF1(m.lead) + ' dias em média): pode indicar demandas mais complexas ou dependentes de terceiros — vale confirmar no 1:1.');
+  }
+  if (m.cart.total) perfil.push('Responsável por ' + desempPlural(m.cart.total, 'cliente', 'clientes') + ' em implantação.');
+  if (m.tickets) perfil.push('Carga de ' + desempPlural(m.tickets.total, 'ticket', 'tickets') + ' no quadro do Grafana.');
+
+  if (m.pct !== null && m.pct >= 90) fortes.push('Alto cumprimento de prazo (' + m.pct + '%).');
+  if (m.atrasados.length === 0 && m.abertas > 0) fortes.push('Nenhuma atividade aberta com prazo vencido.');
+  if (m.mediaPrev !== null && nEnt > m.mediaPrev * 1.15) fortes.push('Entrega acima da própria média recente.');
+  if (nEnt > 0 && m.curtas === 0) fortes.push('Resoluções bem registradas (nenhuma curta demais).');
+  if (m.cart.total > 0 && m.cart.semContato7 === 0) fortes.push('Carteira com contato em dia (nenhum cliente sem contato há mais de 7 dias).');
+
+  const item = (ponto, acao) => { melhorar.push(ponto); acoes.push(acao); };
+  if (m.atrasados.length) {
+    const ex = m.atrasados.slice(0, 2).map(x => (x.cliente ? x.cliente + ' — ' : '') + desempCortar(x.titulo, 45)).join('; ');
+    item(desempPlural(m.atrasados.length, 'atividade em aberto com prazo vencido', 'atividades em aberto com prazo vencido') + ' (' + ex + ')',
+      'Replanejar o prazo dos cards vencidos na próxima Planning e registrar o motivo do atraso (dependência do cliente, complexidade ou prioridade).');
+  }
+  if (m.abertas15 >= 2) item(m.abertas15 + ' atividades abertas há 15 dias ou mais (a mais antiga: ' + m.maisAntiga + ' dias)',
+    'Revisar os cards antigos com o gestor: concluir, dividir em partes menores ou descartar o que perdeu relevância.');
+  if (m.emAndamento > DESEMP_LIMITE_WIP) item(m.emAndamento + ' atividades em andamento ao mesmo tempo (limite combinado: ' + DESEMP_LIMITE_WIP + ')',
+    'Concluir o que já está em andamento antes de iniciar novas atividades.');
+  if (m.pct !== null && m.pct < 80) item('Cumprimento de prazo de ' + m.pct + '%, abaixo da referência de 80%',
+    'Combinar prazos realistas ao criar o card e avisar o gestor assim que um prazo estiver em risco.');
+  if (m.curtas > 0) item(desempPlural(m.curtas, 'resolução com menos de 30 caracteres', 'resoluções com menos de 30 caracteres'),
+    'Registrar na resolução o que foi feito, o resultado e o próximo passo, para o histórico do cliente servir de consulta.');
+  if (nEnt > 0 && m.semPrazo / nEnt > 0.5) item(m.semPrazo + ' de ' + nEnt + ' entregas sem prazo definido (ficam fora do cálculo)',
+    'Preencher o campo Prazo (ou a etiqueta) ao criar o card, para que o cumprimento possa ser medido.');
+  if (m.cart.semContato7 > 0) item(desempPlural(m.cart.semContato7, 'cliente da carteira sem contato há mais de 7 dias', 'clientes da carteira sem contato há mais de 7 dias'),
+    'Fazer contato com esses clientes nesta semana e registrar no painel.');
+  if (m.agenda.atrasadas > 0) item(desempPlural(m.agenda.atrasadas, 'compromisso da agenda vencido sem baixa', 'compromissos da agenda vencidos sem baixa'),
+    'Dar baixa nos compromissos realizados ou reagendar os que ficaram pendentes.');
+  if (m.cart.prazoVencido > 0) item(desempPlural(m.cart.prazoVencido, 'cliente com a previsão de pós-implantação vencida', 'clientes com a previsão de pós-implantação vencida'),
+    'Alinhar com o gestor o encaminhamento desses clientes ao Atendimento ou uma nova previsão.');
+  if (m.mediaPrev !== null && m.mediaPrev >= 2 && nEnt < m.mediaPrev * 0.7) item('Entregas (' + nEnt + ') abaixo da própria média recente (' + desempF1(m.mediaPrev) + ')',
+    'Entender no 1:1 o que reduziu o ritmo (demandas maiores, tickets, bloqueios) e ajustar a carga.');
+  if (m.tickets && ticketsMedia && m.tickets.total > ticketsMedia * 1.5) item('Carga de tickets (' + m.tickets.total + ') acima da média da equipe (' + desempF1(ticketsMedia) + ')',
+    'Avaliar redistribuição de tickets ou apoio, para equilibrar a carga entre os analistas.');
+  if (!melhorar.length) acoes.push('Manter o ritmo e avaliar com o gestor a possibilidade de assumir demandas de maior complexidade.');
+  return { perfil, fortes, melhorar, acoes };
+}
+
+function desempObsChave(nome) { return 'ws_desemp_obs_' + desempSemanaIni + '_' + nome; }
+function desempLerObs(nome) { try { return localStorage.getItem(desempObsChave(nome)) || ''; } catch (e) { return ''; } }
+function desempSalvarObs(i, nome, valor) {
+  try { if (valor.trim()) localStorage.setItem(desempObsChave(nome), valor); else localStorage.removeItem(desempObsChave(nome)); } catch (e) {}
+  const el = document.getElementById('desemp-obs-view-' + i);
+  if (el) { el.style.display = valor.trim() ? '' : 'none'; const t = el.querySelector('span'); if (t) t.textContent = valor; }
+}
+
+function desempMudarSemana(delta) { desempSemanaIni = addDays(desempSemanaIni, delta * 7); renderDesempenho(); }
+function desempSemanaAtual() { desempSemanaIni = desempSegunda(todayStr()); renderDesempenho(); }
+
+function desempDados() {
+  const ini = desempSemanaIni, fim = addDays(ini, 6);
+  const analistas = PESSOAS.map((nome, i) => ({ nome, cor: DESEMP_CORES[i % DESEMP_CORES.length], m: desempMetricas(nome, ini, fim) }));
+  const equipe = desempMetricas(null, ini, fim);
+  const comTickets = analistas.filter(a => a.m.tickets);
+  const ticketsTotal = comTickets.reduce((s, a) => s + a.m.tickets.total, 0);
+  const ticketsMedia = comTickets.length ? ticketsTotal / comTickets.length : null;
+  analistas.forEach(a => { a.leitura = desempLeitura(a.m, ticketsMedia); });
+  return { ini, fim, analistas, equipe, ticketsTotal: comTickets.length ? ticketsTotal : null };
+}
+
+function renderDesempenho() {
+  const raiz = document.getElementById('desempenho-conteudo');
+  if (!raiz) return;
+  if (!podeVerDesempenho()) { raiz.innerHTML = '<p style="color:var(--gray-text);">Esta área é restrita.</p>'; return; }
+  if (!desempSemanaIni) desempSemanaIni = desempSegunda(todayStr());
+  if (!desempTicketsRows) desempCarregarTickets(); else if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) desempTicketsRows = grafanaQuadroUltimasLinhas;
+
+  const d = desempDados();
+  document.getElementById('desemp-periodo').textContent = 'Semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim);
+  const eq = d.equipe;
+  const semPrazoTotal = eq.semPrazo;
+
+  const tile = (v, rot) => '<div class="dm-tile"><b>' + v + '</b><span>' + rot + '</span></div>';
+  const resumo = '<div class="desemp-resumo">'
+    + tile(eq.entregues.length, 'Entregues na semana')
+    + tile(eq.pct === null ? '—' : eq.pct + '%', 'Cumprimento de prazo')
+    + tile(eq.atrasados.length, 'Atrasados em aberto')
+    + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Lead time médio')
+    + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets (Grafana)')
+    + '</div>';
+
+  const cards = d.analistas.map((a, i) => {
+    const m = a.m, L = a.leitura;
+    const den = m.den;
+    const w = n => den ? (n / den * 100).toFixed(1) + '%' : '0%';
+    const barra = den
+      ? '<i class="ok" style="width:' + w(m.noPrazo) + '"></i><i class="late" style="width:' + w(m.comAtraso) + '"></i><i class="over" style="width:' + w(m.atrasados.length) + '"></i>'
+      : '';
+    const maxT = Math.max(1, ...m.tendencia.map(t => t.n));
+    const trend = m.tendencia.map((t, k) => '<div class="' + (k === 3 ? 'atual' : '') + '"><em>' + t.n + '</em><i style="height:' + Math.max(4, Math.round(t.n / maxT * 34)) + 'px"></i>' + desempCurto(t.ini) + '</div>').join('');
+    const atrasadosHtml = m.atrasados.length
+      ? '<ul class="dm-lista">' + m.atrasados.slice(0, 5).map(x => '<li><b>' + escapeHtml(x.cliente || '—') + '</b> — ' + escapeHtml(desempCortar(x.titulo, 70)) + ' <span>venceu há ' + x.dias + 'd</span></li>').join('') + (m.atrasados.length > 5 ? '<li>… e mais ' + (m.atrasados.length - 5) + '</li>' : '') + '</ul>'
+      : '<div style="font-size:12.5px;color:#64748B;">Nenhuma atividade vencida.</div>';
+    const entreguesHtml = m.clientesAtendidos.length
+      ? '<ul class="dm-lista">' + m.clientesAtendidos.slice(0, 8).map(c => '<li><b>' + escapeHtml(c[0]) + '</b> — ' + desempPlural(c[1], 'entrega', 'entregas') + '</li>').join('') + '</ul>'
+      : '<div style="font-size:12.5px;color:#64748B;">Nenhuma entrega concluída na semana.</div>';
+    const cart = m.cart.total
+      ? '<ul class="dm-lista">'
+        + '<li><b>' + m.cart.total + '</b> cliente(s) em implantação; <b>' + m.cart.risco + '</b> em amarelo/vermelho</li>'
+        + '<li><b>' + m.cart.semContato7 + '</b> sem contato há mais de 7 dias · <b>' + m.cart.prazoVencido + '</b> com previsão vencida</li>'
+        + '<li>Pendências em aberto: <b>' + m.cart.pendIntelipulse + '</b> da Intelipulse · <b>' + m.cart.pendCliente + '</b> do cliente</li></ul>'
+      : '<div style="font-size:12.5px;color:#64748B;">Sem clientes atribuídos como analista responsável.</div>';
+    const tk = m.tickets
+      ? '<ul class="dm-lista"><li><b>' + m.tickets.total + '</b> ticket(s)' + (m.tickets.top.length ? ' — ' + m.tickets.top.map(t => escapeHtml(desempCortar(t.cliente, 24)) + ' (' + t.n + ')').join(', ') : '') + '</li></ul>'
+      : '<div style="font-size:12.5px;color:#64748B;">' + (desempTicketsErro ? 'Indisponível agora (' + escapeHtml(desempTicketsErro) + ').' : 'Carregando…') + '</div>';
+    const ul = arr => '<ul>' + arr.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
+    const obs = desempLerObs(a.nome);
+    return '<div class="dm-card">'
+      + '<div class="dm-top"><span class="dm-av" style="background:' + a.cor + '">' + inicialDe(a.nome) + '</span><b>' + escapeHtml(a.nome) + '</b></div>'
+      + '<div class="dm-pct ' + (m.pct === null ? 'sem' : '') + '">' + (m.pct === null ? 'Sem prazo' : m.pct + '%') + '</div>'
+      + '<div class="dm-pct-sub">' + (m.pct === null ? 'nenhuma entrega com prazo na semana' : 'cumprido · ' + m.noPrazo + ' de ' + den + ' no prazo') + '</div>'
+      + '<div class="dm-bar">' + barra + '</div>'
+      + '<div class="dm-grid">'
+      + '<div>Entregues<b>' + m.entregues.length + '</b></div><div>Com atraso<b>' + m.comAtraso + '</b></div>'
+      + '<div>Em andamento<b>' + m.emAndamento + '</b></div><div>Atrasados<b>' + m.atrasados.length + '</b></div>'
+      + '<div>Lead time<b>' + (m.lead === null ? '—' : desempF1(m.lead) + 'd') + '</b></div><div>Tickets<b>' + (m.tickets ? m.tickets.total : '—') + '</b></div>'
+      + '</div>'
+      + '<div class="dm-sec">Entregas nas últimas 4 semanas</div><div class="dm-trend">' + trend + '</div>'
+      + '<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml
+      + '<div class="dm-sec">Entregues na semana</div>' + entreguesHtml
+      + '<div class="dm-sec">Tickets (Grafana)</div>' + tk
+      + '<div class="dm-sec">Carteira</div>' + cart
+      + '<div class="dm-sec">Agenda da semana</div><div style="font-size:12.5px;color:#334155;"><b>' + m.agenda.feitas + '</b> de <b>' + m.agenda.semana + '</b> concluídos · ' + m.agenda.reagendadas + ' reagendado(s) · ' + m.agenda.atrasadas + ' vencido(s) sem baixa</div>'
+      + '<div class="dm-leitura">'
+      + '<div class="dm-sec">Leitura da semana</div>'
+      + '<h4>Perfil</h4>' + ul(L.perfil)
+      + (L.fortes.length ? '<div class="fortes"><h4>Pontos fortes</h4>' + ul(L.fortes) + '</div>' : '')
+      + (L.melhorar.length ? '<div class="melhorar"><h4>Pontos a melhorar</h4>' + ul(L.melhorar) + '</div>' : '')
+      + '<div class="acoes"><h4>Ações sugeridas</h4>' + ul(L.acoes) + '</div>'
+      + '</div>'
+      + '<div class="dm-obs" id="desemp-obs-view-' + i + '" style="' + (obs.trim() ? '' : 'display:none;') + '"><b>Observação do gestor</b><span>' + escapeHtml(obs) + '</span></div>'
+      + '</div>';
+  }).join('');
+
+  const nota = '<p class="desemp-nota">Como ler: os números orientam a conversa e não substituem a avaliação do gestor — uma atividade pode demorar por ser complexa ou depender do cliente. '
+    + 'O cumprimento de prazo é <b>entregues no prazo ÷ (entregues + atrasados em aberto)</b>. O prazo vem do campo Prazo do card; quando não há, usa-se o padrão pela etiqueta '
+    + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta ficam fora do cálculo' + (semPrazoTotal ? ' (' + semPrazoTotal + ' entrega(s) nesta semana)' : '') + '. '
+    + 'Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se à semana escolhida. Atividades feitas em conjunto contam para cada participante.</p>';
+
+  raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
+    + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>Desempenho da Sprint</h1><p>' + escapeHtml('Equipe de Implantação · semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim)) + '</p></div>'
+    + '<div class="desemp-corpo">' + resumo + '<div class="desemp-cards">' + cards + '</div>' + nota + '</div></div>'
+    + '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas só neste navegador)</div>'
+    + d.analistas.map((a, i) => '<div><label>' + escapeHtml(a.nome) + '</label><textarea oninput="desempSalvarObs(' + i + ', \'' + a.nome.replace(/'/g, "\\'") + '\', this.value)" placeholder="Fatos, exemplos, combinados do 1:1...">' + escapeHtml(desempLerObs(a.nome)) + '</textarea></div>').join('')
+    + '</div>';
+}
+
+function desempTextoRelatorio() {
+  const d = desempDados();
+  const eq = d.equipe;
+  const L = [];
+  L.push('DESEMPENHO DA SPRINT');
+  L.push('Equipe de Implantação · Intelipulse');
+  L.push('Semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim));
+  L.push('');
+  L.push('RESUMO DA EQUIPE');
+  L.push('• Entregues na semana: ' + eq.entregues.length);
+  L.push('• Cumprimento de prazo: ' + (eq.pct === null ? '—' : eq.pct + '% (' + eq.noPrazo + ' de ' + eq.den + ' no prazo)'));
+  L.push('• Atrasados em aberto: ' + eq.atrasados.length);
+  L.push('• Lead time médio: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
+  if (d.ticketsTotal !== null) L.push('• Tickets (Grafana): ' + d.ticketsTotal);
+  d.analistas.forEach(a => {
+    const m = a.m, lt = a.leitura;
+    L.push(''); L.push('────────────────────────'); L.push(a.nome.toUpperCase());
+    L.push('Cumprimento de prazo: ' + (m.pct === null ? 'sem entregas com prazo' : m.pct + '% (' + m.noPrazo + ' de ' + m.den + ' no prazo)'));
+    L.push('Entregues: ' + m.entregues.length + ' · Com atraso: ' + m.comAtraso + ' · Atrasados em aberto: ' + m.atrasados.length + ' · Em andamento: ' + m.emAndamento + ' · Lead time: ' + (m.lead === null ? '—' : desempF1(m.lead) + ' dias') + (m.tickets ? ' · Tickets: ' + m.tickets.total : ''));
+    L.push('Perfil: ' + lt.perfil.join(' '));
+    if (lt.fortes.length) L.push('Pontos fortes: ' + lt.fortes.join(' '));
+    if (lt.melhorar.length) { L.push('Pontos a melhorar:'); lt.melhorar.forEach(x => L.push('  - ' + x)); }
+    L.push('Ações sugeridas:'); lt.acoes.forEach(x => L.push('  - ' + x));
+    if (m.atrasados.length) { L.push('Atrasados agora:'); m.atrasados.slice(0, 5).forEach(x => L.push('  - ' + (x.cliente || '—') + ' — ' + desempCortar(x.titulo, 70) + ' (venceu há ' + x.dias + 'd)')); }
+    if (m.clientesAtendidos.length) L.push('Entregas por cliente: ' + m.clientesAtendidos.map(c => c[0] + ' (' + c[1] + ')').join(', '));
+    const obs = desempLerObs(a.nome).trim();
+    if (obs) L.push('Observação do gestor: ' + obs);
+  });
+  return L.join('\n');
+}
+
+function desempCopiarTexto() {
+  const t = desempTextoRelatorio();
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => alert('Relatório copiado.'), () => promptFallbackCopy(t));
+  else promptFallbackCopy(t);
+}
+
+async function desempBaixarPDF() {
+  const el = document.getElementById('desempenho-visual');
+  if (!el) return;
+  const scale = 2;
+  const canvas = await html2canvas(el, { scale, backgroundColor: '#ffffff' });
+  const imgData = canvas.toDataURL('image/png');
+  const widthMm = (canvas.width / scale) * 0.264583;
+  const heightMm = (canvas.height / scale) * 0.264583;
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: widthMm > heightMm ? 'landscape' : 'portrait', unit: 'mm', format: [widthMm, heightMm] });
+  pdf.addImage(imgData, 'PNG', 0, 0, widthMm, heightMm);
+  pdf.save('Desempenho-Sprint-' + desempSemanaIni + '.pdf');
+}
+</script>
+
 </body>
 </html>
