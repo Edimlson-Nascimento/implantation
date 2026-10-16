@@ -1196,6 +1196,12 @@
   /* Kanban: a raia inteira (até o fim do quadro) é área de soltar, não só a parte com cards */
   .kanban-board { align-items: stretch; grid-template-rows: minmax(0, 1fr); }
   .kanban-column { min-height: 0; }
+
+  /* Prazo da atividade */
+  .kc-prazo { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--light-bg); color: var(--gray-text); white-space: nowrap; }
+  .kc-prazo.atencao { color: var(--amber); background: rgba(245,158,11,.14); }
+  .kc-prazo.atrasado { color: var(--red); background: rgba(220,38,38,.12); }
+  .kc-prazo.ok { color: var(--green-mid); background: rgba(0,200,83,.12); }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
@@ -1713,7 +1719,7 @@
         <label>Participantes (se foi feito em conjunto)</label>
         <div class="checklist-inline" id="at-participantes-list"></div>
       </div>
-      <div class="form-field full"><label>Coluna</label>
+      <div class="form-field"><label>Coluna</label>
         <select id="at-coluna">
           <option value="urgencias">Fila de Urgências (Hoje)</option>
           <option value="afazer">A Fazer (Próximos)</option>
@@ -1721,6 +1727,7 @@
           <option value="concluida">Concluído</option>
         </select>
       </div>
+      <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"></div>
       <div class="form-field full" id="at-resolucao-field" style="display:none;">
         <label>Resolução (o que foi feito)</label>
         <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
@@ -2108,16 +2115,21 @@ function formatDataCurta(iso) {
   const d = new Date(iso);
   return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
 }
+// Data sem hora ("2026-10-16") precisa ser lida como dia LOCAL: new Date("2026-10-16") vira
+// meia-noite UTC, que no Brasil (UTC-3) é o dia anterior e deslocava toda conta em 1 dia.
+function dataLocal(iso) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + 'T00:00:00') : new Date(iso);
+}
 function diasDesde(iso) {
   if (!iso) return 0;
-  const criado = new Date(iso); criado.setHours(0,0,0,0);
+  const criado = dataLocal(iso); criado.setHours(0,0,0,0);
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   return Math.round((hoje - criado) / 86400000);
 }
 // Dias entre hoje e uma data futura/passada: positivo = ainda falta, negativo = já venceu.
 function diasAte(iso) {
   if (!iso) return null;
-  const alvo = new Date(iso); alvo.setHours(0,0,0,0);
+  const alvo = dataLocal(iso); alvo.setHours(0,0,0,0);
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   return Math.round((alvo - hoje) / 86400000);
 }
@@ -2273,7 +2285,7 @@ async function loadState() {
     atividades = ativs.map(a => ({
       id: a.id, responsavel: a.responsavel, criadoPor: a.criado_por || '', titulo: a.titulo, clienteNome: a.cliente_nome || '',
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
-      concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at,
+      concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -5262,6 +5274,24 @@ window.addEventListener('resize', () => {
   if (activeTab === 'atividades') sizeKanbanBoard();
 });
 
+// Situação do prazo de uma atividade (selo no card e, depois, o relatório de Desempenho).
+// Aberta: venceu / vence hoje / falta pouco / folga. Concluída: no prazo ou com atraso.
+function prazoAtividadeInfo(a) {
+  if (!a.prazo) return null;
+  const curto = formatDate(a.prazo).slice(0, 5);
+  if (a.coluna === 'concluida') {
+    const atraso = a.concluidoEm ? daysBetween(a.prazo, a.concluidoEm) : 0;
+    return atraso <= 0
+      ? { classe: 'ok', texto: '✓ no prazo', title: 'Concluída dentro do prazo (' + formatDate(a.prazo) + ')' }
+      : { classe: 'atrasado', texto: '✓ ' + atraso + 'd de atraso', title: 'Concluída ' + atraso + ' dia(s) depois do prazo (' + formatDate(a.prazo) + ')' };
+  }
+  const d = diasAte(a.prazo);
+  if (d < 0) return { classe: 'atrasado', texto: 'Venceu há ' + (-d) + 'd', title: 'Prazo era ' + formatDate(a.prazo) };
+  if (d === 0) return { classe: 'atencao', texto: 'Vence hoje', title: 'Prazo: ' + formatDate(a.prazo) };
+  if (d <= 2) return { classe: 'atencao', texto: 'Prazo ' + curto + ' · ' + d + 'd', title: 'Prazo: ' + formatDate(a.prazo) };
+  return { classe: 'neutro', texto: 'Prazo ' + curto, title: 'Prazo: ' + formatDate(a.prazo) + ' (faltam ' + d + ' dias)' };
+}
+
 function renderAtividadeCard(a) {
   const el = document.createElement('div');
   el.className = 'kanban-card' + (a.cancelado ? ' cancelada' : '');
@@ -5287,6 +5317,7 @@ function renderAtividadeCard(a) {
         const classeIdade = dias >= 15 ? ' kc-idade-atrasada' : dias >= 8 ? ' kc-idade-atencao' : '';
         return `<span class="kc-idade${classeIdade}" title="Criado em ${formatDataHora(a.criadoEm)}">${formatDataCurta(a.criadoEm)} · ${dias === 0 ? 'hoje' : dias + 'd'}</span>`;
       })() : ''}
+      ${(p => p ? `<span class="kc-prazo ${p.classe}" title="${p.title}">${p.texto}</span>` : '')(prazoAtividadeInfo(a))}
     </div>
     <div class="kc-footer">
       <span class="kc-pessoa">${avatarHtml(a.responsavel)}${escapeHtml(a.responsavel)}</span>
@@ -5334,6 +5365,7 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('at-coluna').value = a.coluna;
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
+  document.getElementById('at-prazo').value = a.prazo || '';
   toggleResolucaoField(a.coluna);
 
   const criadoEl = document.getElementById('atividade-modal-criado');
@@ -5500,7 +5532,9 @@ async function saveAtividade(silent) {
   const clienteAnterior = anterior ? anterior.clienteNome : '';
   const resolucaoAnterior = anterior ? anterior.resolucao : '';
 
+  const prazo = document.getElementById('at-prazo').value || null;
   const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes };
+  if (prazo || (anterior && anterior.prazo)) payload.prazo = prazo;
   if (coluna === 'concluida') {
     payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
   } else {
@@ -5511,18 +5545,18 @@ async function saveAtividade(silent) {
   if (isNew) {
     payload.ordem = atividades.length ? Math.max(...atividades.map(a => a.ordem || 0)) + 1 : 1;
     const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
-    if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
+    if (error) { alert('Erro ao criar atividade: ' + error.message + (/prazo/i.test(error.message) ? '\n\nA coluna "prazo" ainda não existe no banco. Rode o SQL: alter table public.atividades add column if not exists prazo date;' : '')); return; }
     atividadeSalva = {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
-      criadoEm: row.created_at
+      criadoEm: row.created_at, prazo
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
-    if (error) { alert('Erro ao salvar atividade: ' + error.message); return; }
-    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em });
+    if (error) { alert('Erro ao salvar atividade: ' + error.message + (/prazo/i.test(error.message) ? '\n\nA coluna "prazo" ainda não existe no banco. Rode o SQL: alter table public.atividades add column if not exists prazo date;' : '')); return; }
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo });
     atividadeSalva = anterior;
   }
 
