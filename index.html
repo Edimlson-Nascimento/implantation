@@ -1651,12 +1651,16 @@
   <section id="view-desempenho" style="display:none">
     <div class="resumo-box">
       <h2>Desempenho</h2>
-      <p class="desemp-aviso">Área restrita (Edimilson e Gilson). Relatório semanal por analista, para acompanhamento e conversa de desenvolvimento — os números orientam, não substituem a avaliação do gestor.</p>
+      <p class="desemp-aviso" id="desemp-aviso"></p>
       <div class="desemp-barra">
-        <button class="btn btn-sm" onclick="desempMudarSemana(-1)">‹ Semana anterior</button>
+        <div class="view-toggle">
+          <button class="view-toggle-btn active" id="desemp-modo-semana" onclick="desempSetModo('semana')">Semana</button>
+          <button class="view-toggle-btn" id="desemp-modo-mes" onclick="desempSetModo('mes')">Mês</button>
+        </div>
+        <button class="btn btn-sm" id="desemp-btn-ant" onclick="desempMudarPeriodo(-1)">‹ Semana anterior</button>
         <span class="desemp-periodo" id="desemp-periodo"></span>
-        <button class="btn btn-sm" onclick="desempMudarSemana(1)">Próxima ›</button>
-        <button class="btn btn-sm" onclick="desempSemanaAtual()">Esta semana</button>
+        <button class="btn btn-sm" onclick="desempMudarPeriodo(1)">Próximo ›</button>
+        <button class="btn btn-sm" id="desemp-btn-hoje" onclick="desempPeriodoAtual()">Esta semana</button>
         <span style="flex:1"></span>
         <button class="btn btn-sm" onclick="desempCopiarTexto()">📋 Copiar texto</button>
         <button class="btn btn-sm" onclick="desempBaixarPDF()">📄 Baixar PDF</button>
@@ -6402,12 +6406,21 @@ const DESEMP_SLA_ETIQUETA = { red: 1, orange: 2, yellow: 5, blue: 10 }; // prazo
 const DESEMP_LIMITE_WIP = 3;
 const DESEMP_CORES = ['#0B5CAD', '#0F9D58', '#9333EA', '#EA580C', '#0891B2', '#BE185D'];
 let desempSemanaIni = null;
+let desempMesIni = null;
+let desempModo = 'semana'; // 'semana' | 'mes'
 let desempTicketsRows = null, desempTicketsBusca = 0, desempTicketsErro = '';
 
-function podeVerDesempenho() {
+// Gilson e Edimilson veem todos os analistas; cada analista (Leandro, Jefferson...) vê só o próprio.
+function desempVerTodos() {
   const n = (currentPessoaNome || '').trim().toLowerCase();
   return DESEMP_USUARIOS.some(u => n.startsWith(u));
 }
+function desempNomeProprio() {
+  const n = (currentPessoaNome || '').trim().toLowerCase();
+  if (!n) return null;
+  return PESSOAS.find(p => p.toLowerCase() === n) || PESSOAS.find(p => n.startsWith(p.toLowerCase())) || null;
+}
+function podeVerDesempenho() { return desempVerTodos() || !!desempNomeProprio(); }
 function atualizarMenuDesempenho() {
   const b = document.getElementById('tab-desempenho');
   if (b) b.style.display = podeVerDesempenho() ? '' : 'none';
@@ -6422,6 +6435,18 @@ function desempDataLocal(iso) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function desempCurto(ds) { return formatDate(ds).slice(0, 5); }
+function desempStr(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function desempMesDeslocado(mesIni, k) { const d = new Date(mesIni + 'T00:00:00'); d.setMonth(d.getMonth() + k); return desempStr(d); }
+function desempFimDoMes(mesIni) { const d = new Date(mesIni + 'T00:00:00'); d.setMonth(d.getMonth() + 1); d.setDate(0); return desempStr(d); }
+function desempNomeMes(ds) { const t = new Date(ds + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); }
+function desempPeriodo() {
+  return desempModo === 'mes'
+    ? { ini: desempMesIni, fim: desempFimDoMes(desempMesIni), modo: 'mes' }
+    : { ini: desempSemanaIni, fim: addDays(desempSemanaIni, 6), modo: 'semana' };
+}
+function desempRotuloPeriodo(p) {
+  return p.modo === 'mes' ? desempNomeMes(p.ini) : 'Semana de ' + desempCurto(p.ini) + ' a ' + formatDate(p.fim);
+}
 function desempF1(n) { return String(n.toFixed(1)).replace('.', ','); }
 function desempCortar(t, n) {
   const x = String(t || '').replace(/\s+/g, ' ').trim();
@@ -6437,7 +6462,8 @@ function desempPrazoEfetivo(a) {
 }
 
 // nome === null → equipe toda (cada atividade conta uma vez)
-function desempMetricas(nome, ini, fim) {
+function desempMetricas(nome, ini, fim, modo) {
+  modo = modo || 'semana';
   const hoje = todayStr();
   const minhas = atividades.filter(a => !a.cancelado && (nome === null || a.responsavel === nome || (a.participantes || []).includes(nome)));
   const noPeriodo = (lista, i, f) => lista.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= i && a.concluidoEm <= f);
@@ -6459,15 +6485,22 @@ function desempMetricas(nome, ini, fim) {
     .map(x => ({ cliente: x.a.clienteNome, titulo: x.a.titulo, dias: daysBetween(x.pz.data, hoje) }));
   const den = noPrazo + comAtraso + atrasados.length;
   const impedidos = abertas.filter(a => a.impedidoDesde).map(a => ({ cliente: a.clienteNome, titulo: a.titulo, motivo: a.impedidoMotivo || '', min: impedidoMinAtual(a) })).sort((x, y) => y.min - x.min);
-  const doPlano = minhas.filter(a => a.sprintSemana === ini);
+  const noIntervalo = a => !!a.sprintSemana && a.sprintSemana >= ini && a.sprintSemana <= fim;
+  const doPlano = minhas.filter(noIntervalo);
   const planEntregues = doPlano.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm <= fim).length;
-  const plano = { previsto: doPlano.length, entregue: planEntregues, pct: doPlano.length ? Math.round(planEntregues / doPlano.length * 100) : null, fora: entregues.filter(a => a.sprintSemana !== ini).length };
+  const plano = { previsto: doPlano.length, entregue: planEntregues, pct: doPlano.length ? Math.round(planEntregues / doPlano.length * 100) : null, fora: entregues.filter(a => !noIntervalo(a)).length };
   const paradoMin = minhas.filter(a => a.coluna !== 'concluida' || (a.concluidoEm && a.concluidoEm >= ini && a.concluidoEm <= fim)).reduce((s2, a) => s2 + impedidoMinAtual(a), 0);
   const idades = abertas.filter(a => a.criadoEm).map(a => diasDesde(a.criadoEm));
   const tendencia = [];
   for (let k = 3; k >= 0; k--) {
-    const i = addDays(ini, -7 * k);
-    tendencia.push({ ini: i, n: noPeriodo(minhas, i, addDays(i, 6)).length });
+    let i, f, rot;
+    if (modo === 'mes') {
+      i = desempMesDeslocado(ini, -k); f = desempFimDoMes(i);
+      rot = new Date(i + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    } else {
+      i = addDays(ini, -7 * k); f = addDays(i, 6); rot = desempCurto(i);
+    }
+    tendencia.push({ ini: i, rot, n: noPeriodo(minhas, i, f).length });
   }
   const prev = tendencia.slice(0, 3).map(t => t.n);
   const somaPrev = prev.reduce((s, n) => s + n, 0);
@@ -6483,6 +6516,7 @@ function desempMetricas(nome, ini, fim) {
     abertas15: idades.filter(d => d >= 15).length,
     maisAntiga: idades.length ? Math.max(...idades) : 0,
     tendencia, mediaPrev: somaPrev ? somaPrev / 3 : null,
+    modo, noPeriodo: modo === 'mes' ? 'no mês' : 'na semana', mediaAntTxt: modo === 'mes' ? 'dos 3 meses anteriores' : 'das 3 semanas anteriores',
     clientesAtendidos: [...clientes.entries()].sort((a, b) => b[1] - a[1])
   };
   if (nome !== null) {
@@ -6542,8 +6576,8 @@ async function desempCarregarTickets() {
 function desempLeitura(m, ticketsMedia) {
   const perfil = [], fortes = [], melhorar = [], acoes = [];
   const nEnt = m.entregues.length;
-  perfil.push('Entregou ' + desempPlural(nEnt, 'atividade', 'atividades') + ' na semana'
-    + (m.mediaPrev !== null ? ' (média das 3 semanas anteriores: ' + desempF1(m.mediaPrev) + ')' : '')
+  perfil.push('Entregou ' + desempPlural(nEnt, 'atividade', 'atividades') + ' ' + m.noPeriodo
+    + (m.mediaPrev !== null ? ' (média ' + m.mediaAntTxt + ': ' + desempF1(m.mediaPrev) + ')' : '')
     + (m.clientesAtendidos.length ? ', em ' + desempPlural(m.clientesAtendidos.length, 'cliente', 'clientes') : '') + '.');
   if (m.lead !== null) {
     if (m.lead <= 2) perfil.push('Ciclo de entrega curto (' + desempF1(m.lead) + ' dia(s) em média): perfil de resolução ágil de demandas pontuais.');
@@ -6598,7 +6632,7 @@ function desempLeitura(m, ticketsMedia) {
   return { perfil, fortes, melhorar, acoes };
 }
 
-function desempObsChave(nome) { return 'ws_desemp_obs_' + desempSemanaIni + '_' + nome; }
+function desempObsChave(nome) { const p = desempPeriodo(); return 'ws_desemp_obs_' + (p.modo === 'mes' ? 'mes_' : '') + p.ini + '_' + nome; }
 function desempLerObs(nome) { try { return localStorage.getItem(desempObsChave(nome)) || ''; } catch (e) { return ''; } }
 function desempSalvarObs(i, nome, valor) {
   try { if (valor.trim()) localStorage.setItem(desempObsChave(nome), valor); else localStorage.removeItem(desempObsChave(nome)); } catch (e) {}
@@ -6606,18 +6640,32 @@ function desempSalvarObs(i, nome, valor) {
   if (el) { el.style.display = valor.trim() ? '' : 'none'; const t = el.querySelector('span'); if (t) t.textContent = valor; }
 }
 
-function desempMudarSemana(delta) { desempSemanaIni = addDays(desempSemanaIni, delta * 7); renderDesempenho(); }
-function desempSemanaAtual() { desempSemanaIni = desempSegunda(todayStr()); renderDesempenho(); }
+function desempMudarPeriodo(delta) {
+  if (desempModo === 'mes') desempMesIni = desempMesDeslocado(desempMesIni, delta);
+  else desempSemanaIni = addDays(desempSemanaIni, delta * 7);
+  renderDesempenho();
+}
+function desempPeriodoAtual() {
+  desempSemanaIni = desempSegunda(todayStr());
+  desempMesIni = todayStr().slice(0, 7) + '-01';
+  renderDesempenho();
+}
+function desempSetModo(modo) { desempModo = modo; renderDesempenho(); }
+function desempMudarSemana(delta) { desempMudarPeriodo(delta); }
+function desempSemanaAtual() { desempPeriodoAtual(); }
 
 function desempDados() {
-  const ini = desempSemanaIni, fim = addDays(ini, 6);
-  const analistas = PESSOAS.map((nome, i) => ({ nome, cor: DESEMP_CORES[i % DESEMP_CORES.length], m: desempMetricas(nome, ini, fim) }));
-  const equipe = desempMetricas(null, ini, fim);
-  const comTickets = analistas.filter(a => a.m.tickets);
-  const ticketsTotal = comTickets.reduce((s, a) => s + a.m.tickets.total, 0);
+  const per = desempPeriodo();
+  const ini = per.ini, fim = per.fim, modo = per.modo;
+  const verTodos = desempVerTodos();
+  const lista = verTodos ? PESSOAS : [desempNomeProprio()].filter(Boolean);
+  const analistas = lista.map(nome => ({ nome, cor: DESEMP_CORES[Math.max(0, PESSOAS.indexOf(nome)) % DESEMP_CORES.length], m: desempMetricas(nome, ini, fim, modo) }));
+  const equipe = desempMetricas(null, ini, fim, modo);
+  const comTickets = PESSOAS.map(n => desempTickets(n)).filter(Boolean);
+  const ticketsTotal = comTickets.reduce((s, t) => s + t.total, 0);
   const ticketsMedia = comTickets.length ? ticketsTotal / comTickets.length : null;
   analistas.forEach(a => { a.leitura = desempLeitura(a.m, ticketsMedia); });
-  return { ini, fim, analistas, equipe, ticketsTotal: comTickets.length ? ticketsTotal : null };
+  return { ini, fim, modo, verTodos, rotulo: desempRotuloPeriodo(per), analistas, equipe, ticketsTotal: comTickets.length ? ticketsTotal : null };
 }
 
 function renderDesempenho() {
@@ -6625,16 +6673,26 @@ function renderDesempenho() {
   if (!raiz) return;
   if (!podeVerDesempenho()) { raiz.innerHTML = '<p style="color:var(--gray-text);">Esta área é restrita.</p>'; return; }
   if (!desempSemanaIni) desempSemanaIni = desempSegunda(todayStr());
+  if (!desempMesIni) desempMesIni = todayStr().slice(0, 7) + '-01';
   if (!desempTicketsRows) desempCarregarTickets(); else if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) desempTicketsRows = grafanaQuadroUltimasLinhas;
 
   const d = desempDados();
-  document.getElementById('desemp-periodo').textContent = 'Semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim);
+  const ehMes = d.modo === 'mes';
+  document.getElementById('desemp-periodo').textContent = d.rotulo;
+  document.getElementById('desemp-aviso').textContent = d.verTodos
+    ? 'Visão do gestor: todos os analistas. Relatório por analista, para acompanhamento e conversa de desenvolvimento — os números orientam, não substituem a avaliação do gestor.'
+    : 'Seu desempenho individual. Os números orientam a conversa com o gestor e não substituem a avaliação dele.';
+  document.getElementById('desemp-modo-semana').classList.toggle('active', !ehMes);
+  document.getElementById('desemp-modo-mes').classList.toggle('active', ehMes);
+  document.getElementById('desemp-btn-ant').textContent = ehMes ? '‹ Mês anterior' : '‹ Semana anterior';
+  document.getElementById('desemp-btn-hoje').textContent = ehMes ? 'Este mês' : 'Esta semana';
+  const noPer = ehMes ? 'no mês' : 'na semana';
   const eq = d.equipe;
   const semPrazoTotal = eq.semPrazo;
 
   const tile = (v, rot) => '<div class="dm-tile"><b>' + v + '</b><span>' + rot + '</span></div>';
-  const resumo = '<div class="desemp-resumo">'
-    + tile(eq.entregues.length, 'Entregues na semana')
+  const resumo = !d.verTodos ? '' : '<div class="desemp-resumo">'
+    + tile(eq.entregues.length, 'Entregues ' + noPer)
     + tile(eq.pct === null ? '—' : eq.pct + '%', 'Cumprimento de prazo')
     + tile(eq.atrasados.length, 'Atrasados em aberto')
     + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Lead time médio')
@@ -6650,7 +6708,7 @@ function renderDesempenho() {
       ? '<i class="ok" style="width:' + w(m.noPrazo) + '"></i><i class="late" style="width:' + w(m.comAtraso) + '"></i><i class="over" style="width:' + w(m.atrasados.length) + '"></i>'
       : '';
     const maxT = Math.max(1, ...m.tendencia.map(t => t.n));
-    const trend = m.tendencia.map((t, k) => '<div class="' + (k === 3 ? 'atual' : '') + '"><em>' + t.n + '</em><i style="height:' + Math.max(4, Math.round(t.n / maxT * 34)) + 'px"></i>' + desempCurto(t.ini) + '</div>').join('');
+    const trend = m.tendencia.map((t, k) => '<div class="' + (k === 3 ? 'atual' : '') + '"><em>' + t.n + '</em><i style="height:' + Math.max(4, Math.round(t.n / maxT * 34)) + 'px"></i>' + t.rot + '</div>').join('');
     const atrasadosHtml = m.atrasados.length
       ? '<ul class="dm-lista">' + m.atrasados.slice(0, 5).map(x => '<li><b>' + escapeHtml(x.cliente || '—') + '</b> — ' + escapeHtml(desempCortar(x.titulo, 70)) + ' <span>venceu há ' + x.dias + 'd</span></li>').join('') + (m.atrasados.length > 5 ? '<li>… e mais ' + (m.atrasados.length - 5) + '</li>' : '') + '</ul>'
       : '<div style="font-size:12.5px;color:#64748B;">Nenhuma atividade vencida.</div>';
@@ -6659,7 +6717,7 @@ function renderDesempenho() {
       : '';
     const entreguesHtml = m.clientesAtendidos.length
       ? '<ul class="dm-lista">' + m.clientesAtendidos.slice(0, 8).map(c => '<li><b>' + escapeHtml(c[0]) + '</b> — ' + desempPlural(c[1], 'entrega', 'entregas') + '</li>').join('') + '</ul>'
-      : '<div style="font-size:12.5px;color:#64748B;">Nenhuma entrega concluída na semana.</div>';
+      : '<div style="font-size:12.5px;color:#64748B;">Nenhuma entrega concluída ' + noPer + '.</div>';
     const cart = m.cart.total
       ? '<ul class="dm-lista">'
         + '<li><b>' + m.cart.total + '</b> cliente(s) em implantação; <b>' + m.cart.risco + '</b> em amarelo/vermelho</li>'
@@ -6674,7 +6732,7 @@ function renderDesempenho() {
     return '<div class="dm-card">'
       + '<div class="dm-top"><span class="dm-av" style="background:' + a.cor + '">' + inicialDe(a.nome) + '</span><b>' + escapeHtml(a.nome) + '</b></div>'
       + '<div class="dm-pct ' + (m.pct === null ? 'sem' : '') + '">' + (m.pct === null ? 'Sem prazo' : m.pct + '%') + '</div>'
-      + '<div class="dm-pct-sub">' + (m.pct === null ? 'nenhuma entrega com prazo na semana' : 'cumprido · ' + m.noPrazo + ' de ' + den + ' no prazo') + '</div>'
+      + '<div class="dm-pct-sub">' + (m.pct === null ? 'nenhuma entrega com prazo ' + noPer : 'cumprido · ' + m.noPrazo + ' de ' + den + ' no prazo') + '</div>'
       + '<div class="dm-bar">' + barra + '</div>'
       + '<div class="dm-grid">'
       + '<div>Entregues<b>' + m.entregues.length + '</b></div><div>Com atraso<b>' + m.comAtraso + '</b></div>'
@@ -6682,14 +6740,14 @@ function renderDesempenho() {
       + '<div>Lead time<b>' + (m.lead === null ? '—' : desempF1(m.lead) + 'd') + '</b></div><div>Tickets<b>' + (m.tickets ? m.tickets.total : '—') + '</b></div>'
       + '<div>Planejado<b>' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + '</b></div><div>Tempo parado<b>' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—') + '</b></div>'
       + '</div>'
-      + '<div class="dm-sec">Entregas nas últimas 4 semanas</div><div class="dm-trend">' + trend + '</div>'
+      + '<div class="dm-sec">Entregas nos últimos 4 ' + (ehMes ? 'meses' : 'semanas') + '</div><div class="dm-trend">' + trend + '</div>'
       + '<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml + impedidosHtml
-      + '<div class="dm-sec">Entregues na semana</div>' + entreguesHtml
+      + '<div class="dm-sec">Entregues ' + noPer + '</div>' + entreguesHtml
       + '<div class="dm-sec">Tickets (Grafana)</div>' + tk
       + '<div class="dm-sec">Carteira</div>' + cart
-      + '<div class="dm-sec">Agenda da semana</div><div style="font-size:12.5px;color:#334155;"><b>' + m.agenda.feitas + '</b> de <b>' + m.agenda.semana + '</b> concluídos · ' + m.agenda.reagendadas + ' reagendado(s) · ' + m.agenda.atrasadas + ' vencido(s) sem baixa</div>'
+      + '<div class="dm-sec">Agenda ' + (ehMes ? 'do mês' : 'da semana') + '</div><div style="font-size:12.5px;color:#334155;"><b>' + m.agenda.feitas + '</b> de <b>' + m.agenda.semana + '</b> concluídos · ' + m.agenda.reagendadas + ' reagendado(s) · ' + m.agenda.atrasadas + ' vencido(s) sem baixa</div>'
       + '<div class="dm-leitura">'
-      + '<div class="dm-sec">Leitura da semana</div>'
+      + '<div class="dm-sec">Leitura ' + (ehMes ? 'do mês' : 'da semana') + '</div>'
       + '<h4>Perfil</h4>' + ul(L.perfil)
       + (L.fortes.length ? '<div class="fortes"><h4>Pontos fortes</h4>' + ul(L.fortes) + '</div>' : '')
       + (L.melhorar.length ? '<div class="melhorar"><h4>Pontos a melhorar</h4>' + ul(L.melhorar) + '</div>' : '')
@@ -6701,32 +6759,34 @@ function renderDesempenho() {
 
   const nota = '<p class="desemp-nota">Como ler: os números orientam a conversa e não substituem a avaliação do gestor — uma atividade pode demorar por ser complexa ou depender do cliente. '
     + 'O cumprimento de prazo é <b>entregues no prazo ÷ (entregues + atrasados em aberto)</b>. O prazo vem do campo Prazo do card; quando não há, usa-se o padrão pela etiqueta '
-    + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta ficam fora do cálculo' + (semPrazoTotal ? ' (' + semPrazoTotal + ' entrega(s) nesta semana)' : '') + '. '
-    + 'Cards marcados como impedidos (aguardando cliente) não contam como atrasados e têm o tempo parado medido à parte. Previsto × entregue considera os cards marcados como planejados na sprint da semana. Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se à semana escolhida. Atividades feitas em conjunto contam para cada participante.</p>';
+    + '(Incidente Crítico 1 dia, Alta Urgência 2, Atenção 5, Rotina 10). Cards sem prazo e sem etiqueta ficam fora do cálculo' + (semPrazoTotal ? ' (' + semPrazoTotal + ' entrega(s) neste período)' : '') + '. '
+    + 'Cards marcados como impedidos (aguardando cliente) não contam como atrasados e têm o tempo parado medido à parte. Previsto × entregue considera os cards marcados como planejados na sprint do período. Atrasados, em andamento, carteira e tickets mostram a situação de hoje; o restante refere-se ao período escolhido. Atividades feitas em conjunto contam para cada participante.</p>';
 
   raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
-    + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>Desempenho da Sprint</h1><p>' + escapeHtml('Equipe de Implantação · semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim)) + '</p></div>'
+    + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>' + (ehMes ? 'Desempenho do Mês' : 'Desempenho da Sprint') + '</h1><p>' + escapeHtml((d.verTodos ? 'Equipe de Implantação' : 'Desempenho de ' + d.analistas.map(a => a.nome).join(', ')) + ' · ' + (ehMes ? d.rotulo : 'semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim))) + '</p></div>'
     + '<div class="desemp-corpo">' + resumo + '<div class="desemp-cards">' + cards + '</div>' + nota + '</div></div>'
-    + '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas só neste navegador)</div>'
+    + (!d.verTodos ? '' : '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas só neste navegador)</div>'
     + d.analistas.map((a, i) => '<div><label>' + escapeHtml(a.nome) + '</label><textarea oninput="desempSalvarObs(' + i + ', \'' + a.nome.replace(/'/g, "\\'") + '\', this.value)" placeholder="Fatos, exemplos, combinados do 1:1...">' + escapeHtml(desempLerObs(a.nome)) + '</textarea></div>').join('')
-    + '</div>';
+    + '</div>');
 }
 
 function desempTextoRelatorio() {
   const d = desempDados();
   const eq = d.equipe;
   const L = [];
-  L.push('DESEMPENHO DA SPRINT');
+  L.push(d.modo === 'mes' ? 'DESEMPENHO DO MÊS' : 'DESEMPENHO DA SPRINT');
   L.push('Equipe de Implantação · Intelipulse');
-  L.push('Semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim));
+  L.push(d.modo === 'mes' ? d.rotulo : 'Semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim));
   L.push('');
+  if (d.verTodos) {
   L.push('RESUMO DA EQUIPE');
-  L.push('• Entregues na semana: ' + eq.entregues.length);
+  L.push('• Entregues ' + (d.modo === 'mes' ? 'no mês' : 'na semana') + ': ' + eq.entregues.length);
   L.push('• Cumprimento de prazo: ' + (eq.pct === null ? '—' : eq.pct + '% (' + eq.noPrazo + ' de ' + eq.den + ' no prazo)'));
   L.push('• Atrasados em aberto: ' + eq.atrasados.length);
   L.push('• Lead time médio: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
   L.push('• Previsto × entregue na sprint: ' + (eq.plano.previsto ? eq.plano.entregue + ' de ' + eq.plano.previsto + ' (' + eq.plano.pct + '%)' : '—'));
   if (d.ticketsTotal !== null) L.push('• Tickets (Grafana): ' + d.ticketsTotal);
+  }
   d.analistas.forEach(a => {
     const m = a.m, lt = a.leitura;
     L.push(''); L.push('────────────────────────'); L.push(a.nome.toUpperCase());
@@ -6762,7 +6822,7 @@ async function desempBaixarPDF() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: widthMm > heightMm ? 'landscape' : 'portrait', unit: 'mm', format: [widthMm, heightMm] });
   pdf.addImage(imgData, 'PNG', 0, 0, widthMm, heightMm);
-  pdf.save('Desempenho-Sprint-' + desempSemanaIni + '.pdf');
+  pdf.save('Desempenho-' + (desempModo === 'mes' ? 'Mes-' : 'Sprint-') + desempPeriodo().ini + '.pdf');
 }
 </script>
 
