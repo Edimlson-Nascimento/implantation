@@ -1192,6 +1192,10 @@
   .contato-item .ci-estrela { background: none; border: 0; cursor: pointer; font-size: 17px; line-height: 1; padding: 0 2px; color: var(--gray-text); }
   .contato-item .ci-estrela:hover, .contato-item.principal .ci-estrela { color: var(--amber); }
   .contato-item.principal { outline: 1px solid var(--amber); }
+
+  /* Kanban: a raia inteira (até o fim do quadro) é área de soltar, não só a parte com cards */
+  .kanban-board { align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+  .kanban-column { min-height: 0; }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
