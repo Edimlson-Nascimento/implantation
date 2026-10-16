@@ -1183,6 +1183,15 @@
   .clients-table thead th { padding-left: 10px; padding-right: 10px; }
   .cc-ini { margin-right: 2px; }
   .cal-mes-nav .mensal-mes-titulo { border: 0; padding: 0; }
+
+  .pendencia-card-analista { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; white-space: normal; margin-left: auto; }
+  .pca-linha { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; color: var(--text-main); }
+  .pca-rot { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); min-width: 52px; }
+  .pca-cobrar b { color: var(--amber); }
+  .pca-cargo { font-size: 10.5px; color: var(--gray-text); }
+  .contato-item .ci-estrela { background: none; border: 0; cursor: pointer; font-size: 17px; line-height: 1; padding: 0 2px; color: var(--gray-text); }
+  .contato-item .ci-estrela:hover, .contato-item.principal .ci-estrela { color: var(--amber); }
+  .contato-item.principal { outline: 1px solid var(--amber); }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
@@ -1848,6 +1857,7 @@
 
     <div class="modal-section">
       <h3>Contatos</h3>
+      <div style="font-size:12px;color:var(--gray-text);margin:-4px 0 8px;">Clique na ★ para marcar o <b>contato principal</b>: o nome dele aparece no quadro de Pendências, abaixo do analista, para sabermos com quem falar e cobrar.</div>
       <div id="contatos-list" class="contatos-list"></div>
       <div class="add-contato-row">
         <input type="text" id="new-contato-nome" placeholder="Nome...">
@@ -2199,7 +2209,7 @@ async function loadState() {
     ultimoContato: c.ultimo_contato,
     ultimoContatoCanal: c.ultimo_contato_canal || null,
     proximoContato: c.proximo_contato,
-    contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '' })),
+    contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '', principal: !!ct.principal })),
     pendencias: pendencias.filter(p => p.cliente_id === c.id)
       .map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito, mostrarLamina: p.mostrar_lamina !== false, ordem: p.ordem ?? null }))
       .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity)),
@@ -3028,7 +3038,8 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
 function renderContatosList(c) {
   const container = document.getElementById('contatos-list');
   container.innerHTML = c.contatos.length ? c.contatos.map(ct => `
-    <div class="contato-item">
+    <div class="contato-item ${ct.principal ? 'principal' : ''}">
+      <button type="button" class="ci-estrela" onclick="marcarContatoPrincipal('${ct.id}')" title="${ct.principal ? 'Contato principal: é quem cobramos nas Pendências (clique para desmarcar)' : 'Marcar como contato principal (quem cobrar nas Pendências)'}">${ct.principal ? '★' : '☆'}</button>
       <span class="ci-nome">${escapeHtml(ct.nome)}</span>
       ${ct.cargo ? `<span class="ci-cargo">${escapeHtml(ct.cargo)}</span>` : ''}
       ${ct.telefone ? `<span class="ci-telefone">${escapeHtml(ct.telefone)}</span>` : ''}
@@ -3051,11 +3062,28 @@ async function addContato() {
   const c = currentEditingClient();
   const { data, error } = await sb.from('contatos_cliente').insert({ cliente_id: c.id, nome, telefone, cargo }).select().single();
   if (error) { alert('Erro ao adicionar contato: ' + error.message); return; }
-  c.contatos.push({ id: data.id, nome, telefone, cargo });
+  c.contatos.push({ id: data.id, nome, telefone, cargo, principal: false });
   nomeInput.value = '';
   telefoneInput.value = '';
   cargoInput.value = '';
   renderContatosList(c);
+}
+
+async function marcarContatoPrincipal(contatoId) {
+  const c = currentEditingClient();
+  if (!c) return;
+  const alvo = c.contatos.find(ct => ct.id === contatoId);
+  if (!alvo) return;
+  const virar = !alvo.principal; // clicar no que já é principal desmarca
+  const { error: e1 } = await sb.from('contatos_cliente').update({ principal: false }).eq('cliente_id', c.id);
+  if (e1) { alert('Erro ao marcar contato principal (a coluna "principal" já foi criada no banco?): ' + e1.message); return; }
+  if (virar) {
+    const { error: e2 } = await sb.from('contatos_cliente').update({ principal: true }).eq('id', contatoId);
+    if (e2) { alert('Erro ao marcar contato principal: ' + e2.message); return; }
+  }
+  c.contatos.forEach(ct => { ct.principal = virar && ct.id === contatoId; });
+  renderContatosList(c);
+  if (activeTab === 'pendencias') renderPendencias();
 }
 
 async function removeContato(contatoId) {
@@ -3192,7 +3220,10 @@ function renderPendencias() {
     <div class="pendencia-card">
       <div class="pendencia-card-header">
         <div class="pendencia-card-nome"><span class="cc-ini">${inicialDe(c.nome)}</span>${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-        <div class="pendencia-card-analista">${c.analistaResponsavel ? '👤 ' + escapeHtml(c.analistaResponsavel) : ''}</div>
+        <div class="pendencia-card-analista">
+          ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
+          ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
+        </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
           <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
