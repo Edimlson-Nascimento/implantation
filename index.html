@@ -1773,7 +1773,7 @@
           <option value="concluida">Concluído</option>
         </select>
       </div>
-      <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"></div>
+      <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Vazio: ao concluir, grava a data de conclusão.</small></div>
       <div class="form-field full">
         <div class="at-checkins">
           <label class="at-check"><input type="checkbox" id="at-sprint" onchange="atSprintMudou()"><span><b>Planejado na sprint</b><small id="at-sprint-info">Marque para entrar no previsto × entregue da semana.</small></span></label>
@@ -5672,7 +5672,7 @@ async function saveAtividade(silent) {
   const clienteAnterior = anterior ? anterior.clienteNome : '';
   const resolucaoAnterior = anterior ? anterior.resolucao : '';
 
-  const prazo = document.getElementById('at-prazo').value || null;
+  let prazo = document.getElementById('at-prazo').value || null;
   const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes };
   if (prazo || (anterior && anterior.prazo)) payload.prazo = prazo;
   // Planejado na sprint e Impedido (colunas novas: só vão no payload quando há o que gravar)
@@ -5694,6 +5694,8 @@ async function saveAtividade(silent) {
   }
   if (coluna === 'concluida') {
     payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
+    // Sem Prazo combinado: ao concluir, o prazo passa a ser a própria data de conclusão
+    if (!prazo) { prazo = payload.concluido_em; payload.prazo = prazo; }
   } else {
     payload.concluido_em = null;
   }
