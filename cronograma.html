@@ -21,19 +21,21 @@
     --amber-soft: #FBF0DF;
     --red: #B3261E;
     --red-soft: #FCEBEA;
+    --blue: #1F5FBF;
+    --blue-soft: #E4EEFB;
     --focus: #0B5FFF;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #0A0D13; --surface: #141925; --ink: #EEF1F6; --slate: #9AA4B3; --line: rgba(255,255,255,.09);
       --lime: #A6E22E; --green: #A6E22E; --green-soft: #1B2410; --amber: #E3A94B; --amber-soft: #33260F;
-      --red: #E8877E; --red-soft: #3A1613;
+      --red: #E8877E; --red-soft: #3A1613; --blue: #7FB2F5; --blue-soft: #14263F;
     }
   }
   :root[data-theme="dark"] {
     --paper: #0A0D13; --surface: #141925; --ink: #EEF1F6; --slate: #9AA4B3; --line: rgba(255,255,255,.09);
     --lime: #A6E22E; --green: #A6E22E; --green-soft: #1B2410; --amber: #E3A94B; --amber-soft: #33260F;
-    --red: #E8877E; --red-soft: #3A1613;
+    --red: #E8877E; --red-soft: #3A1613; --blue: #7FB2F5; --blue-soft: #14263F;
   }
 
   * { box-sizing: border-box; }
@@ -134,6 +136,8 @@
   .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
   .pill.status-pendente { background: var(--amber-soft); color: var(--amber); }
   .pill.status-pendente .dot { background: var(--amber); }
+  .pill.status-andamento { background: var(--blue-soft); color: var(--blue); }
+  .pill.status-andamento .dot { background: var(--blue); }
   .pill.status-concluido { background: var(--green-soft); color: var(--green); }
   .pill.status-concluido .dot { background: var(--green); }
   .pill.resp-cliente { background: #EFEAFB; color: #6B46C1; }
@@ -581,11 +585,13 @@ function renderChecklist(lista, readonly) {
   return html;
 }
 
+function rotuloStatus(s) { return s === 'concluido' ? 'Concluído' : (s === 'andamento' ? 'Em andamento' : 'Pendente'); }
+
 function renderStepper() {
   document.getElementById('stepper').innerHTML = etapas.map((e, i) => {
     const itensDaEtapa = itens.filter(it => it.etapa_id === e.id);
     const todasConcluidas = itensDaEtapa.length > 0 && itensDaEtapa.every(it => it.status === 'concluido');
-    const algumConcluido = itensDaEtapa.some(it => it.status === 'concluido');
+    const algumConcluido = itensDaEtapa.some(it => it.status === 'concluido' || it.status === 'andamento');
     let cls = 'pendente', tag = 'Pendente';
     if (algumConcluido) { cls = 'current'; tag = 'Em andamento'; }
     if (todasConcluidas) { cls = 'done'; tag = 'Concluída'; }
@@ -641,11 +647,11 @@ function renderEtapasCliente() {
                 ${item.responsavel === 'cliente' && !modoPreviewAdmin ? `
                 <td data-label="Baseline" class="tabular col-baseline"><input class="baseline-field ${item.baseline ? '' : 'indefinido'}" value="${escapeHtml(item.baseline || '?')}" onchange="editarBaseline('${item.id}', this)"></td>
                 <td data-label="Data validação" class="tabular col-data"><input class="date-field ${item.data_validacao ? '' : 'empty'}" value="${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}" onclick="this.select()" onchange="editarDataValidacao('${item.id}', this)"></td>
-                <td data-label="Status" class="col-status"><button class="pill status-${item.status}" onclick="alternarStatus('${item.id}')"><span class="dot"></span>${item.status === 'concluido' ? 'Concluído' : 'Pendente'}</button></td>
+                <td data-label="Status" class="col-status"><button class="pill status-${item.status}" onclick="alternarStatus('${item.id}')"><span class="dot"></span>${rotuloStatus(item.status)}</button></td>
                 ` : `
                 <td data-label="Baseline" class="tabular col-baseline"><span class="campo-readonly ${item.baseline ? '' : 'indefinido'}">${escapeHtml(item.baseline || '?')}</span></td>
                 <td data-label="Data validação" class="tabular col-data"><span class="campo-readonly ${item.data_validacao ? '' : 'empty'}">${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}</span></td>
-                <td data-label="Status" class="col-status"><span class="pill status-${item.status}"><span class="dot"></span>${item.status === 'concluido' ? 'Concluído' : 'Pendente'}</span></td>
+                <td data-label="Status" class="col-status"><span class="pill status-${item.status}"><span class="dot"></span>${rotuloStatus(item.status)}</span></td>
                 `}
               </tr>
             `).join('')}
@@ -706,7 +712,8 @@ async function salvarEdicaoCliente(item) {
 }
 async function alternarStatus(id) {
   const item = itens.find(i => i.id === id); if (!item || item.responsavel !== 'cliente') return;
-  item.status = item.status === 'concluido' ? 'pendente' : 'concluido';
+  // ciclo: Pendente → Em andamento → Concluído → Pendente
+  item.status = item.status === 'pendente' ? 'andamento' : (item.status === 'andamento' ? 'concluido' : 'pendente');
   renderClienteAll(); await salvarEdicaoCliente(item);
 }
 async function editarBaseline(id, inputEl) {
@@ -936,6 +943,7 @@ function renderEtapasAdmin() {
                 <td class="col-status">
                   <select onchange="salvarCampoItem('${item.id}','status', this.value)">
                     <option value="pendente" ${item.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="andamento" ${item.status === 'andamento' ? 'selected' : ''}>Em andamento</option>
                     <option value="concluido" ${item.status === 'concluido' ? 'selected' : ''}>Concluído</option>
                   </select>
                 </td>
