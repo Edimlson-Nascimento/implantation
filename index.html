@@ -1225,6 +1225,29 @@
   .ativ-chip.active em { color: var(--on-navy); }
 
   .at-label-nome { font-size: 12px; color: var(--gray-text); margin-top: 8px; }
+
+  /* ── Quadro de Atividades mais enxuto: topo compacto, cabeçalho em uma linha, colunas um pouco mais largas, cartões menores (out/2026) ── */
+  .topbar { padding: 12px 32px; gap: 12px; max-width: none; }
+  .topbar .stats-row { gap: 8px; }
+  .topbar .stat-card { padding: 6px 12px; min-width: 0; display: flex; align-items: baseline; gap: 8px; border-radius: 10px; }
+  .topbar .stat-card .num { font-size: 16px; }
+  .topbar .stat-card .lbl { margin-top: 0; font-size: 10px; }
+  main.main-quadro { max-width: 1560px; padding-top: 6px; }
+  main.main-quadro .view-head { margin-bottom: 10px; align-items: center; }
+  main.main-quadro .view-head h1 { font-size: 26px; }
+  main.main-quadro .view-head p { display: none; }
+  main.main-quadro .view-head-acoes .btn { padding: 8px 16px; font-size: 13px; }
+  #view-atividades .atividades-toolbar { margin-bottom: 10px; gap: 8px 18px; }
+  #view-atividades .ativ-legenda { font-size: 11.5px; gap: 4px 12px; }
+  #view-atividades .kanban-board { grid-auto-columns: minmax(285px, 1fr); gap: 12px; }
+  #view-atividades .kanban-column { padding: 10px; }
+  #view-atividades .kanban-column-header { padding: 0 4px 8px; }
+  #view-atividades .kanban-card { padding: 10px 12px 9px; margin-bottom: 8px; }
+  #view-atividades .kc-titulo { font-size: 13px; line-height: 1.35; margin-bottom: 7px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #view-atividades .kc-meta { gap: 5px; margin-bottom: 6px; }
+  #view-atividades .kc-meta .kc-idade, #view-atividades .kc-prazo, #view-atividades .kc-impedido, #view-atividades .kc-sprint { font-size: 10.5px; padding: 1px 7px; }
+  #view-atividades .kc-imagens { margin: 0 0 6px; }
+  #view-atividades .kc-imagens img { width: 28px; height: 28px; }
 </style>
 <!-- Cole dentro do <head>, DEPOIS do <style>. Aplica o tema salvo antes de a tela aparecer (evita piscar). -->
 <script>try{var _c=localStorage.getItem('ws_app_tema_css');if(_c){var _s=document.createElement('style');_s.id='tema-usuario';_s.textContent=_c;document.head.appendChild(_s)}}catch(e){}</script>
@@ -2383,6 +2406,7 @@ function render() {
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
   document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes' || activeTab === 'pendencias');
+  document.querySelector('main').classList.toggle('main-quadro', activeTab === 'atividades');
   renderStats();
   populateStageOptions();
   populateTipoAgendamentoOptions();
@@ -5433,7 +5457,7 @@ function renderAtividadeCard(a) {
     ${a.cancelado ? '<span class="kc-cancelada-badge">Cancelada</span>' : ''}
     ${a.label ? `<span class="kc-label ${a.label}" title="${ATIV_LABEL_NAMES[a.label]}"></span>` : ''}
     <span class="kc-delete" title="Excluir">✕</span>
-    <div class="kc-titulo">${escapeHtml(a.titulo)}</div>
+    <div class="kc-titulo" title="${escapeHtml(a.titulo)}">${escapeHtml(a.titulo)}</div>
     ${a.imagens && a.imagens.length ? `
       <div class="kc-imagens">
         ${a.imagens.slice(0,3).map(img => `<img src="${img.url}">`).join('')}
