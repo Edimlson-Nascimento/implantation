@@ -1226,6 +1226,19 @@
 
   .at-label-nome { font-size: 12px; color: var(--gray-text); margin-top: 8px; }
 
+  @media (max-width: 860px) {
+    .topbar .stats-row { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); flex-basis: 100%; max-width: none; }
+  }
+
+  /* ── Próximo agendamento do cliente no cartão de Pendências ── */
+  .pend-linha-info { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .pend-agendamento { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; margin-left: auto; padding: 4px 11px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--light-bg); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; min-width: 0; }
+  .pend-agendamento:hover { border-color: var(--green-mid); }
+  .pend-agendamento.hoje { border-color: var(--green-mid); background: rgba(0,200,83,.12); }
+  .pend-ag-quando { font-weight: 700; white-space: nowrap; }
+  .pend-ag-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-text); min-width: 0; }
+  .pend-ag-mais { font-size: 11px; font-weight: 700; color: var(--gray-text); white-space: nowrap; }
+
   /* ── Quadro de Atividades mais enxuto: topo compacto, cabeçalho em uma linha, colunas um pouco mais largas, cartões menores (out/2026) ── */
   .topbar { padding: 12px 32px; gap: 12px; max-width: 1560px; margin: 0 auto; box-sizing: border-box; }   /* mesma largura máxima do quadro, para não esticar até a borda em telas grandes */
   .topbar .stats-row { flex: 1 1 780px; min-width: 0; max-width: 1000px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
@@ -3285,6 +3298,27 @@ async function editarPendencia(pendId) {
   renderPendList(c);
 }
 
+// Próximo agendamento em aberto do cliente (hoje ou futuro) — mostrado no cartão de Pendências.
+// Casa por cliente_id ou, na falta dele, pelo nome digitado (mesmo critério de leads/clientes do resto do painel).
+function agendamentoPendenciaHtml(c, today) {
+  const nome = (c.nome || '').toLowerCase();
+  const abertos = agendamentos
+    .filter(a => !a.feito && a.data >= today && (a.clienteId === c.id || (a.clienteNome || '').toLowerCase() === nome))
+    .sort((x, y) => (x.data + (x.hora || '99:99')).localeCompare(y.data + (y.hora || '99:99')));
+  if (!abertos.length) return '';
+  const a = abertos[0];
+  const dia = a.data === today ? 'Hoje' : a.data === addDays(today, 1) ? 'Amanhã'
+    : new Date(a.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+  const icone = TIPO_ICON[a.tipo] || '🗓';
+  const mais = abertos.length > 1 ? `<span class="pend-ag-mais" title="${abertos.length - 1} outro(s) agendamento(s) em aberto">+${abertos.length - 1}</span>` : '';
+  const tip = `Próximo agendamento: ${formatDate(a.data)}${a.hora ? ' às ' + a.hora : ''} — ${TIPO_LABEL[a.tipo] || 'Agendamento'}: ${a.titulo}${a.responsavel ? ' (' + a.responsavel + ')' : ''}. Clique para abrir.`;
+  return `<button type="button" class="pend-agendamento ${a.data === today ? 'hoje' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(tip)}">
+    <span class="pend-ag-icone">${icone}</span>
+    <span class="pend-ag-quando">${dia}${a.hora ? ' · ' + escapeHtml(a.hora) : ''}</span>
+    <span class="pend-ag-titulo">${escapeHtml(a.titulo)}</span>${mais}
+  </button>`;
+}
+
 function renderPendencias() {
   const container = document.getElementById('pendencias-cards-wrap');
   const search = document.getElementById('pend-search-input').value.toLowerCase();
@@ -3330,7 +3364,11 @@ function renderPendencias() {
           <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
         </div>
       </div>
-      ${(c.fase || 'implantacao') === 'implantacao' ? (p => `<div class="prazo-badge ${p.classe}" style="margin-bottom:8px;">⏳ ${p.texto}</div>`)(prazoImplantacaoInfo(c)) : ''}
+      ${(() => {
+        const prazoHtml = (c.fase || 'implantacao') === 'implantacao' ? (p => `<div class="prazo-badge ${p.classe}">⏳ ${p.texto}</div>`)(prazoImplantacaoInfo(c)) : '';
+        const agHtml = agendamentoPendenciaHtml(c, today);
+        return (prazoHtml || agHtml) ? `<div class="pend-linha-info">${prazoHtml}${agHtml}</div>` : '';
+      })()}
       <div class="contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
         <span>🔔 Entrar em contato com o cliente hoje</span>
         <div class="canal-btns">
