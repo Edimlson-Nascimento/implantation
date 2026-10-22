@@ -1797,6 +1797,8 @@
         </select>
       </div>
       <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Vazio: ao concluir, grava a data de conclusão.</small></div>
+      <div class="form-field"><label>Data de criação</label><input type="date" id="at-criado-em"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Altere se a atividade foi feita em dias anteriores.</small></div>
+      <div class="form-field" id="at-concluido-em-field" style="display:none;"><label>Concluído em</label><input type="date" id="at-concluido-em"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Vazio: usa a data de hoje.</small></div>
       <div class="form-field full">
         <div class="at-checkins">
           <label class="at-check"><input type="checkbox" id="at-sprint" onchange="atSprintMudou()"><span><b>Planejado na sprint</b><small id="at-sprint-info">Marque para entrar no previsto × entregue da semana.</small></span></label>
@@ -5522,6 +5524,8 @@ function openAtividadeModal(id, coluna) {
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
   document.getElementById('at-prazo').value = a.prazo || '';
+  document.getElementById('at-criado-em').value = a.criadoEm ? dataLocalISO(a.criadoEm) : todayStr();
+  document.getElementById('at-concluido-em').value = a.concluidoEm || '';
   atPreencherCheckins(a);
   toggleResolucaoField(a.coluna);
 
@@ -5546,6 +5550,12 @@ function openAtividadeModal(id, coluna) {
 
 function toggleResolucaoField(coluna) {
   document.getElementById('at-resolucao-field').style.display = coluna === 'concluida' ? '' : 'none';
+  document.getElementById('at-concluido-em-field').style.display = coluna === 'concluida' ? '' : 'none';
+}
+// "2026-10-20T03:15:00Z" → dia LOCAL "2026-10-20" (o campo de data mostra o dia que a pessoa enxerga)
+function dataLocalISO(iso) {
+  const d = new Date(iso);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 document.getElementById('at-coluna').addEventListener('change', e => toggleResolucaoField(e.target.value));
 
@@ -5670,7 +5680,7 @@ async function registrarHistoricoDeAtividade(a) {
   const cliente = state.clients.find(c => c.nome.toLowerCase() === a.clienteNome.toLowerCase());
   if (!cliente) return;
   const texto = `[Atividades - ${a.responsavel}] ${a.titulo}${a.resolucao ? '\n✔ ' + a.resolucao : ''}`;
-  const hoje = todayStr();
+  const hoje = a.concluidoEm || todayStr();   // atividade registrada depois: o histórico fica na data em que foi concluída
   const { data, error } = await sb.from('historico').insert({ cliente_id: cliente.id, data: hoje, texto }).select().single();
   if (error) { console.warn('Erro ao registrar histórico automático da atividade:', error.message); return; }
   cliente.historico.unshift({ id: data.id, data: hoje, texto });
@@ -5698,6 +5708,19 @@ async function saveAtividade(silent) {
 
   let prazo = document.getElementById('at-prazo').value || null;
   const payload = { responsavel, criado_por: criadoPor, titulo, cliente_nome: clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes };
+
+  // Data de criação editável (atividade feita em dias anteriores, registrada depois)
+  const hojeStr = todayStr();
+  const criadoEmInput = document.getElementById('at-criado-em').value || hojeStr;
+  const concluidoEmInput = coluna === 'concluida' ? (document.getElementById('at-concluido-em').value || '') : '';
+  if (criadoEmInput > hojeStr) { alert('A data de criação não pode ser no futuro.'); return; }
+  if (concluidoEmInput && concluidoEmInput > hojeStr) { alert('A data de conclusão não pode ser no futuro.'); return; }
+  if (concluidoEmInput && concluidoEmInput < criadoEmInput) { alert('A data de conclusão não pode ser anterior à data de criação.'); return; }
+  const criadoEmAnteriorDia = anterior && anterior.criadoEm ? dataLocalISO(anterior.criadoEm) : null;
+  // só grava created_at quando o dia mudou (senão mantém o horário original); meio-dia local evita virar o dia por fuso
+  const novoCriadoEm = (isNew ? criadoEmInput !== hojeStr : criadoEmInput !== criadoEmAnteriorDia)
+    ? new Date(criadoEmInput + 'T12:00:00').toISOString() : null;
+  if (novoCriadoEm) payload.created_at = novoCriadoEm;
   if (prazo || (anterior && anterior.prazo)) payload.prazo = prazo;
   // Planejado na sprint e Impedido (colunas novas: só vão no payload quando há o que gravar)
   const sprintMarcado = document.getElementById('at-sprint').checked;
@@ -5717,7 +5740,8 @@ async function saveAtividade(silent) {
     Object.assign(payload, { sprint_semana: sprintSemana, impedido_desde: impedidoDesde, impedido_total_min: impedidoTotalMin, impedido_motivo: impedidoMotivo });
   }
   if (coluna === 'concluida') {
-    payload.concluido_em = (anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr();
+    payload.concluido_em = concluidoEmInput || ((anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr());
+    if (payload.concluido_em < criadoEmInput) { alert('A data de conclusão não pode ser anterior à data de criação.'); return; }
     // Sem Prazo combinado: ao concluir, o prazo passa a ser a própria data de conclusão
     if (!prazo) { prazo = payload.concluido_em; payload.prazo = prazo; }
   } else {
@@ -5740,6 +5764,7 @@ async function saveAtividade(silent) {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message + (/prazo|sprint_semana|impedido/i.test(error.message) ? '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.' : '')); return; }
     Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo });
+    if (novoCriadoEm) anterior.criadoEm = novoCriadoEm;
     atividadeSalva = anterior;
   }
 
