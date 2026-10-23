@@ -334,7 +334,9 @@
   .busca-ia-erro { border-color:var(--amber); background:var(--light-bg); color:var(--gray-text); font-size:13px; }
   .modal-section { margin-top: 22px; border-top: 1px solid var(--border-light); padding-top: 18px; }
   .modal-section h3 { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
-  .pendencias-cards-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
+  /* 2 colunas quando cabem (cada cartão com no mínimo 540px); em janela estreita viram 1 coluna em vez de estourar a tela */
+  .pendencias-cards-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr)); gap:14px; }
+  .pendencias-cards-grid > .pendencia-card { min-width: 0; }
   .pendencia-card { background:var(--white); border-radius:16px; border:1px solid var(--border-light); padding:18px; }
   .pendencia-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
   .pendencia-card-nome { font-size:15px; font-weight:700; color:var(--text-main); }
@@ -1242,7 +1244,7 @@
 
   /* ── Quadro de Atividades mais enxuto: topo compacto, cabeçalho em uma linha, colunas um pouco mais largas, cartões menores (out/2026) ── */
   .topbar { padding: 12px 32px; gap: 12px; max-width: 1560px; margin: 0 auto; box-sizing: border-box; }   /* mesma largura máxima do quadro, para não esticar até a borda em telas grandes */
-  .topbar .stats-row { flex: 1 1 780px; min-width: 0; max-width: 1000px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+  .topbar .stats-row { flex: 1 1 780px; min-width: 0; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
   .topbar .stat-card { min-width: 0; min-height: 62px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-radius: 12px; }
   .topbar .stat-card .num { font-size: 24px; line-height: 1; flex: none; }
   .topbar .stat-card .lbl { margin-top: 0; font-size: 10.5px; line-height: 1.2; letter-spacing: .02em; min-width: 0; }
