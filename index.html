@@ -1452,6 +1452,7 @@
         <option value="base">Na Base</option>
         <option value="">Todos</option>
       </select>
+      <select id="pend-filter-analista" onchange="renderPendencias()" title="Mostrar só os clientes de um analista"></select>
       <div class="spacer"></div>
       <div class="stats-row" id="pend-analistas-cards"></div>
     </div>
@@ -3329,8 +3330,19 @@ function renderPendencias() {
   const search = document.getElementById('pend-search-input').value.toLowerCase();
   const filterFase = document.getElementById('pend-filter-fase').value;
 
+  // Filtro por analista: as opções vêm dos analistas que existem nos clientes (mais "Sem analista")
+  const selAnalista = document.getElementById('pend-filter-analista');
+  const analistaAtual = selAnalista.value;
+  const nomesAnalistas = [...new Set(state.clients.map(c => c.analistaResponsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  selAnalista.innerHTML = `<option value="">Todos os analistas</option>`
+    + nomesAnalistas.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+    + `<option value="__sem">Sem analista</option>`;
+  selAnalista.value = (analistaAtual === '__sem' || nomesAnalistas.includes(analistaAtual)) ? analistaAtual : '';
+  const filterAnalista = selAnalista.value;
+
   const clientesOrdenados = state.clients.filter(c => {
     if (filterFase && (c.fase || 'implantacao') !== filterFase) return false;
+    if (filterAnalista === '__sem' ? c.analistaResponsavel : (filterAnalista && c.analistaResponsavel !== filterAnalista)) return false;
     if (search && !c.nome.toLowerCase().includes(search)) return false;
     return true;
   }).sort((a, b) => {
