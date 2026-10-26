@@ -1232,6 +1232,19 @@
     .topbar .stats-row { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); flex-basis: 100%; max-width: none; }
   }
 
+  /* ── Tickets do ERP (Indicadores): pizzas, barras 100% e legenda ── */
+  .tk-pizzas { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+  .tk-pizza-card { border: 1px solid var(--border-light); border-radius: 14px; padding: 14px 16px; background: var(--white); min-width: 0; }
+  .tk-pizza-card h4 { margin: 0 0 2px; font-size: 13px; color: var(--text-main); }
+  .tk-sub { margin: 18px 0 8px; font-size: 13px; color: var(--text-main); }
+  .tk-sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 8px; vertical-align: middle; }
+  .tk-barras { display: flex; flex-direction: column; gap: 8px; }
+  .tk-barra-linha { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 12px; }
+  .tk-barra-nome { font-size: 12.5px; color: var(--text-main); font-weight: 600; }
+  .tk-barra { display: flex; height: 26px; border-radius: 8px; overflow: hidden; background: var(--light-bg); }
+  .tk-seg { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; min-width: 2px; white-space: nowrap; }
+  @media (max-width: 600px) { .tk-barra-linha { grid-template-columns: 1fr; gap: 4px; } }
+
   /* ── Próximo agendamento do cliente no cartão de Pendências ── */
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
   .pend-ags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; min-width: 0; max-width: 100%; }
@@ -1677,15 +1690,20 @@
       <div class="ind-bloco bloco-grafana" id="ind-grafana-wrap">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
           <div>
-            <h3 style="margin:0;font-size:14px;color:var(--text-main);">🎫 Tickets Time Implantação</h3>
-            <p class="pizza-explicacao" style="margin-top:4px;">Lido direto do banco do ERP — quantidade de tickets por cliente, com a divisão por pessoa da equipe.</p>
+            <h3 style="margin:0;font-size:14px;color:var(--text-main);">🎫 Tickets do ERP</h3>
+            <p class="pizza-explicacao" style="margin-top:4px;">Todos os tickets, lidos direto do banco do ERP — por cliente de implantação, pela equipe (Gilson, Edimilson, Jefferson e Leandro, em qualquer cliente) e o comparativo entre implantação, base e total.</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
             <button class="btn btn-sm" onclick="carregarQuadroGrafana(true)">🔄 Atualizar</button>
           </div>
         </div>
-        <div id="quadro-grafana-tabela" style="margin-top:10px;"></div>
+        <div class="view-toggle" id="tk-abas" style="margin-top:12px;width:fit-content;max-width:100%;flex-wrap:wrap;">
+          <button class="view-toggle-btn active" data-visao="clientes" onclick="setTicketsVisao('clientes')">Clientes de implantação</button>
+          <button class="view-toggle-btn" data-visao="equipe" onclick="setTicketsVisao('equipe')">Equipe</button>
+          <button class="view-toggle-btn" data-visao="comparativo" onclick="setTicketsVisao('comparativo')">Comparativo</button>
+        </div>
+        <div id="quadro-grafana-tabela" style="margin-top:12px;"></div>
       </div>
     </div>
   </section>
@@ -3983,9 +4001,17 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar os tickets no banco do ERP.`);
-    grafanaQuadroUltimasLinhas = json.rows || [];
+    if (json.linhas) {
+      ticketsLinhas = json.linhas;
+      grafanaQuadroUltimasLinhas = ticketsLinhasParaDesempenho(ticketsLinhas);
+      renderTicketsErp();
+    } else {
+      // função antiga ainda no ar (devolve só `rows`): mostra a tabela simples até o deploy da nova
+      ticketsLinhas = null;
+      grafanaQuadroUltimasLinhas = json.rows || [];
+      renderQuadroGrafana(grafanaQuadroUltimasLinhas);
+    }
     grafanaQuadroUltimaBusca = Date.now();
-    renderQuadroGrafana(grafanaQuadroUltimasLinhas);
     grafanaQuadroHoraUltimoOk = new Date(json.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     statusEl.textContent = `Atualizado às ${grafanaQuadroHoraUltimoOk}${json.fonte === 'banco' ? ' · direto do banco do ERP' : ''}`;
     statusEl.style.color = '';
@@ -4037,6 +4063,156 @@ function renderQuadroGrafana(rows) {
       </tbody>
     </table>
   `;
+}
+
+// ── Tickets do ERP: 3 visões (clientes de implantação · equipe · comparativo) ──
+// `ticketsLinhas` vem da Edge Function: [{empresa_id, cliente, classe, pessoa, grupo, n}] — classe = implantacao|base|interno,
+// grupo = aberto|dev|fechado|cancelado. A função decide a classe e o grupo (ver o SQL em supabase-edge-functions); aqui só somamos.
+let ticketsLinhas = null;
+let ticketsVisao = 'clientes';
+const TK_GRUPOS = [
+  { k: 'aberto', nome: 'Abertos', cor: '#F59E0B' },
+  { k: 'dev', nome: 'Desenvolvimento / Roadmap', cor: '#8B5CF6' },
+  { k: 'fechado', nome: 'Fechados', cor: '#00C853' },
+  { k: 'cancelado', nome: 'Cancelados', cor: '#9CA3AF' }
+];
+const TK_CLASSES = [
+  { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
+  { k: 'base', nome: 'Base', cor: '#3B82F6' },
+  { k: 'interno', nome: 'Interno (RS CRM)', cor: '#9CA3AF' }
+];
+const TK_EQUIPE = [
+  { k: 'Gilson', cor: '#6366F1' }, { k: 'Edimilson', cor: '#14B8A6' },
+  { k: 'Jefferson', cor: '#F97316' }, { k: 'Leandro', cor: '#EC4899' }
+];
+
+function tkSoma(filtro) {
+  const s = { aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0 };
+  (ticketsLinhas || []).forEach(l => { if (filtro(l)) { s[l.grupo] += l.n; s.total += l.n; } });
+  return s;
+}
+const tkPct = (parte, todo) => todo ? Math.round(parte / todo * 100) + '%' : '—';
+
+// Mesmo formato que o Desempenho sempre usou (uma linha por cliente, uma coluna por analista, tickets ainda sem fechar
+// em clientes de implantação e interno), para o Desempenho não mudar.
+function ticketsLinhasParaDesempenho(linhas) {
+  const porCliente = new Map();
+  linhas.forEach(l => {
+    if (l.classe === 'base' || (l.grupo !== 'aberto' && l.grupo !== 'dev')) return;
+    let r = porCliente.get(l.cliente);
+    if (!r) { r = { cliente: l.cliente, tkt: 0, jefferson: 0, edimilson: 0, leandro: 0, gilson: 0 }; porCliente.set(l.cliente, r); }
+    r.tkt += l.n;
+    const k = String(l.pessoa).toLowerCase();
+    if (k in r && k !== 'cliente' && k !== 'tkt') r[k] += l.n;
+  });
+  return [...porCliente.values()].sort((a, b) => b.tkt - a.tkt);
+}
+
+function setTicketsVisao(v) {
+  ticketsVisao = v;
+  document.querySelectorAll('#tk-abas .view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.visao === v));
+  renderTicketsErp();
+}
+
+const tkCelula = (n, destacar) => `<td class="tabular${destacar && n ? ' destaque' : ''}">${n}</td>`;
+
+function renderTicketsErp() {
+  const el = document.getElementById('quadro-grafana-tabela');
+  if (!el) return;
+  if (!ticketsLinhas || !ticketsLinhas.length) { el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Sem tickets retornados pelo banco do ERP.</p>`; return; }
+  document.querySelectorAll('#tk-abas .view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.visao === ticketsVisao));
+
+  const legendaGrupos = `<p class="pizza-explicacao" style="margin-top:10px;"><b>Abertos</b> = Aberto, Em Análise, Em Andamento e as duas Validações · <b>Desenvolvimento / Roadmap</b> = Fila de Desenvolvimento e Roadmap Futuro (fila do desenvolvimento, não é trabalho da implantação) · <b>Fechados</b> = Fechado e Resolvido.</p>`;
+  const pizzas = [];   // [{id, titulo, itens}] — desenhadas depois que o HTML entra na página
+
+  if (ticketsVisao === 'clientes') {
+    const porEmpresa = new Map();
+    ticketsLinhas.filter(l => l.classe !== 'base').forEach(l => {
+      let c = porEmpresa.get(l.empresa_id);
+      if (!c) { c = { nome: l.cliente, classe: l.classe, aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0, ab: {} }; porEmpresa.set(l.empresa_id, c); }
+      c[l.grupo] += l.n; c.total += l.n;
+      if (l.grupo === 'aberto') c.ab[l.pessoa] = (c.ab[l.pessoa] || 0) + l.n;
+    });
+    const lista = [...porEmpresa.values()].sort((a, b) => (a.classe === 'interno') - (b.classe === 'interno') || b.aberto - a.aberto || b.total - a.total);
+    const tot = { aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0 };
+    lista.filter(c => c.classe === 'implantacao').forEach(c => { ['aberto', 'dev', 'fechado', 'cancelado', 'total'].forEach(k => tot[k] += c[k]); });
+    el.innerHTML = `
+      <div class="table-wrap"><table class="quadro-grafana-table">
+        <thead><tr><th>Cliente</th><th class="tabular">Total</th><th class="tabular">Abertos</th><th class="tabular">Dev / Roadmap</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">% fechado</th>
+          ${TK_EQUIPE.map(p => `<th class="tabular" title="Tickets abertos com ${p.k}">${p.k}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${lista.map(c => `<tr${c.classe === 'interno' ? ' style="opacity:.7;"' : ''}>
+            <td>${escapeHtml(c.nome)}${c.classe === 'interno' ? ' <small style="color:var(--gray-text);">(interno)</small>' : ''}</td>
+            ${tkCelula(c.total)}${tkCelula(c.aberto, true)}${tkCelula(c.dev)}${tkCelula(c.fechado)}${tkCelula(c.cancelado)}
+            <td class="tabular">${tkPct(c.fechado, c.total)}</td>
+            ${TK_EQUIPE.map(p => tkCelula(c.ab[p.k] || 0, true)).join('')}</tr>`).join('')}
+          <tr style="font-weight:700;"><td>Total — clientes de implantação</td>${tkCelula(tot.total)}${tkCelula(tot.aberto)}${tkCelula(tot.dev)}${tkCelula(tot.fechado)}${tkCelula(tot.cancelado)}<td class="tabular">${tkPct(tot.fechado, tot.total)}</td><td colspan="${TK_EQUIPE.length}"></td></tr>
+        </tbody>
+      </table></div>
+      <p class="pizza-explicacao" style="margin-top:8px;">As colunas com o nome de cada pessoa mostram os tickets <b>abertos</b> com ela naquele cliente. Clientes da base ficam no <b>Comparativo</b>.</p>
+      ${legendaGrupos}`;
+    return;
+  }
+
+  if (ticketsVisao === 'equipe') {
+    const linhasEquipe = [...TK_EQUIPE.map(p => ({ nome: p.k, cor: p.cor, filtro: l => l.pessoa === p.k })),
+      { nome: 'Outros (desenvolvimento, suporte...)', filtro: l => l.pessoa === 'Outros', mudo: true },
+      { nome: 'Sem responsável', filtro: l => l.pessoa === 'Sem responsável', mudo: true }];
+    const dados = linhasEquipe.map(r => ({ ...r, s: tkSoma(r.filtro), porClasse: Object.fromEntries(TK_CLASSES.map(c => [c.k, tkSoma(l => r.filtro(l) && l.classe === c.k).total])) }));
+    const soEquipe = l => TK_EQUIPE.some(p => p.k === l.pessoa);
+    const totEquipe = tkSoma(soEquipe);
+    const totTodos = tkSoma(() => true);
+    el.innerHTML = `
+      <div class="table-wrap"><table class="quadro-grafana-table">
+        <thead><tr><th>Pessoa</th><th class="tabular">Abertos</th><th class="tabular">Dev / Roadmap</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">Total</th>
+          ${TK_CLASSES.map(c => `<th class="tabular">${c.nome}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${dados.map(d => `<tr${d.mudo ? ' style="opacity:.7;"' : ''}><td>${escapeHtml(d.nome)}</td>${tkCelula(d.s.aberto, true)}${tkCelula(d.s.dev)}${tkCelula(d.s.fechado)}${tkCelula(d.s.cancelado)}${tkCelula(d.s.total)}${TK_CLASSES.map(c => tkCelula(d.porClasse[c.k])).join('')}</tr>`).join('')}
+          <tr style="font-weight:700;"><td>Equipe de implantação (os 4)</td>${tkCelula(totEquipe.aberto)}${tkCelula(totEquipe.dev)}${tkCelula(totEquipe.fechado)}${tkCelula(totEquipe.cancelado)}${tkCelula(totEquipe.total)}${TK_CLASSES.map(c => tkCelula(tkSoma(l => soEquipe(l) && l.classe === c.k).total)).join('')}</tr>
+          <tr style="font-weight:700;"><td>Todos os tickets do ERP</td>${tkCelula(totTodos.aberto)}${tkCelula(totTodos.dev)}${tkCelula(totTodos.fechado)}${tkCelula(totTodos.cancelado)}${tkCelula(totTodos.total)}${TK_CLASSES.map(c => tkCelula(tkSoma(l => l.classe === c.k).total)).join('')}</tr>
+        </tbody>
+      </table></div>
+      <p class="pizza-explicacao" style="margin-top:8px;">Os tickets de cada pessoa em <b>qualquer</b> cliente — implantação, base ou interno. As três últimas colunas mostram onde o trabalho caiu.</p>
+      ${legendaGrupos}
+      <div class="tk-pizzas">
+        <div class="tk-pizza-card"><h4>Tickets por pessoa (total)</h4><div id="tk-pz-pessoa"></div></div>
+        <div class="tk-pizza-card"><h4>Equipe: onde estão os tickets</h4><div id="tk-pz-classe"></div></div>
+        <div class="tk-pizza-card"><h4>Equipe: situação dos tickets</h4><div id="tk-pz-situacao"></div></div>
+      </div>`;
+    pizzas.push({ id: 'tk-pz-pessoa', itens: TK_EQUIPE.map(p => ({ label: p.k, valor: tkSoma(l => l.pessoa === p.k).total, cor: p.cor })) });
+    pizzas.push({ id: 'tk-pz-classe', itens: TK_CLASSES.map(c => ({ label: c.nome, valor: tkSoma(l => soEquipe(l) && l.classe === c.k).total, cor: c.cor })) });
+    pizzas.push({ id: 'tk-pz-situacao', itens: TK_GRUPOS.map(g => ({ label: g.nome, valor: totEquipe[g.k], cor: g.cor })) });
+  }
+
+  if (ticketsVisao === 'comparativo') {
+    const porClasse = Object.fromEntries(TK_CLASSES.map(c => [c.k, tkSoma(l => l.classe === c.k)]));
+    const total = tkSoma(() => true);
+    const colunas = [...TK_CLASSES.map(c => ({ nome: c.nome, cor: c.cor, s: porClasse[c.k] })), { nome: 'Total', cor: '#64748B', s: total }];
+    el.innerHTML = `
+      <div class="table-wrap"><table class="quadro-grafana-table">
+        <thead><tr><th>Situação</th>${colunas.map(c => `<th class="tabular">${c.nome}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${TK_GRUPOS.map(g => `<tr><td><span class="tk-sw" style="background:${g.cor}"></span>${g.nome}</td>${colunas.map(c => `<td class="tabular${g.k === 'aberto' && c.s[g.k] ? ' destaque' : ''}">${c.s[g.k]} <small style="color:var(--gray-text);">(${tkPct(c.s[g.k], c.s.total)})</small></td>`).join('')}</tr>`).join('')}
+          <tr style="font-weight:700;"><td>Total</td>${colunas.map(c => tkCelula(c.s.total)).join('')}</tr>
+        </tbody>
+      </table></div>
+      ${legendaGrupos}
+      <h4 class="tk-sub">Situação dos tickets em cada grupo de clientes (100%)</h4>
+      <div class="tk-barras">
+        ${colunas.map(c => `<div class="tk-barra-linha"><div class="tk-barra-nome">${c.nome}</div>
+          <div class="tk-barra">${TK_GRUPOS.map(g => c.s.total && c.s[g.k] ? `<div class="tk-seg" style="width:${c.s[g.k] / c.s.total * 100}%;background:${g.cor};" title="${g.nome}: ${c.s[g.k]} (${tkPct(c.s[g.k], c.s.total)})">${c.s[g.k] / c.s.total >= 0.06 ? tkPct(c.s[g.k], c.s.total) : ''}</div>` : '').join('')}</div></div>`).join('')}
+      </div>
+      <div class="tk-pizzas">
+        <div class="tk-pizza-card"><h4>Abertos: implantação × base × interno</h4><div id="tk-pz-abertos"></div></div>
+        <div class="tk-pizza-card"><h4>Fechados: implantação × base × interno</h4><div id="tk-pz-fechados"></div></div>
+        <div class="tk-pizza-card"><h4>Todos os tickets: abertos × fechados</h4><div id="tk-pz-todos"></div></div>
+      </div>`;
+    pizzas.push({ id: 'tk-pz-abertos', itens: TK_CLASSES.map(c => ({ label: c.nome, valor: porClasse[c.k].aberto, cor: c.cor })) });
+    pizzas.push({ id: 'tk-pz-fechados', itens: TK_CLASSES.map(c => ({ label: c.nome, valor: porClasse[c.k].fechado, cor: c.cor })) });
+    pizzas.push({ id: 'tk-pz-todos', itens: TK_GRUPOS.map(g => ({ label: g.nome, valor: total[g.k], cor: g.cor })) });
+  }
+
+  pizzas.forEach(p => montarPizza(p.id, p.itens));
 }
 
 setInterval(() => { if (activeTab === 'indicadores' && !document.hidden) carregarQuadroGrafana(true); }, 60000);
@@ -6698,7 +6874,8 @@ async function desempCarregarTickets() {
     const res = await fetch(GRAFANA_QUADRO_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
-    desempTicketsRows = json.rows || [];
+    if (json.linhas) { ticketsLinhas = json.linhas; desempTicketsRows = ticketsLinhasParaDesempenho(json.linhas); }
+    else desempTicketsRows = json.rows || [];
     desempTicketsErro = '';
   } catch (e) {
     desempTicketsErro = /max clients reached|too many clients|failed to acquire connection/i.test(e.message) ? 'o banco do ERP está com o limite de conexões cheio agora' : e.message;
