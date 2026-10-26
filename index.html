@@ -3714,7 +3714,8 @@ function lerNumeroLicenca(id) {
 // Licenças vindas do ERP (função tickets-erp, ?modo=licencas): uma linha por empresa. Carrega uma vez, sob demanda.
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
 let ticketsAbertosErp = null, ticketsAbertosErpErro = '', ticketsTituloColuna = null, ticketsColunasErp = [];  // tickets em aberto por empresa (lista), junto das licenças
-let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';   // add-ons por empresa (wiz_projetos), vêm junto das licenças
+let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';
+let usuariosColunasErp = [];   // colunas de t01_usuarios (diagnóstico do filtro de usuário ativo)   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
   if (licencasErp !== null || licencasErpCarregando) return;
   licencasErpCarregando = true;
@@ -3728,6 +3729,7 @@ function garantirLicencasErp() {
       modulosErp = Array.isArray(json.modulos) ? json.modulos : [];
       modulosErpErro = json.modulos_erro || '';
       modulosProjetoErpErro = json.modulos_projeto_erro || '';
+      usuariosColunasErp = json.usuarios_colunas || [];
       ticketsAbertosErp = Array.isArray(json.tickets_abertos) ? json.tickets_abertos : null;   // null = função antiga, sem tickets
       ticketsAbertosErpErro = json.tickets_erro || '';
       ticketsTituloColuna = json.tickets_titulo_coluna || null;
@@ -3808,14 +3810,18 @@ function rotuloStatusModulo(m) {
 function licencasInfo(c) {
   const erp = empresaErpDoCliente(c);
   if (erp) {
-    const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativas = erp.ativas_total;
+    const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativasBrutas = erp.ativas_total;
+    // A regra de "usuário ativo" ainda não está fechada com o ERP: em algumas empresas t01_usuarios devolve milhares de linhas
+    // (contatos, não usuários). Número muito acima do contratado é tratado como NÃO CONFIÁVEL e não vira ativas/disponíveis.
+    const suspeito = ativasBrutas > contratadas * 2 + 20;
+    const ativas = suspeito ? null : ativasBrutas;
     const detalhe = `ERP (${erp.empresa}) — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
     const tipos = [
       { nome: 'Full', contratadas: erp.contratadas_full, ativas: erp.ativas_full },
       { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
       { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
     ];
-    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, empresaId: erp.empresa_id, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
+    return { contratadas, ativas, ativasSuspeitas: suspeito ? ativasBrutas : null, disponiveis: suspeito ? null : contratadas - ativasBrutas, origem: 'erp', detalhe, empresa: erp.empresa, empresaId: erp.empresa_id, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
@@ -3861,17 +3867,19 @@ function escolherEmpresaErp(id) {
 }
 // Quadro de licenças e módulos lidos do ERP (usado no cadastro do cliente e no modal aberto pelo cartão de Pendências).
 function licencasQuadroHtml(l, comNota) {
-  const disp = n => `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
+  const disp = n => n == null ? '<b>—</b>' : `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
+  const susp = l.ativasSuspeitas != null;
   return `<div class="lic-quadro">
       <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)} <span class="lic-via">(${l.via === 'id' ? 'pelo ID informado' : l.via === 'codigo' ? 'pelo código do cliente = ID da empresa no ERP' : 'pelo nome — confira se é a empresa certa'})</span></div>
       <div class="lic-tiles">
         <div class="lic-tile"><span>Contratadas</span><b>${l.contratadas}</b></div>
-        <div class="lic-tile"><span>Ativas</span><b>${l.ativas}</b></div>
+        <div class="lic-tile"><span>Ativas</span><b>${l.ativas ?? '—'}</b></div>
         <div class="lic-tile"><span>Disponíveis</span>${disp(l.disponiveis)}</div>
       </div>
       <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Ativas</th><th>Disponíveis</th></tr></thead><tbody>
-        ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${t.ativas}</td><td>${disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
+        ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${susp ? '—' : t.ativas}</td><td>${susp ? '<b>—</b>' : disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
       </tbody></table>
+      ${susp ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Usuários ativos não confiável:</b> o ERP devolveu ${l.ativasSuspeitas.toLocaleString('pt-BR')} registros em <code>t01_usuarios</code> para esta empresa (contratadas: ${l.contratadas}), o que indica que a tabela guarda outros registros além dos usuários do sistema. Falta o filtro certo de "usuário ativo" (a regra recebida só exclui os apagados), então ativas e disponíveis não são mostrados. ${usuariosColunasErp.length ? `<br>Colunas da tabela para levar ao time do ERP: <small>${escapeHtml(usuariosColunasErp.join(', '))}</small>` : ''}</div>` : ''}
       ${modulosHtml(l)}
       ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>` : ''}
     </div>`;
