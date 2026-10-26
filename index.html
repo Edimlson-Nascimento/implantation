@@ -1306,6 +1306,8 @@
   .pend-info-esq .canal-btn { font-size: 12px; padding: 3px 5px; border-radius: 6px; }
   .pend-ags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; min-width: 0; max-width: 100%; }
   .pend-agendamento { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 4px 11px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--light-bg); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; min-width: 0; }
+  .pend-agendamento.feito { opacity: .65; }
+  .pend-agendamento.feito .pend-ag-titulo { text-decoration: line-through; }
   .pend-agendamento:hover { border-color: var(--green-mid); }
   .pend-agendamento.hoje { border-color: var(--green-mid); background: rgba(0,200,83,.12); }
   .pend-ag-quando { font-weight: 700; white-space: nowrap; }
@@ -3404,21 +3406,22 @@ async function editarPendencia(pendId) {
   renderPendList(c);
 }
 
-// Próximo agendamento em aberto do cliente (hoje ou futuro) — mostrado no cartão de Pendências.
+// Agendamentos do cliente mostrados no cartão de Pendências: os de HOJE ficam o dia todo, feitos ou não (somem só quando vira o dia);
+// os de dias futuros aparecem enquanto estiverem em aberto.
 // Casa por cliente_id ou, na falta dele, pelo nome digitado (mesmo critério de leads/clientes do resto do painel).
 function agendamentoPendenciaHtml(c, today) {
   const nome = (c.nome || '').toLowerCase();
   const abertos = agendamentos
-    .filter(a => !a.feito && a.data >= today && (a.clienteId === c.id || (a.clienteNome || '').toLowerCase() === nome))
+    .filter(a => a.data >= today && (a.data === today || !a.feito) && (a.clienteId === c.id || (a.clienteNome || '').toLowerCase() === nome))
     .sort((x, y) => (x.data + (x.hora || '99:99')).localeCompare(y.data + (y.hora || '99:99')));
   if (!abertos.length) return '';
   const LIMITE = 3;   // mostra até 3 selos, um embaixo do outro; o resto vira "+N"
   const selo = a => {
     const dia = a.data === today ? 'Hoje' : a.data === addDays(today, 1) ? 'Amanhã'
       : new Date(a.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
-    const tip = `${formatDate(a.data)}${a.hora ? ' às ' + a.hora : ''} — ${TIPO_LABEL[a.tipo] || 'Agendamento'}: ${a.titulo}${a.responsavel ? ' (' + a.responsavel + ')' : ''}. Clique para abrir.`;
-    return `<button type="button" class="pend-agendamento ${a.data === today ? 'hoje' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(tip)}">
-      <span class="pend-ag-icone">${TIPO_ICON[a.tipo] || '🗓'}</span>
+    const tip = `${a.feito ? '[Feito] ' : ''}${formatDate(a.data)}${a.hora ? ' às ' + a.hora : ''} — ${TIPO_LABEL[a.tipo] || 'Agendamento'}: ${a.titulo}${a.responsavel ? ' (' + a.responsavel + ')' : ''}. Clique para abrir.`;
+    return `<button type="button" class="pend-agendamento ${a.data === today ? 'hoje' : ''} ${a.feito ? 'feito' : ''}" onclick="openAgendamentoModal('${a.id}')" title="${escapeHtml(tip)}">
+      <span class="pend-ag-icone">${a.feito ? '✅' : (TIPO_ICON[a.tipo] || '🗓')}</span>
       <span class="pend-ag-quando">${dia}${a.hora ? ' · ' + escapeHtml(a.hora) : ''}</span>
       <span class="pend-ag-titulo">${escapeHtml(a.titulo)}</span>
     </button>`;
