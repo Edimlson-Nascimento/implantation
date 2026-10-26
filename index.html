@@ -3876,12 +3876,12 @@ function licencasQuadroHtml(l, comNota) {
         <div class="lic-tile"><span>Ativas</span><b>${l.ativas ?? '—'}</b></div>
         <div class="lic-tile"><span>Disponíveis</span>${disp(l.disponiveis)}</div>
       </div>
-      <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Ativas</th><th>Disponíveis</th></tr></thead><tbody>
-        ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${susp ? '—' : t.ativas}</td><td>${susp ? '<b>—</b>' : disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
+      <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Em uso</th></tr></thead><tbody>
+        ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${susp ? '—' : t.ativas}</td></tr>`).join('')}
       </tbody></table>
       ${susp ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Usuários ativos não confiável:</b> o ERP devolveu ${l.ativasSuspeitas.toLocaleString('pt-BR')} registros em <code>t01_usuarios</code> para esta empresa (contratadas: ${l.contratadas}), o que indica que a tabela guarda outros registros além dos usuários do sistema. Falta o filtro certo de "usuário ativo" (a regra recebida só exclui os apagados), então ativas e disponíveis não são mostrados. ${usuariosColunasErp.length ? `<br>Colunas da tabela para levar ao time do ERP: <small>${escapeHtml(usuariosColunasErp.join(', '))}</small>` : ''}</div>` : ''}
       ${modulosHtml(l)}
-      ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>` : ''}
+      ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. Disponíveis = contratadas − em uso, no total: como no CRM, o saldo não é calculado tipo por tipo (um usuário Conversas pode estar usando uma licença Full).</div>` : ''}
     </div>`;
 }
 function abrirLicencasCliente(clienteId) {
