@@ -1983,6 +1983,8 @@
       <div class="form-field"><label>Licenças contratadas</label><input type="number" id="f-lic-contratadas" min="0" step="1" placeholder="Ex.: 15" oninput="atualizarLicencasDisponiveis()"></div>
       <div class="form-field"><label>Licenças ativas</label><input type="number" id="f-lic-ativas" min="0" step="1" placeholder="Ex.: 12" oninput="atualizarLicencasDisponiveis()"></div>
       <div class="form-field"><label>Licenças disponíveis</label><input type="text" id="f-lic-disponiveis" readonly tabindex="-1" placeholder="Contratadas − ativas" title="Calculado: contratadas menos ativas"></div>
+      <div class="form-field"><label>ID da empresa no ERP</label><input type="number" id="f-erp-empresa-id" min="1" step="1" placeholder="sis01_id (opcional)" title="Número da empresa no ERP. Com ele as licenças vêm sozinhas do ERP. Sem ele, o painel tenta achar pelo nome." oninput="atualizarDicaLicencasErp()"></div>
+      <div id="f-lic-erp-hint" style="grid-column:1/-1;font-size:12px;color:var(--gray-text);margin-top:-4px;"></div>
       <div class="form-field"><label>Próximo Contato</label><input type="date" id="f-proximo"></div>
       <div class="form-field"><label>Saúde</label>
         <select id="f-saude">
@@ -2364,6 +2366,7 @@ async function loadState() {
     previsaoPosImplantacao: c.previsao_pos_implantacao || null,
     licencasContratadas: c.licencas_contratadas ?? null,
     licencasAtivas: c.licencas_ativas ?? null,
+    erpEmpresaId: c.erp_empresa_id ?? null,
     ultimoContato: c.ultimo_contato,
     ultimoContatoCanal: c.ultimo_contato_canal || null,
     proximoContato: c.proximo_contato,
@@ -2792,7 +2795,10 @@ function openModal(id) {
   document.getElementById('f-previsao-pos').value = c.previsaoPosImplantacao || '';
   document.getElementById('f-lic-contratadas').value = c.licencasContratadas ?? '';
   document.getElementById('f-lic-ativas').value = c.licencasAtivas ?? '';
+  document.getElementById('f-erp-empresa-id').value = c.erpEmpresaId ?? '';
   atualizarLicencasDisponiveis();
+  garantirLicencasErp();
+  atualizarDicaLicencasErp(c);
   document.getElementById('f-proximo').value = c.proximoContato || '';
   document.getElementById('f-nota-contato').value = '';
   document.getElementById('f-nota-proximo').value = todayStr();
@@ -3417,6 +3423,7 @@ function renderPendencias() {
     .map(([nome, qtd]) => `<div class="stat-card" title="${qtd} cliente${qtd === 1 ? '' : 's'} com ${escapeHtml(nome)} como analista"><div class="num">${qtd}</div><div class="lbl">${escapeHtml(nome)}</div></div>`)
     .join('');
 
+  garantirLicencasErp();
   const today = todayStr();
   container.innerHTML = clientesOrdenados.map(c => `
     <div class="pendencia-card">
@@ -3425,7 +3432,7 @@ function renderPendencias() {
         <div class="pendencia-card-analista">
           ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
           ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
-          ${(l => l ? `<div class="pca-linha pca-licencas" title="Licenças do cliente: contratadas, ativas e disponíveis (contratadas − ativas)"><span class="pca-rot">Licenças</span><span>Contratadas <b>${l.contratadas ?? '—'}</b></span><span>Ativas <b>${l.ativas ?? '—'}</b></span><span>Disponível <b class="${l.disponiveis !== null && l.disponiveis < 0 ? 'lic-excedido' : ''}">${l.disponiveis ?? '—'}</b></span></div>` : '')(licencasInfo(c))}
+          ${(l => l ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) : 'Licenças digitadas à mão: contratadas, ativas e disponíveis (contratadas − ativas)'}"><span class="pca-rot">Licenças</span><span>Contratadas <b>${l.contratadas ?? '—'}</b></span><span>Ativas <b>${l.ativas ?? '—'}</b></span><span>Disponível <b class="${l.disponiveis !== null && l.disponiveis < 0 ? 'lic-excedido' : ''}">${l.disponiveis ?? '—'}</b></span></div>` : '')(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3645,11 +3652,67 @@ function lerNumeroLicenca(id) {
   const n = Math.floor(Number(v));
   return isNaN(n) || n < 0 ? null : n;
 }
+// Licenças vindas do ERP (função tickets-erp, ?modo=licencas): uma linha por empresa. Carrega uma vez, sob demanda.
+let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
+function garantirLicencasErp() {
+  if (licencasErp !== null || licencasErpCarregando) return;
+  licencasErpCarregando = true;
+  (async () => {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(TICKETS_ERP_FN_URL + '?modo=licencas', { headers: { Authorization: 'Bearer ' + session.access_token } });
+      const json = await res.json();
+      if (!res.ok || json.error || !Array.isArray(json.licencas)) throw new Error(json.error || 'Resposta inesperada (a função tickets-erp precisa ser atualizada).');
+      licencasErp = json.licencas;
+      licencasErpErro = '';
+    } catch (e) {
+      licencasErp = [];            // não insiste a cada render; recarregar a página tenta de novo
+      licencasErpErro = e.message || String(e);
+      console.warn('Licenças do ERP indisponíveis:', licencasErpErro);
+    } finally {
+      licencasErpCarregando = false;
+      if (activeTab === 'pendencias') renderPendencias();
+    }
+  })();
+}
+function normalizaNomeEmpresa(n) {
+  return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\b(ltda|eireli|me|epp|sa|cia|comercio|industria)\b/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// Acha a empresa do cliente no ERP: pelo ID informado; senão pelo nome (igual, ou um começando com o outro — só se for único).
+function empresaErpDoCliente(c) {
+  if (!licencasErp || !licencasErp.length) return null;
+  if (c.erpEmpresaId != null) return licencasErp.find(e => Number(e.empresa_id) === Number(c.erpEmpresaId)) || null;
+  const nome = normalizaNomeEmpresa(c.nome);
+  if (nome.length < 3) return null;
+  const exatas = licencasErp.filter(e => normalizaNomeEmpresa(e.empresa) === nome);
+  if (exatas.length === 1) return exatas[0];
+  if (exatas.length > 1) return null;
+  const parecidas = licencasErp.filter(e => { const n = normalizaNomeEmpresa(e.empresa); return n.length >= 4 && (n.startsWith(nome + ' ') || nome.startsWith(n + ' ')); });
+  return parecidas.length === 1 ? parecidas[0] : null;
+}
 function licencasInfo(c) {
+  const erp = empresaErpDoCliente(c);
+  if (erp) {
+    const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativas = erp.ativas_total;
+    const detalhe = `ERP — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
+    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa };
+  }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
   const disponiveis = contratadas != null ? contratadas - (ativas || 0) : null;
-  return { contratadas, ativas, disponiveis };
+  return { contratadas, ativas, disponiveis, origem: 'manual' };
+}
+function atualizarDicaLicencasErp(cliente) {
+  const el = document.getElementById('f-lic-erp-hint');
+  if (!el) return;
+  const base = (cliente && cliente.nome !== undefined) ? cliente : (currentEditingClient() || {});
+  const c = { ...base, nome: document.getElementById('f-nome').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
+  if (licencasErp === null) { el.textContent = licencasErpCarregando ? 'Consultando o ERP…' : ''; return; }
+  const l = licencasInfo(c);
+  if (l && l.origem === 'erp') el.innerHTML = `✅ Licenças lidas do ERP (${escapeHtml(l.empresa)}): contratadas <b>${l.contratadas}</b>, em uso <b>${l.ativas}</b>, disponíveis <b>${l.disponiveis}</b>. Os campos acima só valem se o ERP não achar a empresa.`;
+  else if (licencasErpErro) el.textContent = '⚠ Não consegui ler o ERP agora (' + licencasErpErro + '). Vale o que está digitado acima.';
+  else el.textContent = 'Empresa não encontrada no ERP pelo nome. Informe o ID da empresa no ERP para buscar sozinho; enquanto isso vale o que está digitado acima.';
 }
 function atualizarLicencasDisponiveis() {
   const c = lerNumeroLicenca('f-lic-contratadas'), a = lerNumeroLicenca('f-lic-ativas');
@@ -3691,6 +3754,8 @@ async function saveClient(silent) {
   const licC = lerNumeroLicenca('f-lic-contratadas'), licA = lerNumeroLicenca('f-lic-ativas');
   if (licC !== null || (existing && existing.licencasContratadas != null)) payload.licencas_contratadas = licC;
   if (licA !== null || (existing && existing.licencasAtivas != null)) payload.licencas_ativas = licA;
+  const erpId = lerNumeroLicenca('f-erp-empresa-id');
+  if (erpId !== null || (existing && existing.erpEmpresaId != null)) payload.erp_empresa_id = erpId;
 
   const { error } = await sb.from('clientes').upsert(payload, { onConflict: 'id' });
   if (error) { alert('Erro ao salvar cliente: ' + error.message); return; }
@@ -3718,6 +3783,7 @@ async function saveClient(silent) {
   }
   c.licencasContratadas = licC;
   c.licencasAtivas = licA;
+  c.erpEmpresaId = erpId;
   c.saude = novaSaude;
   c.saudeMotivo = novoMotivo;
   c.observacao = payload.observacao;
@@ -6374,7 +6440,7 @@ function importJSON(file) {
         const payload = {
           id: c.id, codigo: c.codigo || null, nome: c.nome,
           responsavel: c.responsavel || '', analista_responsavel: c.analistaResponsavel || null, etapa: c.etapa, fase: c.fase || 'implantacao', saude: c.saude || 'verde',
-          saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, previsao_pos_implantacao: c.previsaoPosImplantacao || null, licencas_contratadas: c.licencasContratadas ?? null, licencas_ativas: c.licencasAtivas ?? null, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
+          saude_motivo: c.saudeMotivo || '', observacao: c.observacao || '', inicio: c.inicio, previsao_pos_implantacao: c.previsaoPosImplantacao || null, licencas_contratadas: c.licencasContratadas ?? null, licencas_ativas: c.licencasAtivas ?? null, erp_empresa_id: c.erpEmpresaId ?? null, ultimo_contato: c.ultimoContato || null, proximo_contato: c.proximoContato || null
         };
         await sb.from('clientes').upsert(payload, { onConflict: 'id' });
         for (const ct of (c.contatos || [])) {
