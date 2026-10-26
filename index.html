@@ -3443,7 +3443,7 @@ function renderPendencias() {
         <div class="pendencia-card-analista">
           ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
           ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` : '')(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3720,6 +3720,11 @@ function licencasInfo(c) {
   const disponiveis = contratadas != null ? contratadas - (ativas || 0) : null;
   return { contratadas, ativas, disponiveis, origem: 'manual' };
 }
+function escolherEmpresaErp(id) {
+  if (!id) return;
+  document.getElementById('f-erp-empresa-id').value = id;
+  atualizarDicaLicencasErp();
+}
 function atualizarDicaLicencasErp(cliente) {
   const el = document.getElementById('f-lic-erp-hint');
   if (!el) return;
@@ -3743,7 +3748,19 @@ function atualizarDicaLicencasErp(cliente) {
     </div>`;
   }
   else if (licencasErpErro) el.textContent = '⚠ Não consegui ler o ERP agora (' + licencasErpErro + '). Vale o que está digitado acima.';
-  else el.textContent = 'Empresa não encontrada no ERP pelo nome. Informe o ID da empresa no ERP para buscar sozinho; enquanto isso vale o que está digitado acima.';
+  else if (!licencasErp.length) el.textContent = 'O ERP não devolveu nenhuma empresa. Vale o que está digitado acima.';
+  else {
+    // Não achou pelo nome (ou pelo ID digitado): deixa escolher a empresa numa lista, ordenando as de nome parecido primeiro.
+    const palavras = normalizaNomeEmpresa(c.nome).split(' ').filter(w => w.length >= 3);
+    const parecida = e => { const n = normalizaNomeEmpresa(e.empresa); return palavras.some(w => n.includes(w)); };
+    const lista = [...licencasErp].sort((a, b) => (parecida(b) - parecida(a)) || String(a.empresa).localeCompare(String(b.empresa)));
+    const motivo = c.erpEmpresaId != null ? `Não existe empresa com o ID ${c.erpEmpresaId} no ERP.` : 'Empresa não encontrada no ERP pelo nome.';
+    el.innerHTML = `${motivo} Escolha a empresa na lista (as de nome parecido vêm primeiro) e salve:
+      <select id="f-erp-empresa-select" onchange="escolherEmpresaErp(this.value)" style="margin-top:4px;max-width:100%;">
+        <option value="">— escolher empresa do ERP —</option>
+        ${lista.map(e => `<option value="${e.empresa_id}">${parecida(e) ? '★ ' : ''}${escapeHtml(e.empresa)} (ID ${e.empresa_id})</option>`).join('')}
+      </select>`;
+  }
 }
 function atualizarLicencasDisponiveis() {
   const c = lerNumeroLicenca('f-lic-contratadas'), a = lerNumeroLicenca('f-lic-ativas');
