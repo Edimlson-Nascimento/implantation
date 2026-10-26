@@ -3975,7 +3975,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
   if (!statusEl || !tabelaEl) return;
   if (!forcar && grafanaQuadroUltimasLinhas && Date.now() - grafanaQuadroUltimaBusca < 60000) return;
   grafanaQuadroCarregando = true;
-  statusEl.textContent = 'Buscando do Grafana...';
+  statusEl.textContent = 'Buscando os dados...';
   try {
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(GRAFANA_QUADRO_FN_URL, {
@@ -3987,7 +3987,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
     grafanaQuadroUltimaBusca = Date.now();
     renderQuadroGrafana(grafanaQuadroUltimasLinhas);
     grafanaQuadroHoraUltimoOk = new Date(json.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    statusEl.textContent = `Atualizado às ${grafanaQuadroHoraUltimoOk}`;
+    statusEl.textContent = `Atualizado às ${grafanaQuadroHoraUltimoOk}${json.fonte === 'banco' ? ' · direto do banco do ERP' : ''}`;
     statusEl.style.color = '';
   } catch (e) {
     // O banco do ERP (outro projeto Supabase, ligado ao Grafana) tem um teto de conexões simultâneas;
