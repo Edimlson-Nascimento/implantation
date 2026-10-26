@@ -1283,6 +1283,11 @@
 
   /* ── Próximo agendamento do cliente no cartão de Pendências ── */
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .pend-info-esq { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+  .pend-info-esq .contato-hoje-box { margin: 0; padding: 4px 8px; gap: 6px; font-size: 11.5px; border-radius: 8px; flex-wrap: nowrap; }
+  .pend-info-esq .contato-hoje-box > span { white-space: nowrap; }
+  .pend-info-esq .canal-btns { gap: 3px; }
+  .pend-info-esq .canal-btn { font-size: 12px; padding: 3px 5px; border-radius: 6px; }
   .pend-ags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; min-width: 0; max-width: 100%; }
   .pend-agendamento { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 4px 11px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--light-bg); color: var(--text-main); font: inherit; font-size: 12px; cursor: pointer; min-width: 0; }
   .pend-agendamento:hover { border-color: var(--green-mid); }
@@ -3456,17 +3461,19 @@ function renderPendencias() {
       ${(() => {
         const prazoHtml = (c.fase || 'implantacao') === 'implantacao' ? (p => `<div class="prazo-badge ${p.classe}">⏳ ${p.texto}</div>`)(prazoImplantacaoInfo(c)) : '';
         const agHtml = agendamentoPendenciaHtml(c, today);
-        return (prazoHtml || agHtml) ? `<div class="pend-linha-info">${prazoHtml}${agHtml}</div>` : '';
-      })()}
-      <div class="contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
-        <span>🔔 Entrar em contato com o cliente hoje</span>
-        <div class="canal-btns">
-          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'ligacao' ? 'active' : ''}" data-canal="ligacao" onclick="marcarContatoHoje('${c.id}','ligacao')" title="Ligação">📞</button>
-          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'mensagem' ? 'active' : ''}" data-canal="mensagem" onclick="marcarContatoHoje('${c.id}','mensagem')" title="Mensagem (WhatsApp)">💬</button>
-          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'email' ? 'active' : ''}" data-canal="email" onclick="marcarContatoHoje('${c.id}','email')" title="E-mail">📧</button>
-          <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'reuniao' ? 'active' : ''}" data-canal="reuniao" onclick="marcarContatoHoje('${c.id}','reuniao')" title="Reunião / Call">🤝</button>
+        const contatoHtml = `
+        <div class="contato-hoje-box ${c.ultimoContato === today ? 'feito' : ''}" id="pgeral-contato-box-${c.id}">
+          <span>🔔 Entrar em contato com o cliente hoje</span>
+          <div class="canal-btns">
+            <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'ligacao' ? 'active' : ''}" data-canal="ligacao" onclick="marcarContatoHoje('${c.id}','ligacao')" title="Ligação">📞</button>
+            <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'mensagem' ? 'active' : ''}" data-canal="mensagem" onclick="marcarContatoHoje('${c.id}','mensagem')" title="Mensagem (WhatsApp)">💬</button>
+            <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'email' ? 'active' : ''}" data-canal="email" onclick="marcarContatoHoje('${c.id}','email')" title="E-mail">📧</button>
+            <button type="button" class="canal-btn ${c.ultimoContato === today && c.ultimoContatoCanal === 'reuniao' ? 'active' : ''}" data-canal="reuniao" onclick="marcarContatoHoje('${c.id}','reuniao')" title="Reunião / Call">🤝</button>
+          </div>
         </div>
-      </div>
+      `;
+        return `<div class="pend-linha-info"><div class="pend-info-esq">${prazoHtml}${contatoHtml}</div>${agHtml}</div>`;
+      })()}
       <div class="pend-cols">
         <div class="pend-col cliente">
           <h4>⚠ Do Cliente</h4>
