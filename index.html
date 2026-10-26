@@ -1196,6 +1196,8 @@
   .lic-quadro { border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; padding: 10px 12px; background: var(--light-bg); color: var(--text-main); }
   .lic-quadro-tit { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
   .lic-via { font-weight: 400; color: var(--gray-text); }
+  .lic-mod-tit { margin: 10px 0 4px; font-size: 12px; font-weight: 700; }
+  .pca-modulos b { color: var(--blue, #3B82F6); }
   .lic-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
   .lic-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--white); border: 1px solid var(--border, rgba(127,127,127,.25)); }
   .lic-tile span { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
@@ -3444,7 +3446,7 @@ function renderPendencias() {
         <div class="pendencia-card-analista">
           ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
           ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos adicionais contratados: ${escapeHtml(l.modulos.map(m => m.modulo + ' (' + m.quantidade + ')').join(', '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo)).join(', ')}</b></div>` : '') : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3666,6 +3668,7 @@ function lerNumeroLicenca(id) {
 }
 // Licenças vindas do ERP (função tickets-erp, ?modo=licencas): uma linha por empresa. Carrega uma vez, sob demanda.
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
+let modulosErp = [], modulosErpErro = '';   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
   if (licencasErp !== null || licencasErpCarregando) return;
   licencasErpCarregando = true;
@@ -3676,6 +3679,8 @@ function garantirLicencasErp() {
       const json = await res.json();
       if (!res.ok || json.error || !Array.isArray(json.licencas)) throw new Error(json.error || 'Resposta inesperada (a função tickets-erp precisa ser atualizada).');
       licencasErp = json.licencas;
+      modulosErp = Array.isArray(json.modulos) ? json.modulos : [];
+      modulosErpErro = json.modulos_erro || '';
       licencasErpErro = '';
     } catch (e) {
       licencasErp = [];            // não insiste a cada render; recarregar a página tenta de novo
@@ -3712,6 +3717,16 @@ function empresaErpDoCliente(c) {
   const parecidas = licencasErp.filter(e => { const n = normalizaNomeEmpresa(e.empresa); return n.length >= 4 && (n.startsWith(nome + ' ') || nome.startsWith(n + ' ')); });
   return parecidas.length === 1 ? com(parecidas[0], 'nome') : null;
 }
+function modulosDaEmpresaErp(empresaId) {
+  const porSlug = new Map();
+  modulosErp.filter(m => Number(m.empresa_id) === Number(empresaId)).forEach(m => {
+    const atual = porSlug.get(m.slug);
+    const qtd = Number(m.quantidade_licencas) || 0;
+    if (!atual) porSlug.set(m.slug, { slug: m.slug, modulo: m.modulo || m.slug, descricao: m.descricao || '', quantidade: qtd });
+    else atual.quantidade = Math.max(atual.quantidade, qtd);
+  });
+  return [...porSlug.values()];
+}
 function licencasInfo(c) {
   const erp = empresaErpDoCliente(c);
   if (erp) {
@@ -3722,12 +3737,20 @@ function licencasInfo(c) {
       { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
       { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
     ];
-    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, via: erp._via, tipos };
+    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
   const disponiveis = contratadas != null ? contratadas - (ativas || 0) : null;
   return { contratadas, ativas, disponiveis, origem: 'manual' };
+}
+function modulosHtml(l) {
+  if (modulosErpErro) return `<div class="lic-mod-tit">Módulos adicionais</div><div class="lic-quadro-obs">⚠ Não consegui ler os módulos no ERP (${escapeHtml(modulosErpErro)}).</div>`;
+  if (!l.modulos.length) return `<div class="lic-mod-tit">Módulos adicionais</div><div class="lic-quadro-obs">Nenhum módulo adicional contratado neste projeto de implantação.</div>`;
+  return `<div class="lic-mod-tit">Módulos adicionais</div>
+    <table class="lic-tipos"><thead><tr><th>Módulo</th><th>Licenças</th></tr></thead><tbody>
+      ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td><b>${m.quantidade}</b></td></tr>`).join('')}
+    </tbody></table>`;
 }
 function escolherEmpresaErp(id) {
   if (!id) return;
@@ -3753,6 +3776,7 @@ function atualizarDicaLicencasErp(cliente) {
       <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Ativas</th><th>Disponíveis</th></tr></thead><tbody>
         ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${t.ativas}</td><td>${disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
       </tbody></table>
+      ${modulosHtml(l)}
       <div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>
     </div>`;
   }
