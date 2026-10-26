@@ -3978,7 +3978,7 @@ function mediaIdadeAbertos(lista) {
   return Math.round(total / lista.length);
 }
 
-const GRAFANA_QUADRO_FN_URL = `${SUPABASE_URL}/functions/v1/grafana-quadro-implantacao`;
+const TICKETS_ERP_FN_URL = `${SUPABASE_URL}/functions/v1/tickets-erp`;
 let grafanaQuadroCarregando = false;
 let grafanaQuadroUltimasLinhas = null;
 let grafanaQuadroUltimaBusca = 0;
@@ -3996,7 +3996,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
   statusEl.textContent = 'Buscando os dados...';
   try {
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(GRAFANA_QUADRO_FN_URL, {
+    const res = await fetch(TICKETS_ERP_FN_URL, {
       headers: { Authorization: `Bearer ${session.access_token}` }
     });
     const json = await res.json();
@@ -6871,7 +6871,7 @@ async function desempCarregarTickets() {
   desempTicketsBusca = Date.now();
   try {
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(GRAFANA_QUADRO_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
+    const res = await fetch(TICKETS_ERP_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
     if (json.linhas) { ticketsLinhas = json.linhas; desempTicketsRows = ticketsLinhasParaDesempenho(json.linhas); }
