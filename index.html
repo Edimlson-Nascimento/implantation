@@ -3489,7 +3489,7 @@ function renderPendencias() {
           </div>
         </div>
         <div class="pendencia-card-analista">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span>${l.origem === 'erp' ? `<button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="Ver contratadas, ativas, disponíveis e módulos">${l.contratadas}</button>` : `<b>${l.contratadas}</b>`}</div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="Sem vínculo com o ERP: clique para ver como ligar">—</button></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3878,10 +3878,25 @@ function licencasQuadroHtml(l, comNota) {
 }
 function abrirLicencasCliente(clienteId) {
   const c = state.clients.find(x => x.id === clienteId);
-  const l = c && licencasInfo(c);
-  if (!c || !l || l.origem !== 'erp') return;
+  if (!c) return;
+  const l = licencasInfo(c);
   document.getElementById('tk-cli-titulo').textContent = `Licenças e módulos — ${c.nome}`;
-  document.getElementById('tk-cli-corpo').innerHTML = licencasQuadroHtml(l, false);
+  if (l && l.origem === 'erp') {
+    document.getElementById('tk-cli-corpo').innerHTML = licencasQuadroHtml(l, false);
+  } else {
+    // Sem empresa do ERP ligada: mostra o que foi digitado (se houver) e explica como ligar para ver os tipos Full / CRM / Conversas.
+    const tiles = l ? `<div class="lic-tiles">
+        <div class="lic-tile"><span>Contratadas</span><b>${l.contratadas ?? '—'}</b></div>
+        <div class="lic-tile"><span>Ativas</span><b>${l.ativas ?? '—'}</b></div>
+        <div class="lic-tile"><span>Disponíveis</span><b class="${l.disponiveis !== null && l.disponiveis < 0 ? 'lic-excedido' : ''}">${l.disponiveis ?? '—'}</b></div>
+      </div>` : '';
+    const motivo = licencasErpErro ? `Não consegui ler o ERP agora (${escapeHtml(licencasErpErro)}).` : 'Este cliente não foi encontrado no ERP pelo ID, pelo código nem pelo nome.';
+    document.getElementById('tk-cli-corpo').innerHTML = `<div class="lic-quadro">
+      <div class="lic-quadro-tit">Licenças ${l ? 'digitadas à mão' : 'não informadas'}</div>${tiles}
+      <div class="lic-quadro-obs">${motivo} Os tipos de licença (Full, CRM, Conversas) e os módulos só aparecem quando o cliente está ligado à empresa do ERP: abra o cadastro do cliente e escolha a empresa na lista (ou informe o ID).</div>
+      <div style="margin-top:8px;"><button type="button" class="btn btn-sm" onclick="fecharTicketsCliente(); openModal('${c.id}')">Abrir o cadastro do cliente</button></div>
+    </div>`;
+  }
   document.getElementById('tk-cli-overlay').classList.add('open');
 }
 function atualizarDicaLicencasErp(cliente) {
