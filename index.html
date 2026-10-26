@@ -1245,6 +1245,25 @@
   .tk-seg { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; min-width: 2px; white-space: nowrap; }
   @media (max-width: 600px) { .tk-barra-linha { grid-template-columns: 1fr; gap: 4px; } }
 
+  /* ── Tickets do ERP: botões de período e linha do tempo ── */
+  .tk-periodo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+  .tk-periodo-rot { font-size: 12px; font-weight: 700; color: var(--gray-text); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
+  .tk-datas { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-text); flex-wrap: wrap; }
+  .tk-datas input[type=date] { padding: 5px 8px; font-size: 12.5px; }
+  .tk-periodo-info { font-size: 12px; color: var(--text-main); font-weight: 600; margin-left: 4px; }
+  .tk-linha-wrap { margin-top: 12px; }
+  .tk-linha { display: flex; align-items: flex-end; gap: 5px; height: 128px; overflow-x: auto; padding-bottom: 2px; }
+  .tk-mes { flex: 1 0 38px; max-width: 64px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; cursor: pointer; height: 100%; border-radius: 6px; }
+  .tk-mes:hover { background: var(--light-bg); }
+  .tk-mes-n { font-size: 10.5px; color: var(--gray-text); height: 13px; font-variant-numeric: tabular-nums; }
+  .tk-mes-barra { width: 70%; display: flex; flex-direction: column-reverse; border-radius: 4px 4px 0 0; overflow: hidden; }
+  .tk-mes-rot { font-size: 10.5px; color: var(--gray-text); white-space: nowrap; }
+  .tk-linha.com-filtro .tk-mes:not(.sel) { opacity: .35; }
+  .tk-linha.com-filtro .tk-mes.sel .tk-mes-rot { color: var(--text-main); font-weight: 700; }
+  .tk-linha-leg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: 11.5px; color: var(--gray-text); }
+  .tk-linha-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+  .tk-linha-dica { margin-left: auto; font-style: italic; }
+
   /* ── Próximo agendamento do cliente no cartão de Pendências ── */
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
   .pend-ags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; min-width: 0; max-width: 100%; }
@@ -1698,6 +1717,8 @@
             <button class="btn btn-sm" onclick="carregarQuadroGrafana(true)">🔄 Atualizar</button>
           </div>
         </div>
+        <div id="tk-periodo" class="tk-periodo"></div>
+        <div id="tk-linha" class="tk-linha-wrap"></div>
         <div class="view-toggle" id="tk-abas" style="margin-top:12px;width:fit-content;max-width:100%;flex-wrap:wrap;">
           <button class="view-toggle-btn active" data-visao="clientes" onclick="setTicketsVisao('clientes')">Clientes de implantação</button>
           <button class="view-toggle-btn" data-visao="equipe" onclick="setTicketsVisao('equipe')">Equipe</button>
@@ -3987,7 +4008,7 @@ let grafanaQuadroHoraUltimoOk = '';
 // `forcar` = clique em "Atualizar" ou ciclo de 60s; sem ele (redesenho da aba), só consulta se
 // o dado em memória tiver mais de 60s — redesenhar a aba não deve gerar uma consulta nova ao ERP.
 async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
-  if (grafanaQuadroCarregando) return;
+  if (grafanaQuadroCarregando) { if (forcar) ticketsRecarregar = true; return; }   // clicou noutro período enquanto carregava: refaz depois
   const statusEl = document.getElementById('quadro-grafana-status');
   const tabelaEl = document.getElementById('quadro-grafana-tabela');
   if (!statusEl || !tabelaEl) return;
@@ -3996,14 +4017,16 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
   statusEl.textContent = 'Buscando os dados...';
   try {
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(TICKETS_ERP_FN_URL, {
+    const res = await fetch(TICKETS_ERP_FN_URL + tkQuery(), {
       headers: { Authorization: `Bearer ${session.access_token}` }
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar os tickets no banco do ERP.`);
     if (json.linhas) {
       ticketsLinhas = json.linhas;
-      grafanaQuadroUltimasLinhas = ticketsLinhasParaDesempenho(ticketsLinhas);
+      ticketsMensal = json.mensal || null;
+      // O Desempenho usa o que está sem fechar AGORA (json.abertos), nunca o recorte do período escolhido na tela.
+      grafanaQuadroUltimasLinhas = ticketsLinhasParaDesempenho(json.abertos || json.linhas);
       renderTicketsErp();
     } else {
       // função antiga ainda no ar (devolve só `rows`): mostra a tabela simples até o deploy da nova
@@ -4033,6 +4056,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
     }
   } finally {
     grafanaQuadroCarregando = false;
+    if (ticketsRecarregar) { ticketsRecarregar = false; carregarQuadroGrafana(true); }
   }
 }
 
@@ -4070,6 +4094,100 @@ function renderQuadroGrafana(rows) {
 // grupo = aberto|dev|fechado|cancelado. A função decide a classe e o grupo (ver o SQL em supabase-edge-functions); aqui só somamos.
 let ticketsLinhas = null;
 let ticketsVisao = 'clientes';
+let ticketsMensal = null;          // criados por mês (de sempre): [{mes, classe, grupo, n}]
+let ticketsRecarregar = false;
+let ticketsPeriodo = { chave: 'tudo', desde: null, ate: null };   // filtra pela data de CRIAÇÃO do ticket
+let ticketsPeriodoEditando = false;
+const TK_PERIODOS = [
+  { k: 'tudo', nome: 'Tudo' }, { k: 'mes', nome: 'Este mês' }, { k: 'mes_ant', nome: 'Mês passado' },
+  { k: '30d', nome: 'Últimos 30 dias' }, { k: '90d', nome: 'Últimos 90 dias' }, { k: 'ano', nome: 'Este ano' }, { k: 'custom', nome: 'Período…' }
+];
+const TK_MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const tkPad = n => String(n).padStart(2, '0');
+
+function tkIntervalo(chave) {
+  const hoje = todayStr(); const [y, m] = hoje.split('-').map(Number);
+  if (chave === 'mes') return { desde: `${y}-${tkPad(m)}-01`, ate: hoje };
+  if (chave === 'mes_ant') { const ini = new Date(y, m - 2, 1), fim = new Date(y, m - 1, 0); return { desde: `${ini.getFullYear()}-${tkPad(ini.getMonth() + 1)}-01`, ate: `${fim.getFullYear()}-${tkPad(fim.getMonth() + 1)}-${tkPad(fim.getDate())}` }; }
+  if (chave === '30d') return { desde: addDays(hoje, -29), ate: hoje };
+  if (chave === '90d') return { desde: addDays(hoje, -89), ate: hoje };
+  if (chave === 'ano') return { desde: `${y}-01-01`, ate: hoje };
+  return { desde: null, ate: null };   // tudo
+}
+function tkQuery() {
+  const p = [];
+  if (ticketsPeriodo.desde) p.push('desde=' + ticketsPeriodo.desde);
+  if (ticketsPeriodo.ate) p.push('ate=' + ticketsPeriodo.ate);
+  return p.length ? '?' + p.join('&') : '';
+}
+function tkRotuloPeriodo() {
+  if (!ticketsPeriodo.desde && !ticketsPeriodo.ate) return 'desde o primeiro ticket';
+  return (ticketsPeriodo.desde ? 'de ' + formatDate(ticketsPeriodo.desde) : 'até') + (ticketsPeriodo.ate ? (ticketsPeriodo.desde ? ' a ' : ' ') + formatDate(ticketsPeriodo.ate) : '');
+}
+function setTicketsPeriodo(chave) {
+  if (chave === 'custom') { ticketsPeriodoEditando = true; renderTicketsPeriodo(); return; }
+  ticketsPeriodoEditando = false;
+  ticketsPeriodo = { chave, ...tkIntervalo(chave) };
+  renderTicketsPeriodo();
+  carregarQuadroGrafana(true);
+}
+function aplicarTicketsPeriodoCustom() {
+  const de = document.getElementById('tk-de').value || null, ate = document.getElementById('tk-ate').value || null;
+  if (!de && !ate) { alert('Escolha pelo menos uma das datas.'); return; }
+  if (de && ate && de > ate) { alert('A data inicial não pode ser depois da final.'); return; }
+  ticketsPeriodoEditando = false;
+  ticketsPeriodo = { chave: 'custom', desde: de, ate: ate };
+  renderTicketsPeriodo();
+  carregarQuadroGrafana(true);
+}
+function setTicketsMes(mes) {   // clique numa barra da linha do tempo: filtra aquele mês
+  const [y, m] = mes.split('-').map(Number);
+  ticketsPeriodoEditando = false;
+  ticketsPeriodo = { chave: 'custom', desde: `${mes}-01`, ate: `${mes}-${tkPad(new Date(y, m, 0).getDate())}` };
+  renderTicketsPeriodo();
+  carregarQuadroGrafana(true);
+}
+
+// Botões de período + linha do tempo (tickets criados por mês, por tipo de cliente). Clicar numa barra filtra o mês.
+function renderTicketsPeriodo() {
+  const barra = document.getElementById('tk-periodo'), linha = document.getElementById('tk-linha');
+  if (!barra || !linha) return;
+  barra.innerHTML = `
+    <span class="tk-periodo-rot">Criados em:</span>
+    ${TK_PERIODOS.map(p => `<button type="button" class="ativ-chip${(p.k === 'custom' ? (ticketsPeriodo.chave === 'custom' || ticketsPeriodoEditando) : (ticketsPeriodo.chave === p.k && !ticketsPeriodoEditando)) ? ' active' : ''}" onclick="setTicketsPeriodo('${p.k}')">${p.nome}</button>`).join('')}
+    ${ticketsPeriodoEditando || ticketsPeriodo.chave === 'custom' ? `
+      <span class="tk-datas"><input type="date" id="tk-de" value="${ticketsPeriodo.desde || ''}"> até <input type="date" id="tk-ate" value="${ticketsPeriodo.ate || ''}">
+      <button type="button" class="btn btn-sm" onclick="aplicarTicketsPeriodoCustom()">Aplicar</button></span>` : ''}
+    <span class="tk-periodo-info">${ticketsPeriodo.chave === 'tudo' ? '' : tkRotuloPeriodo()}</span>`;
+
+  if (!ticketsMensal || !ticketsMensal.length) { linha.innerHTML = ''; return; }
+  const porMes = new Map();
+  ticketsMensal.forEach(r => {
+    const m = porMes.get(r.mes) || { total: 0, classes: {} };
+    m.total += r.n; m.classes[r.classe] = (m.classes[r.classe] || 0) + r.n; porMes.set(r.mes, m);
+  });
+  const meses = [...porMes.keys()].sort();
+  const lista = [];   // sem buracos: meses sem ticket aparecem vazios
+  let [y, m] = meses[0].split('-').map(Number); const [yf, mf] = meses[meses.length - 1].split('-').map(Number);
+  while (y < yf || (y === yf && m <= mf)) { lista.push(`${y}-${tkPad(m)}`); m++; if (m > 12) { m = 1; y++; } }
+  const maximo = Math.max(...lista.map(k => (porMes.get(k) || { total: 0 }).total), 1);
+  const filtrado = !!(ticketsPeriodo.desde || ticketsPeriodo.ate);
+  linha.innerHTML = `
+    <div class="tk-linha${filtrado ? ' com-filtro' : ''}">
+      ${lista.map(k => {
+        const d = porMes.get(k) || { total: 0, classes: {} };
+        const [yy, mm] = k.split('-').map(Number);
+        const ini = `${k}-01`, fim = `${k}-${tkPad(new Date(yy, mm, 0).getDate())}`;
+        const sel = !filtrado || ((!ticketsPeriodo.ate || ini <= ticketsPeriodo.ate) && (!ticketsPeriodo.desde || fim >= ticketsPeriodo.desde));
+        const tip = `${TK_MESES[mm - 1]}/${yy}: ${d.total} ticket(s) criados` + TK_CLASSES.map(c => d.classes[c.k] ? ` · ${c.nome} ${d.classes[c.k]}` : '').join('');
+        return `<div class="tk-mes${sel ? ' sel' : ''}" onclick="setTicketsMes('${k}')" title="${tip}">
+          <div class="tk-mes-n">${d.total || ''}</div>
+          <div class="tk-mes-barra">${TK_CLASSES.map(c => d.classes[c.k] ? `<div style="height:${Math.max(2, d.classes[c.k] / maximo * 70)}px;background:${c.cor};"></div>` : '').join('')}</div>
+          <div class="tk-mes-rot">${TK_MESES[mm - 1]}/${String(yy).slice(2)}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="tk-linha-leg">${TK_CLASSES.map(c => `<span><i style="background:${c.cor}"></i>${c.nome}</span>`).join('')}<span class="tk-linha-dica">Tickets criados por mês — clique numa barra para filtrar o mês</span></div>`;
+}
 const TK_GRUPOS = [
   { k: 'aberto', nome: 'Abertos', cor: '#F59E0B' },
   { k: 'dev', nome: 'Desenvolvimento / Roadmap', cor: '#8B5CF6' },
@@ -4117,12 +4235,16 @@ function setTicketsVisao(v) {
 const tkCelula = (n, destacar) => `<td class="tabular${destacar && n ? ' destaque' : ''}">${n}</td>`;
 
 function renderTicketsErp() {
+  renderTicketsPeriodo();
   const el = document.getElementById('quadro-grafana-tabela');
   if (!el) return;
-  if (!ticketsLinhas || !ticketsLinhas.length) { el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Sem tickets retornados pelo banco do ERP.</p>`; return; }
+  if (!ticketsLinhas || !ticketsLinhas.length) {
+    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Nenhum ticket criado ${ticketsPeriodo.chave === 'tudo' ? 'no banco do ERP' : tkRotuloPeriodo()}.</p>`;
+    return;
+  }
   document.querySelectorAll('#tk-abas .view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.visao === ticketsVisao));
 
-  const legendaGrupos = `<p class="pizza-explicacao" style="margin-top:10px;"><b>Abertos</b> = Aberto, Em Análise, Em Andamento e as duas Validações · <b>Desenvolvimento / Roadmap</b> = Fila de Desenvolvimento e Roadmap Futuro (fila do desenvolvimento, não é trabalho da implantação) · <b>Fechados</b> = Fechado e Resolvido.</p>`;
+  const legendaGrupos = `<p class="pizza-explicacao" style="margin-top:10px;"><b>Abertos</b> = Aberto, Em Análise, Em Andamento e as duas Validações · <b>Desenvolvimento / Roadmap</b> = Fila de Desenvolvimento e Roadmap Futuro (fila do desenvolvimento, não é trabalho da implantação) · <b>Fechados</b> = Fechado e Resolvido. O filtro de data usa a <b>data de criação</b> do ticket e mostra a situação de hoje (o ERP não guarda uma data de fechamento confiável).</p>`;
   const pizzas = [];   // [{id, titulo, itens}] — desenhadas depois que o HTML entra na página
 
   if (ticketsVisao === 'clientes') {
@@ -6874,7 +6996,7 @@ async function desempCarregarTickets() {
     const res = await fetch(TICKETS_ERP_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
-    if (json.linhas) { ticketsLinhas = json.linhas; desempTicketsRows = ticketsLinhasParaDesempenho(json.linhas); }
+    if (json.linhas) desempTicketsRows = ticketsLinhasParaDesempenho(json.abertos || json.linhas);
     else desempTicketsRows = json.rows || [];
     desempTicketsErro = '';
   } catch (e) {
