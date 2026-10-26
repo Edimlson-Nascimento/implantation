@@ -1677,8 +1677,8 @@
       <div class="ind-bloco bloco-grafana" id="ind-grafana-wrap">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
           <div>
-            <h3 style="margin:0;font-size:14px;color:var(--text-main);">🎫 Tickets Time Implantação (Grafana)</h3>
-            <p class="pizza-explicacao" style="margin-top:4px;">Puxado ao vivo do painel "Tickets Time Implantação" do Grafana — quantidade de tickets por cliente, com a divisão por pessoa da equipe.</p>
+            <h3 style="margin:0;font-size:14px;color:var(--text-main);">🎫 Tickets Time Implantação</h3>
+            <p class="pizza-explicacao" style="margin-top:4px;">Lido direto do banco do ERP — quantidade de tickets por cliente, com a divisão por pessoa da equipe.</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span id="quadro-grafana-status" style="font-size:11.5px;color:var(--gray-text);"></span>
@@ -3982,7 +3982,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
       headers: { Authorization: `Bearer ${session.access_token}` }
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar dados do Grafana.`);
+    if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar os tickets no banco do ERP.`);
     grafanaQuadroUltimasLinhas = json.rows || [];
     grafanaQuadroUltimaBusca = Date.now();
     renderQuadroGrafana(grafanaQuadroUltimasLinhas);
@@ -3999,7 +3999,7 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
       statusEl.style.color = 'var(--amber)';
     } else {
       statusEl.textContent = '';
-      tabelaEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Não consegui buscar os dados do Grafana: ${escapeHtml(resumo)}.${ocupado ? ' Tentando de novo automaticamente — ou clique em "Atualizar".' : ''}</p>
+      tabelaEl.innerHTML = `<p style="color:var(--red);font-size:13px;">Não consegui buscar os tickets do ERP:${escapeHtml(resumo)}.${ocupado ? ' Tentando de novo automaticamente — ou clique em "Atualizar".' : ''}</p>
         <details style="margin-top:6px;font-size:11.5px;color:var(--gray-text);"><summary style="cursor:pointer;">Detalhe técnico</summary><div style="margin-top:4px;word-break:break-word;">${escapeHtml(e.message)}</div></details>`;
     }
     if (ocupado && tentativa < 3) {
@@ -4018,7 +4018,7 @@ function renderQuadroGrafana(rows) {
   const el = document.getElementById('quadro-grafana-tabela');
   if (!el) return;
   if (!rows || !rows.length) {
-    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Sem dados retornados pelo Grafana.</p>`;
+    el.innerHTML = `<p style="color:var(--gray-text);font-size:13px;">Sem dados retornados pelo banco do ERP.</p>`;
     return;
   }
   const colunas = Object.keys(rows[0]);
@@ -6719,7 +6719,7 @@ function desempLeitura(m, ticketsMedia) {
     else perfil.push('Ciclo de entrega longo (' + desempF1(m.lead) + ' dias em média): pode indicar demandas mais complexas ou dependentes de terceiros — vale confirmar no 1:1.');
   }
   if (m.cart.total) perfil.push('Responsável por ' + desempPlural(m.cart.total, 'cliente', 'clientes') + ' em implantação.');
-  if (m.tickets) perfil.push('Carga de ' + desempPlural(m.tickets.total, 'ticket', 'tickets') + ' no quadro do Grafana.');
+  if (m.tickets) perfil.push('Carga de ' + desempPlural(m.tickets.total, 'ticket', 'tickets') + ' no quadro de tickets.');
   if (m.plano.previsto > 0 && m.plano.fora > 0) perfil.push(desempPlural(m.plano.fora, 'entrega fora do plano da sprint', 'entregas fora do plano da sprint') + ' (demanda não prevista na Planning).');
   const urg = m.porPrioridade.filter(p => p.k === 'red' || p.k === 'orange').reduce((x, p) => x + p.entregues, 0);
   if (nEnt > 0 && urg > 0) perfil.push(Math.round(urg / nEnt * 100) + '% das entregas foram urgentes (incidente crítico ou alta urgência).');
@@ -6839,7 +6839,7 @@ function renderDesempenho() {
     + tile(eq.atrasados.length, 'Atrasados em aberto')
     + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Lead time médio')
     + tile(eq.plano.pct === null ? '—' : eq.plano.pct + '%', 'Previsto × entregue')
-    + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets (Grafana)')
+    + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets')
     + '</div>';
 
   const cards = d.analistas.map((a, i) => {
@@ -6891,7 +6891,7 @@ function renderDesempenho() {
       + faixa('<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml + impedidosHtml)
       + faixa('<div class="dm-sec">Entregues ' + noPer + '</div>' + entreguesHtml)
       + faixa('<div class="dm-sec">Prioridade das atividades</div>' + prioHtml)
-      + faixa('<div class="dm-sec">Tickets (Grafana)</div>' + tk)
+      + faixa('<div class="dm-sec">Tickets</div>' + tk)
       + faixa('<div class="dm-sec">Carteira</div>' + cart)
       + faixa('<div class="dm-sec">Agenda ' + (ehMes ? 'do mês' : 'da semana') + '</div><div style="font-size:12.5px;color:#334155;"><b>' + m.agenda.feitas + '</b> de <b>' + m.agenda.semana + '</b> concluídos · ' + m.agenda.reagendadas + ' reagendado(s) · ' + m.agenda.atrasadas + ' vencido(s) sem baixa</div>')
       + faixa('<div class="dm-leitura"><div class="dm-sec">Leitura ' + (ehMes ? 'do mês' : 'da semana') + '</div><h4>Perfil</h4>' + ul(L.perfil) + '</div>')
@@ -6930,7 +6930,7 @@ function desempTextoRelatorio() {
   L.push('• Atrasados em aberto: ' + eq.atrasados.length);
   L.push('• Lead time médio: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
   L.push('• Previsto × entregue na sprint: ' + (eq.plano.previsto ? eq.plano.entregue + ' de ' + eq.plano.previsto + ' (' + eq.plano.pct + '%)' : '—'));
-  if (d.ticketsTotal !== null) L.push('• Tickets (Grafana): ' + d.ticketsTotal);
+  if (d.ticketsTotal !== null) L.push('• Tickets: ' + d.ticketsTotal);
   }
   d.analistas.forEach(a => {
     const m = a.m, lt = a.leitura;
