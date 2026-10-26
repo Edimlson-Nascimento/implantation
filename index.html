@@ -1201,6 +1201,8 @@
   .mod-demo { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(245,158,11,.2); color: var(--amber); vertical-align: 1px; }
   .tk-count-btn { border: 1px solid var(--amber); background: transparent; color: var(--amber); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1; padding: 2px 9px; border-radius: 999px; cursor: pointer; }
   .tk-count-btn:hover { background: var(--amber); color: #1a1a1a; }
+  .tk-count-btn.tk-neutro { border-color: var(--gray-text); color: var(--text-main); }
+  .tk-count-btn.tk-neutro:hover { background: var(--text-main); color: var(--white); }
   .tk-cli-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
   .tk-cli-tabela th { text-align: left; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); padding: 4px 8px; }
   .tk-cli-tabela td { padding: 6px 8px; border-top: 1px solid var(--border, rgba(127,127,127,.2)); vertical-align: top; }
@@ -3484,7 +3486,7 @@ function renderPendencias() {
           </div>
         </div>
         <div class="pendencia-card-analista">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span>${l.origem === 'erp' ? `<button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="Ver contratadas, ativas, disponíveis e módulos">${l.contratadas}</button>` : `<b>${l.contratadas}</b>`}</div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3831,16 +3833,10 @@ function escolherEmpresaErp(id) {
   document.getElementById('f-erp-empresa-id').value = id;
   atualizarDicaLicencasErp();
 }
-function atualizarDicaLicencasErp(cliente) {
-  const el = document.getElementById('f-lic-erp-hint');
-  if (!el) return;
-  const base = (cliente && cliente.nome !== undefined) ? cliente : (currentEditingClient() || {});
-  const c = { ...base, nome: document.getElementById('f-nome').value, codigo: document.getElementById('f-codigo').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
-  if (licencasErp === null) { el.textContent = licencasErpCarregando ? 'Consultando o ERP…' : ''; return; }
-  const l = licencasInfo(c);
-  if (l && l.origem === 'erp') {
-    const disp = n => `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
-    el.innerHTML = `<div class="lic-quadro">
+// Quadro de licenças e módulos lidos do ERP (usado no cadastro do cliente e no modal aberto pelo cartão de Pendências).
+function licencasQuadroHtml(l, comNota) {
+  const disp = n => `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
+  return `<div class="lic-quadro">
       <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)} <span class="lic-via">(${l.via === 'id' ? 'pelo ID informado' : l.via === 'codigo' ? 'pelo código do cliente = ID da empresa no ERP' : 'pelo nome — confira se é a empresa certa'})</span></div>
       <div class="lic-tiles">
         <div class="lic-tile"><span>Contratadas</span><b>${l.contratadas}</b></div>
@@ -3851,8 +3847,26 @@ function atualizarDicaLicencasErp(cliente) {
         ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${t.ativas}</td><td>${disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
       </tbody></table>
       ${modulosHtml(l)}
-      <div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>
+      ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>` : ''}
     </div>`;
+}
+function abrirLicencasCliente(clienteId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  const l = c && licencasInfo(c);
+  if (!c || !l || l.origem !== 'erp') return;
+  document.getElementById('tk-cli-titulo').textContent = `Licenças e módulos — ${c.nome}`;
+  document.getElementById('tk-cli-corpo').innerHTML = licencasQuadroHtml(l, false);
+  document.getElementById('tk-cli-overlay').classList.add('open');
+}
+function atualizarDicaLicencasErp(cliente) {
+  const el = document.getElementById('f-lic-erp-hint');
+  if (!el) return;
+  const base = (cliente && cliente.nome !== undefined) ? cliente : (currentEditingClient() || {});
+  const c = { ...base, nome: document.getElementById('f-nome').value, codigo: document.getElementById('f-codigo').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
+  if (licencasErp === null) { el.textContent = licencasErpCarregando ? 'Consultando o ERP…' : ''; return; }
+  const l = licencasInfo(c);
+  if (l && l.origem === 'erp') {
+    el.innerHTML = licencasQuadroHtml(l, true);
   }
   else if (licencasErpErro) el.textContent = '⚠ Não consegui ler o ERP agora (' + licencasErpErro + '). Vale o que está digitado acima.';
   else if (!licencasErp.length) el.textContent = 'O ERP não devolveu nenhuma empresa. Vale o que está digitado acima.';
