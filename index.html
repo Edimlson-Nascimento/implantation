@@ -3443,7 +3443,7 @@ function renderPendencias() {
         <div class="pendencia-card-analista">
           ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
           ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
-          ${(l => l && l.ativas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Usuários informados à mão no cadastro do cliente'}"><span class="pca-rot">Usuários</span><b>${l.ativas}</b></div>` : '')(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` : '')(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
