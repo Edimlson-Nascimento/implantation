@@ -1198,6 +1198,7 @@
   .lic-via { font-weight: 400; color: var(--gray-text); }
   .lic-mod-tit { margin: 10px 0 4px; font-size: 12px; font-weight: 700; }
   .pca-modulos b { color: var(--blue, #3B82F6); }
+  .mod-demo { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(245,158,11,.2); color: var(--amber); vertical-align: 1px; }
   .tk-count-btn { border: 1px solid var(--amber); background: transparent; color: var(--amber); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1; padding: 2px 9px; border-radius: 999px; cursor: pointer; }
   .tk-count-btn:hover { background: var(--amber); color: #1a1a1a; }
   .tk-cli-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -3483,7 +3484,7 @@ function renderPendencias() {
           </div>
         </div>
         <div class="pendencia-card-analista">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos adicionais contratados: ${escapeHtml(l.modulos.map(m => m.modulo + ' (' + m.quantidade + ')').join(', '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo)).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3708,7 +3709,7 @@ function lerNumeroLicenca(id) {
 // Licenças vindas do ERP (função tickets-erp, ?modo=licencas): uma linha por empresa. Carrega uma vez, sob demanda.
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
 let ticketsAbertosErp = null, ticketsAbertosErpErro = '', ticketsTituloColuna = null, ticketsColunasErp = [];  // tickets em aberto por empresa (lista), junto das licenças
-let modulosErp = [], modulosErpErro = '';   // add-ons por empresa (wiz_projetos), vêm junto das licenças
+let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
   if (licencasErp !== null || licencasErpCarregando) return;
   licencasErpCarregando = true;
@@ -3721,6 +3722,7 @@ function garantirLicencasErp() {
       licencasErp = json.licencas;
       modulosErp = Array.isArray(json.modulos) ? json.modulos : [];
       modulosErpErro = json.modulos_erro || '';
+      modulosProjetoErpErro = json.modulos_projeto_erro || '';
       ticketsAbertosErp = Array.isArray(json.tickets_abertos) ? json.tickets_abertos : null;   // null = função antiga, sem tickets
       ticketsAbertosErpErro = json.tickets_erro || '';
       ticketsTituloColuna = json.tickets_titulo_coluna || null;
@@ -3779,15 +3781,24 @@ function ticketsLinhaHtml(c, l) {
     : '<b>0</b>';
   return `<div class="pca-linha pca-licencas pca-tickets"><span class="pca-rot">Tickets</span>${valor}</div>`;
 }
+// Módulos da empresa no ERP. Duas origens: 'empresa' (sis42_modulos_empresa: estado atual, contratado ou demo — a fonte do
+// InteliWizard "Módulo para cliente que já existe") e 'projeto' (add-ons do resumo da implantação, wiz_projetos).
+// O mesmo módulo nas duas vira uma linha só, valendo a da empresa.
 function modulosDaEmpresaErp(empresaId) {
   const porSlug = new Map();
   modulosErp.filter(m => Number(m.empresa_id) === Number(empresaId)).forEach(m => {
+    const origem = m.origem === 'projeto' ? 'projeto' : 'empresa';
+    const qtd = m.quantidade_licencas == null ? null : Number(m.quantidade_licencas);
+    const novo = { slug: m.slug, modulo: m.modulo || m.slug, descricao: m.descricao || '', quantidade: qtd, origem, status: origem === 'empresa' ? (m.status_modulo || 'contratado') : 'projeto', demoInicio: m.demo_inicio || null };
     const atual = porSlug.get(m.slug);
-    const qtd = Number(m.quantidade_licencas) || 0;
-    if (!atual) porSlug.set(m.slug, { slug: m.slug, modulo: m.modulo || m.slug, descricao: m.descricao || '', quantidade: qtd });
-    else atual.quantidade = Math.max(atual.quantidade, qtd);
+    if (!atual || (atual.origem === 'projeto' && origem === 'empresa')) porSlug.set(m.slug, novo);
   });
-  return [...porSlug.values()];
+  return [...porSlug.values()].sort((a, b) => String(a.modulo).localeCompare(String(b.modulo)));
+}
+function rotuloStatusModulo(m) {
+  if (m.status === 'demo') return 'Demonstração' + (m.demoInicio ? ' desde ' + formatDate(String(m.demoInicio).slice(0, 10)) : '');
+  if (m.status === 'projeto') return 'Add-on do projeto';
+  return 'Contratado';
 }
 function licencasInfo(c) {
   const erp = empresaErpDoCliente(c);
@@ -3807,36 +3818,14 @@ function licencasInfo(c) {
   return { contratadas, ativas, disponiveis, origem: 'manual' };
 }
 function modulosHtml(l) {
-  if (modulosErpErro) return `<div class="lic-mod-tit">Módulos adicionais</div><div class="lic-quadro-obs">⚠ Não consegui ler os módulos no ERP (${escapeHtml(modulosErpErro)}).</div>`;
-  if (!l.modulos.length) return `<div class="lic-mod-tit">Módulos adicionais</div><div class="lic-quadro-obs">Nenhum módulo adicional contratado neste projeto de implantação.</div>`;
-  return `<div class="lic-mod-tit">Módulos adicionais</div>
-    <table class="lic-tipos"><thead><tr><th>Módulo</th><th>Licenças</th></tr></thead><tbody>
-      ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td><b>${m.quantidade}</b></td></tr>`).join('')}
-    </tbody></table>`;
+  const aviso = (modulosErpErro ? `<div class="lic-quadro-obs">⚠ Não consegui ler os módulos da empresa no ERP (${escapeHtml(modulosErpErro)}).</div>` : '')
+    + (modulosProjetoErpErro ? `<div class="lic-quadro-obs">⚠ Não consegui ler os add-ons do projeto de implantação (${escapeHtml(modulosProjetoErpErro)}).</div>` : '');
+  if (!l.modulos.length) return `<div class="lic-mod-tit">Módulos extras</div>${aviso || '<div class="lic-quadro-obs">Nenhum módulo extra contratado ou em demonstração.</div>'}`;
+  return `<div class="lic-mod-tit">Módulos extras</div>
+    <table class="lic-tipos"><thead><tr><th>Módulo</th><th>Situação</th><th>Licenças</th></tr></thead><tbody>
+      ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td>${escapeHtml(rotuloStatusModulo(m))}</td><td><b>${m.quantidade != null ? m.quantidade : '—'}</b></td></tr>`).join('')}
+    </tbody></table>${aviso}`;
 }
-function abrirTicketsCliente(clienteId) {
-  const c = state.clients.find(x => x.id === clienteId);
-  const l = c && licencasInfo(c);
-  if (!c || !l || l.origem !== 'erp') return;
-  const lista = ticketsAbertosDaEmpresa(l.empresaId);
-  document.getElementById('tk-cli-titulo').textContent = `Tickets em aberto — ${c.nome}`;
-  const linhas = lista.map(t => {
-    const dias = t.criado_em ? diasDesde(t.criado_em) : null;
-    return `<tr>
-      <td class="tk-num">${escapeHtml(t.numero ?? t.id)}</td>
-      <td>${t.titulo ? escapeHtml(t.titulo) : '<span class="tk-sem-titulo">—</span>'}</td>
-      <td>${escapeHtml(String(t.status || '').replace(/^\d+\s*-\s*/, ''))}${t.grupo === 'dev' ? ' <span class="tk-dev" title="Fila do desenvolvimento">dev</span>' : ''}</td>
-      <td>${escapeHtml(t.pessoa || '')}</td>
-      <td>${t.criado_em ? formatDate(String(t.criado_em).slice(0, 10)) + (dias != null ? ` <span class="tk-sem-titulo">(${dias}d)</span>` : '') : ''}</td>
-    </tr>`;
-  }).join('');
-  const aviso = ticketsTituloColuna ? '' : `<div class="lic-quadro-obs" style="margin-bottom:6px;">⚠ Não identifiquei a coluna do nome do ticket no ERP${ticketsColunasErp.length ? ' (colunas da tabela: ' + escapeHtml(ticketsColunasErp.join(', ')) + ')' : ''}; por isso só aparece o número.</div>`;
-  document.getElementById('tk-cli-corpo').innerHTML = lista.length
-    ? `${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
-    : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
-  document.getElementById('tk-cli-overlay').classList.add('open');
-}
-function fecharTicketsCliente() { document.getElementById('tk-cli-overlay').classList.remove('open'); }
 function escolherEmpresaErp(id) {
   if (!id) return;
   document.getElementById('f-erp-empresa-id').value = id;
