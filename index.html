@@ -1198,6 +1198,14 @@
   .lic-via { font-weight: 400; color: var(--gray-text); }
   .lic-mod-tit { margin: 10px 0 4px; font-size: 12px; font-weight: 700; }
   .pca-modulos b { color: var(--blue, #3B82F6); }
+  .tk-count-btn { border: 1px solid var(--amber); background: transparent; color: var(--amber); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1; padding: 2px 9px; border-radius: 999px; cursor: pointer; }
+  .tk-count-btn:hover { background: var(--amber); color: #1a1a1a; }
+  .tk-cli-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tk-cli-tabela th { text-align: left; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); padding: 4px 8px; }
+  .tk-cli-tabela td { padding: 6px 8px; border-top: 1px solid var(--border, rgba(127,127,127,.2)); vertical-align: top; }
+  .tk-num { font-weight: 700; white-space: nowrap; }
+  .tk-sem-titulo { color: var(--gray-text); font-size: 11.5px; }
+  .tk-dev { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(139,92,246,.18); color: #8B5CF6; }
   .lic-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
   .lic-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--white); border: 1px solid var(--border, rgba(127,127,127,.25)); }
   .lic-tile span { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
@@ -1942,6 +1950,17 @@
 </div>
 
 <!-- ══ MODAL ATIVIDADES DA ETAPA DE TREINAMENTO ══ -->
+<div class="modal-overlay" id="tk-cli-overlay" onclick="if(event.target===this) fecharTicketsCliente()">
+  <div class="modal-box" style="max-width:760px;">
+    <h2 id="tk-cli-titulo">Tickets em aberto</h2>
+    <div id="tk-cli-corpo" style="margin-top:8px;"></div>
+    <div class="modal-footer">
+      <div></div>
+      <div style="display:flex;gap:8px;margin-left:auto;"><button class="btn" onclick="fecharTicketsCliente()">Fechar</button></div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="trein-atividades-modal-overlay">
   <div class="modal-box" style="max-width:420px;">
     <h2 id="trein-atividades-modal-title">Atividades da Etapa</h2>
@@ -3462,7 +3481,7 @@ function renderPendencias() {
           </div>
         </div>
         <div class="pendencia-card-analista">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos adicionais contratados: ${escapeHtml(l.modulos.map(m => m.modulo + ' (' + m.quantidade + ')').join(', '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo)).join(', ')}</b></div>` : '') : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos adicionais contratados: ${escapeHtml(l.modulos.map(m => m.modulo + ' (' + m.quantidade + ')').join(', '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo)).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3686,6 +3705,7 @@ function lerNumeroLicenca(id) {
 }
 // Licenças vindas do ERP (função tickets-erp, ?modo=licencas): uma linha por empresa. Carrega uma vez, sob demanda.
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
+let ticketsAbertosErp = null, ticketsAbertosErpErro = '', ticketsTituloColuna = null, ticketsColunasErp = [];  // tickets em aberto por empresa (lista), junto das licenças
 let modulosErp = [], modulosErpErro = '';   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
   if (licencasErp !== null || licencasErpCarregando) return;
@@ -3699,6 +3719,10 @@ function garantirLicencasErp() {
       licencasErp = json.licencas;
       modulosErp = Array.isArray(json.modulos) ? json.modulos : [];
       modulosErpErro = json.modulos_erro || '';
+      ticketsAbertosErp = Array.isArray(json.tickets_abertos) ? json.tickets_abertos : null;   // null = função antiga, sem tickets
+      ticketsAbertosErpErro = json.tickets_erro || '';
+      ticketsTituloColuna = json.tickets_titulo_coluna || null;
+      ticketsColunasErp = json.tickets_colunas || [];
       licencasErpErro = '';
     } catch (e) {
       licencasErp = [];            // não insiste a cada render; recarregar a página tenta de novo
@@ -3735,6 +3759,18 @@ function empresaErpDoCliente(c) {
   const parecidas = licencasErp.filter(e => { const n = normalizaNomeEmpresa(e.empresa); return n.length >= 4 && (n.startsWith(nome + ' ') || nome.startsWith(n + ' ')); });
   return parecidas.length === 1 ? com(parecidas[0], 'nome') : null;
 }
+function ticketsAbertosDaEmpresa(empresaId) {
+  return (ticketsAbertosErp || []).filter(t => Number(t.empresa_id) === Number(empresaId));
+}
+// Linha "Tickets N" do cartão de Pendências: só a quantidade; clicando abre a lista (número e nome).
+function ticketsLinhaHtml(c, l) {
+  if (!l || l.origem !== 'erp' || ticketsAbertosErp === null || ticketsAbertosErpErro) return '';
+  const n = ticketsAbertosDaEmpresa(l.empresaId).length;
+  const valor = n > 0
+    ? `<button type="button" class="tk-count-btn" onclick="abrirTicketsCliente('${c.id}')" title="Ver os ${n} ticket${n === 1 ? '' : 's'} em aberto">${n}</button>`
+    : '<b>0</b>';
+  return `<div class="pca-linha pca-licencas pca-tickets"><span class="pca-rot">Tickets</span>${valor}</div>`;
+}
 function modulosDaEmpresaErp(empresaId) {
   const porSlug = new Map();
   modulosErp.filter(m => Number(m.empresa_id) === Number(empresaId)).forEach(m => {
@@ -3755,7 +3791,7 @@ function licencasInfo(c) {
       { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
       { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
     ];
-    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
+    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, empresaId: erp.empresa_id, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
@@ -3770,6 +3806,29 @@ function modulosHtml(l) {
       ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td><b>${m.quantidade}</b></td></tr>`).join('')}
     </tbody></table>`;
 }
+function abrirTicketsCliente(clienteId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  const l = c && licencasInfo(c);
+  if (!c || !l || l.origem !== 'erp') return;
+  const lista = ticketsAbertosDaEmpresa(l.empresaId);
+  document.getElementById('tk-cli-titulo').textContent = `Tickets em aberto — ${c.nome}`;
+  const linhas = lista.map(t => {
+    const dias = t.criado_em ? diasDesde(t.criado_em) : null;
+    return `<tr>
+      <td class="tk-num">${escapeHtml(t.numero ?? t.id)}</td>
+      <td>${t.titulo ? escapeHtml(t.titulo) : '<span class="tk-sem-titulo">—</span>'}</td>
+      <td>${escapeHtml(String(t.status || '').replace(/^\d+\s*-\s*/, ''))}${t.grupo === 'dev' ? ' <span class="tk-dev" title="Fila do desenvolvimento">dev</span>' : ''}</td>
+      <td>${escapeHtml(t.pessoa || '')}</td>
+      <td>${t.criado_em ? formatDate(String(t.criado_em).slice(0, 10)) + (dias != null ? ` <span class="tk-sem-titulo">(${dias}d)</span>` : '') : ''}</td>
+    </tr>`;
+  }).join('');
+  const aviso = ticketsTituloColuna ? '' : `<div class="lic-quadro-obs" style="margin-bottom:6px;">⚠ Não identifiquei a coluna do nome do ticket no ERP${ticketsColunasErp.length ? ' (colunas da tabela: ' + escapeHtml(ticketsColunasErp.join(', ')) + ')' : ''}; por isso só aparece o número.</div>`;
+  document.getElementById('tk-cli-corpo').innerHTML = lista.length
+    ? `${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
+    : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
+  document.getElementById('tk-cli-overlay').classList.add('open');
+}
+function fecharTicketsCliente() { document.getElementById('tk-cli-overlay').classList.remove('open'); }
 function escolherEmpresaErp(id) {
   if (!id) return;
   document.getElementById('f-erp-empresa-id').value = id;
