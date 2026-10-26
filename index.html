@@ -1193,6 +1193,17 @@
   .pca-licencas { gap: 10px; font-size: 11.5px; color: var(--gray-text); }
   .pca-licencas b { color: var(--text-main); font-size: 12.5px; }
   .pca-licencas b.lic-excedido { color: var(--red); }
+  .lic-quadro { border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; padding: 10px 12px; background: var(--light-bg); color: var(--text-main); }
+  .lic-quadro-tit { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .lic-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .lic-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--white); border: 1px solid var(--border, rgba(127,127,127,.25)); }
+  .lic-tile span { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
+  .lic-tile b { font-size: 22px; line-height: 1.1; }
+  .lic-tipos { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .lic-tipos th { text-align: left; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); padding: 3px 6px; }
+  .lic-tipos td { padding: 3px 6px; border-top: 1px solid var(--border, rgba(127,127,127,.2)); }
+  .lic-quadro b.lic-excedido { color: var(--red); }
+  .lic-quadro-obs { margin-top: 6px; font-size: 11px; color: var(--gray-text); }
   .pca-cargo { font-size: 10.5px; color: var(--gray-text); }
   .contato-item .ci-estrela { background: none; border: 0; cursor: pointer; font-size: 17px; line-height: 1; padding: 0 2px; color: var(--gray-text); }
   .contato-item .ci-estrela:hover, .contato-item.principal .ci-estrela { color: var(--amber); }
@@ -1964,7 +1975,7 @@
     <h2 id="modal-title">Novo Cliente</h2>
     <div class="form-grid">
       <div class="form-field"><label>Código</label><input type="text" id="f-codigo" placeholder="Ex: 21"></div>
-      <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome"></div>
+      <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome" oninput="atualizarDicaLicencasErp()"></div>
       <div class="form-field"><label>Responsável Projeto</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
       <div class="form-field"><label>Analista Responsável (Intelipulse)</label><select id="f-analista-responsavel"></select></div>
       <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
@@ -3672,6 +3683,7 @@ function garantirLicencasErp() {
     } finally {
       licencasErpCarregando = false;
       if (activeTab === 'pendencias') renderPendencias();
+      if (document.getElementById('modal-overlay').classList.contains('open')) atualizarDicaLicencasErp();
     }
   })();
 }
@@ -3696,7 +3708,12 @@ function licencasInfo(c) {
   if (erp) {
     const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativas = erp.ativas_total;
     const detalhe = `ERP — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
-    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa };
+    const tipos = [
+      { nome: 'Full', contratadas: erp.contratadas_full, ativas: erp.ativas_full },
+      { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
+      { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
+    ];
+    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, tipos };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
@@ -3710,7 +3727,21 @@ function atualizarDicaLicencasErp(cliente) {
   const c = { ...base, nome: document.getElementById('f-nome').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
   if (licencasErp === null) { el.textContent = licencasErpCarregando ? 'Consultando o ERP…' : ''; return; }
   const l = licencasInfo(c);
-  if (l && l.origem === 'erp') el.innerHTML = `✅ Licenças lidas do ERP (${escapeHtml(l.empresa)}): contratadas <b>${l.contratadas}</b>, em uso <b>${l.ativas}</b>, disponíveis <b>${l.disponiveis}</b>. Os campos acima só valem se o ERP não achar a empresa.`;
+  if (l && l.origem === 'erp') {
+    const disp = n => `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
+    el.innerHTML = `<div class="lic-quadro">
+      <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)}</div>
+      <div class="lic-tiles">
+        <div class="lic-tile"><span>Contratadas</span><b>${l.contratadas}</b></div>
+        <div class="lic-tile"><span>Ativas</span><b>${l.ativas}</b></div>
+        <div class="lic-tile"><span>Disponíveis</span>${disp(l.disponiveis)}</div>
+      </div>
+      <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Ativas</th><th>Disponíveis</th></tr></thead><tbody>
+        ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${t.ativas}</td><td>${disp(t.contratadas - t.ativas)}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. O saldo vale pelo total; por tipo pode aparecer negativo (ex.: usuário Conversas sem licença Conversas contratada).</div>
+    </div>`;
+  }
   else if (licencasErpErro) el.textContent = '⚠ Não consegui ler o ERP agora (' + licencasErpErro + '). Vale o que está digitado acima.';
   else el.textContent = 'Empresa não encontrada no ERP pelo nome. Informe o ID da empresa no ERP para buscar sozinho; enquanto isso vale o que está digitado acima.';
 }
