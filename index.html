@@ -3828,6 +3828,29 @@ function modulosHtml(l) {
       ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td>${escapeHtml(rotuloStatusModulo(m))}</td><td><b>${m.quantidade != null ? m.quantidade : '—'}</b></td></tr>`).join('')}
     </tbody></table>${aviso}`;
 }
+function abrirTicketsCliente(clienteId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  const l = c && licencasInfo(c);
+  if (!c || !l || l.origem !== 'erp') return;
+  const lista = ticketsAbertosDaEmpresa(l.empresaId);
+  document.getElementById('tk-cli-titulo').textContent = `Tickets em aberto — ${c.nome}`;
+  const linhas = lista.map(t => {
+    const dias = t.criado_em ? diasDesde(t.criado_em) : null;
+    return `<tr>
+      <td class="tk-num">${escapeHtml(String(t.numero ?? t.id))}</td>
+      <td>${t.titulo ? escapeHtml(t.titulo) : '<span class="tk-sem-titulo">—</span>'}</td>
+      <td>${escapeHtml(String(t.status || '').replace(/^\d+\s*-\s*/, ''))}${t.grupo === 'dev' ? ' <span class="tk-dev" title="Fila do desenvolvimento">dev</span>' : ''}</td>
+      <td>${escapeHtml(t.pessoa || '')}</td>
+      <td>${t.criado_em ? formatDate(String(t.criado_em).slice(0, 10)) + (dias != null ? ` <span class="tk-sem-titulo">(${dias}d)</span>` : '') : ''}</td>
+    </tr>`;
+  }).join('');
+  const aviso = ticketsTituloColuna ? '' : `<div class="lic-quadro-obs" style="margin-bottom:6px;">⚠ Não identifiquei a coluna do nome do ticket no ERP${ticketsColunasErp.length ? ' (colunas da tabela: ' + escapeHtml(ticketsColunasErp.join(', ')) + ')' : ''}; por isso só aparece o número.</div>`;
+  document.getElementById('tk-cli-corpo').innerHTML = lista.length
+    ? `${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
+    : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
+  document.getElementById('tk-cli-overlay').classList.add('open');
+}
+function fecharTicketsCliente() { document.getElementById('tk-cli-overlay').classList.remove('open'); }
 function escolherEmpresaErp(id) {
   if (!id) return;
   document.getElementById('f-erp-empresa-id').value = id;
