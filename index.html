@@ -4337,10 +4337,10 @@ async function carregarQuadroGrafana(forcar = false, tentativa = 0) {
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `Erro ${res.status} ao buscar os tickets no banco do ERP.`);
     if (json.linhas) {
-      ticketsLinhas = json.linhas;
-      ticketsMensal = json.mensal || null;
+      ticketsLinhas = tkPrepararLinhas(json.linhas);
+      ticketsMensal = json.mensal ? tkPrepararLinhas(json.mensal) : null;
       // O Desempenho usa o que está sem fechar AGORA (json.abertos), nunca o recorte do período escolhido na tela.
-      grafanaQuadroUltimasLinhas = ticketsLinhasParaDesempenho(json.abertos || json.linhas);
+      grafanaQuadroUltimasLinhas = ticketsLinhasParaDesempenho(tkPrepararLinhas(json.abertos || json.linhas));
       renderTicketsErp();
     } else {
       // função antiga ainda no ar (devolve só `rows`): mostra a tabela simples até o deploy da nova
@@ -4504,23 +4504,45 @@ function renderTicketsPeriodo() {
 }
 const TK_GRUPOS = [
   { k: 'aberto', nome: 'Abertos', cor: '#F59E0B' },
-  { k: 'dev', nome: 'Desenvolvimento / Roadmap', cor: '#8B5CF6' },
   { k: 'fechado', nome: 'Fechados', cor: '#00C853' },
   { k: 'cancelado', nome: 'Cancelados', cor: '#9CA3AF' }
 ];
 const TK_CLASSES = [
   { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
   { k: 'base', nome: 'Base', cor: '#3B82F6' },
-  { k: 'interno', nome: 'Interno (RS CRM)', cor: '#9CA3AF' }
+  { k: 'interno', nome: 'Intelipulse (interno)', cor: '#9CA3AF' }
 ];
 const TK_EQUIPE = [
   { k: 'Gilson', cor: '#6366F1' }, { k: 'Edimilson', cor: '#14B8A6' },
   { k: 'Jefferson', cor: '#F97316' }, { k: 'Leandro', cor: '#EC4899' }
 ];
 
+// Classe do cliente decidida pelo PRÓPRIO painel (2026-10-26): empresa 1 = Intelipulse (interno); cliente cadastrado com fase
+// "implantacao" e código (ou ID no ERP) = sis01_id = implantação; qualquer outra empresa do ERP = base. Assim um cliente novo
+// em implantação (ex.: Impersik, código 11) entra sem mexer na função. Sem clientes carregados, vale a classe da função.
+function tkClienteDoPainel(empresaId) {
+  return (state.clients || []).find(c => Number(c.erpEmpresaId != null ? c.erpEmpresaId : c.codigo) === Number(empresaId)) || null;
+}
+function tkClasseDe(empresaId, reserva) {
+  if (Number(empresaId) === 1) return 'interno';
+  if (!state.clients || !state.clients.length) return reserva || 'base';
+  const c = tkClienteDoPainel(empresaId);
+  return c && (c.fase || 'implantacao') === 'implantacao' ? 'implantacao' : 'base';
+}
+// "Em dev / roadmap" deixa de ser um grupo à parte: o ticket conta como ABERTO (é assim que a equipe vê) e fica marcado com
+// dev = true para mostrar quantos dos abertos estão na fila do desenvolvimento. Também troca o nome pelo do painel.
+function tkPrepararLinhas(linhas) {
+  return (linhas || []).map(l => {
+    // linha sem empresa_id (função antiga ainda no ar): mantém a classe que a função mandou
+    if (l.empresa_id == null) return { ...l, grupo: l.grupo === 'dev' ? 'aberto' : l.grupo, dev: l.grupo === 'dev' };
+    const id = Number(l.empresa_id);
+    const cli = tkClienteDoPainel(id);
+    return { ...l, classe: tkClasseDe(id, l.classe), cliente: id === 1 ? 'Intelipulse' : (cli ? cli.nome : l.cliente), grupo: l.grupo === 'dev' ? 'aberto' : l.grupo, dev: l.grupo === 'dev' };
+  });
+}
 function tkSoma(filtro) {
-  const s = { aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0 };
-  (ticketsLinhas || []).forEach(l => { if (filtro(l)) { s[l.grupo] += l.n; s.total += l.n; } });
+  const s = { aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0 };   // dev = quantos dos abertos estão em dev/roadmap
+  (ticketsLinhas || []).forEach(l => { if (filtro(l)) { s[l.grupo] += l.n; s.total += l.n; if (l.dev) s.dev += l.n; } });
   return s;
 }
 const tkPct = (parte, todo) => todo ? Math.round(parte / todo * 100) + '%' : '—';
@@ -4530,7 +4552,7 @@ const tkPct = (parte, todo) => todo ? Math.round(parte / todo * 100) + '%' : '�
 function ticketsLinhasParaDesempenho(linhas) {
   const porCliente = new Map();
   linhas.forEach(l => {
-    if (l.classe === 'base' || (l.grupo !== 'aberto' && l.grupo !== 'dev')) return;
+    if (l.classe === 'base' || l.grupo !== 'aberto') return;
     let r = porCliente.get(l.cliente);
     if (!r) { r = { cliente: l.cliente, tkt: 0, jefferson: 0, edimilson: 0, leandro: 0, gilson: 0 }; porCliente.set(l.cliente, r); }
     r.tkt += l.n;
@@ -4558,7 +4580,7 @@ function renderTicketsErp() {
   }
   document.querySelectorAll('#tk-abas .view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.visao === ticketsVisao));
 
-  const legendaGrupos = `<p class="pizza-explicacao" style="margin-top:10px;"><b>Abertos</b> = Aberto, Em Análise, Em Andamento e as duas Validações · <b>Desenvolvimento / Roadmap</b> = Fila de Desenvolvimento e Roadmap Futuro (fila do desenvolvimento, não é trabalho da implantação) · <b>Fechados</b> = Fechado e Resolvido. O filtro de data usa a <b>data de criação</b> do ticket e mostra a situação de hoje (o ERP não guarda uma data de fechamento confiável).</p>`;
+  const legendaGrupos = `<p class="pizza-explicacao" style="margin-top:10px;"><b>Abertos</b> = tudo que ainda não foi fechado ou cancelado: Aberto, Em Análise, Em Andamento, as duas Validações <b>e também a Fila de Desenvolvimento e o Roadmap Futuro</b> (a coluna <b>↳ em dev</b> mostra quantos dos abertos estão nessa fila do desenvolvimento) · <b>Fechados</b> = Fechado e Resolvido. Cliente de <b>implantação</b> = cliente do painel em fase de implantação, ligado ao ERP pelo código (ou ID no ERP); o resto é <b>base</b>. O filtro de data usa a <b>data de criação</b> do ticket e mostra a situação de hoje (o ERP não guarda uma data de fechamento confiável).</p>`;
   const pizzas = [];   // [{id, titulo, itens}] — desenhadas depois que o HTML entra na página
 
   if (ticketsVisao === 'clientes') {
@@ -4566,7 +4588,7 @@ function renderTicketsErp() {
     ticketsLinhas.filter(l => l.classe !== 'base').forEach(l => {
       let c = porEmpresa.get(l.empresa_id);
       if (!c) { c = { nome: l.cliente, classe: l.classe, aberto: 0, dev: 0, fechado: 0, cancelado: 0, total: 0, ab: {} }; porEmpresa.set(l.empresa_id, c); }
-      c[l.grupo] += l.n; c.total += l.n;
+      c[l.grupo] += l.n; c.total += l.n; if (l.dev) c.dev += l.n;
       if (l.grupo === 'aberto') c.ab[l.pessoa] = (c.ab[l.pessoa] || 0) + l.n;
     });
     const lista = [...porEmpresa.values()].sort((a, b) => (a.classe === 'interno') - (b.classe === 'interno') || b.aberto - a.aberto || b.total - a.total);
@@ -4574,7 +4596,7 @@ function renderTicketsErp() {
     lista.filter(c => c.classe === 'implantacao').forEach(c => { ['aberto', 'dev', 'fechado', 'cancelado', 'total'].forEach(k => tot[k] += c[k]); });
     el.innerHTML = `
       <div class="table-wrap"><table class="quadro-grafana-table">
-        <thead><tr><th>Cliente</th><th class="tabular">Total</th><th class="tabular">Abertos</th><th class="tabular">Dev / Roadmap</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">% fechado</th>
+        <thead><tr><th>Cliente</th><th class="tabular">Total</th><th class="tabular">Abertos</th><th class="tabular" title="Dos abertos, quantos estão na fila do desenvolvimento ou no roadmap">↳ em dev</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">% fechado</th>
           ${TK_EQUIPE.map(p => `<th class="tabular" title="Tickets abertos com ${p.k}">${p.k}</th>`).join('')}</tr></thead>
         <tbody>
           ${lista.map(c => `<tr${c.classe === 'interno' ? ' style="opacity:.7;"' : ''}>
@@ -4600,7 +4622,7 @@ function renderTicketsErp() {
     const totTodos = tkSoma(() => true);
     el.innerHTML = `
       <div class="table-wrap"><table class="quadro-grafana-table">
-        <thead><tr><th>Pessoa</th><th class="tabular">Abertos</th><th class="tabular">Dev / Roadmap</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">Total</th>
+        <thead><tr><th>Pessoa</th><th class="tabular">Abertos</th><th class="tabular" title="Dos abertos, quantos estão na fila do desenvolvimento ou no roadmap">↳ em dev</th><th class="tabular">Fechados</th><th class="tabular">Cancelados</th><th class="tabular">Total</th>
           ${TK_CLASSES.map(c => `<th class="tabular">${c.nome}</th>`).join('')}</tr></thead>
         <tbody>
           ${dados.map(d => `<tr${d.mudo ? ' style="opacity:.7;"' : ''}><td>${escapeHtml(d.nome)}</td>${tkCelula(d.s.aberto, true)}${tkCelula(d.s.dev)}${tkCelula(d.s.fechado)}${tkCelula(d.s.cancelado)}${tkCelula(d.s.total)}${TK_CLASSES.map(c => tkCelula(d.porClasse[c.k])).join('')}</tr>`).join('')}
@@ -7310,7 +7332,7 @@ async function desempCarregarTickets() {
     const res = await fetch(TICKETS_ERP_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
-    if (json.linhas) desempTicketsRows = ticketsLinhasParaDesempenho(json.abertos || json.linhas);
+    if (json.linhas) desempTicketsRows = ticketsLinhasParaDesempenho(tkPrepararLinhas(json.abertos || json.linhas));
     else desempTicketsRows = json.rows || [];
     desempTicketsErro = '';
   } catch (e) {
