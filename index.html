@@ -1283,6 +1283,10 @@
 
   /* ── Próximo agendamento do cliente no cartão de Pendências ── */
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .pend-card-esq { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .pend-card-esq-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .pca-sub { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+  .pca-sub .pca-rot { min-width: 0; }
   .pend-info-esq { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
   .pend-info-esq .contato-hoje-box { margin: 0; padding: 4px 8px; gap: 6px; font-size: 11.5px; border-radius: 8px; flex-wrap: nowrap; }
   .pend-info-esq .contato-hoje-box > span { white-space: nowrap; }
@@ -3447,10 +3451,17 @@ function renderPendencias() {
   container.innerHTML = clientesOrdenados.map(c => `
     <div class="pendencia-card">
       <div class="pendencia-card-header">
-        <div class="pendencia-card-nome"><span class="cc-ini">${inicialDe(c.nome)}</span>${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+        <div class="pend-card-esq">
+          <span class="cc-ini">${inicialDe(c.nome)}</span>
+          <div class="pend-card-esq-txt">
+            <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+            <div class="pca-sub">
+              ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
+              ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Contato</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
+            </div>
+          </div>
+        </div>
         <div class="pendencia-card-analista">
-          ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
-          ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Cobrar</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
           ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><b>${l.contratadas}</b></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos adicionais contratados: ${escapeHtml(l.modulos.map(m => m.modulo + ' (' + m.quantidade + ')').join(', '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo)).join(', ')}</b></div>` : '') : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><b>—</b></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
