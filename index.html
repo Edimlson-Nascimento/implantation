@@ -1195,6 +1195,7 @@
   .pca-licencas b.lic-excedido { color: var(--red); }
   .lic-quadro { border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 10px; padding: 10px 12px; background: var(--light-bg); color: var(--text-main); }
   .lic-quadro-tit { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .lic-via { font-weight: 400; color: var(--gray-text); }
   .lic-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
   .lic-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--white); border: 1px solid var(--border, rgba(127,127,127,.25)); }
   .lic-tile span { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
@@ -1974,7 +1975,7 @@
   <div class="modal-box">
     <h2 id="modal-title">Novo Cliente</h2>
     <div class="form-grid">
-      <div class="form-field"><label>Código</label><input type="text" id="f-codigo" placeholder="Ex: 21"></div>
+      <div class="form-field"><label>Código</label><input type="text" id="f-codigo" oninput="atualizarDicaLicencasErp()" placeholder="Ex: 21"></div>
       <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome" oninput="atualizarDicaLicencasErp()"></div>
       <div class="form-field"><label>Responsável Projeto</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
       <div class="form-field"><label>Analista Responsável (Intelipulse)</label><select id="f-analista-responsavel"></select></div>
@@ -3691,29 +3692,37 @@ function normalizaNomeEmpresa(n) {
   return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9 ]/g, ' ').replace(/\b(ltda|eireli|me|epp|sa|cia|comercio|industria)\b/g, ' ').replace(/\s+/g, ' ').trim();
 }
-// Acha a empresa do cliente no ERP: pelo ID informado; senão pelo nome (igual, ou um começando com o outro — só se for único).
+// Acha a empresa do cliente no ERP, nesta ordem: (1) ID da empresa informado no cadastro; (2) o CÓDIGO do cliente
+// (a numeração interna da equipe coincide com o sis01_id do ERP: LDF 18, Tupan 12, Grupo Igo 14...); (3) o nome
+// (igual, ou um começando com o outro — só se for único). O resultado traz _via para o modal dizer como foi achada.
 function empresaErpDoCliente(c) {
   if (!licencasErp || !licencasErp.length) return null;
-  if (c.erpEmpresaId != null) return licencasErp.find(e => Number(e.empresa_id) === Number(c.erpEmpresaId)) || null;
+  const com = (e, via) => e ? { ...e, _via: via } : null;
+  if (c.erpEmpresaId != null) return com(licencasErp.find(e => Number(e.empresa_id) === Number(c.erpEmpresaId)), 'id');
+  const cod = String(c.codigo || '').trim();
+  if (/^\d+$/.test(cod)) {
+    const porCodigo = licencasErp.find(e => Number(e.empresa_id) === Number(cod));
+    if (porCodigo) return com(porCodigo, 'codigo');
+  }
   const nome = normalizaNomeEmpresa(c.nome);
   if (nome.length < 3) return null;
   const exatas = licencasErp.filter(e => normalizaNomeEmpresa(e.empresa) === nome);
-  if (exatas.length === 1) return exatas[0];
+  if (exatas.length === 1) return com(exatas[0], 'nome');
   if (exatas.length > 1) return null;
   const parecidas = licencasErp.filter(e => { const n = normalizaNomeEmpresa(e.empresa); return n.length >= 4 && (n.startsWith(nome + ' ') || nome.startsWith(n + ' ')); });
-  return parecidas.length === 1 ? parecidas[0] : null;
+  return parecidas.length === 1 ? com(parecidas[0], 'nome') : null;
 }
 function licencasInfo(c) {
   const erp = empresaErpDoCliente(c);
   if (erp) {
     const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativas = erp.ativas_total;
-    const detalhe = `ERP — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
+    const detalhe = `ERP (${erp.empresa}) — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
     const tipos = [
       { nome: 'Full', contratadas: erp.contratadas_full, ativas: erp.ativas_full },
       { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
       { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
     ];
-    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, tipos };
+    return { contratadas, ativas, disponiveis: contratadas - ativas, origem: 'erp', detalhe, empresa: erp.empresa, via: erp._via, tipos };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
@@ -3729,13 +3738,13 @@ function atualizarDicaLicencasErp(cliente) {
   const el = document.getElementById('f-lic-erp-hint');
   if (!el) return;
   const base = (cliente && cliente.nome !== undefined) ? cliente : (currentEditingClient() || {});
-  const c = { ...base, nome: document.getElementById('f-nome').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
+  const c = { ...base, nome: document.getElementById('f-nome').value, codigo: document.getElementById('f-codigo').value, erpEmpresaId: lerNumeroLicenca('f-erp-empresa-id') };
   if (licencasErp === null) { el.textContent = licencasErpCarregando ? 'Consultando o ERP…' : ''; return; }
   const l = licencasInfo(c);
   if (l && l.origem === 'erp') {
     const disp = n => `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
     el.innerHTML = `<div class="lic-quadro">
-      <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)}</div>
+      <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)} <span class="lic-via">(${l.via === 'id' ? 'pelo ID informado' : l.via === 'codigo' ? 'pelo código do cliente = ID da empresa no ERP' : 'pelo nome — confira se é a empresa certa'})</span></div>
       <div class="lic-tiles">
         <div class="lic-tile"><span>Contratadas</span><b>${l.contratadas}</b></div>
         <div class="lic-tile"><span>Ativas</span><b>${l.ativas}</b></div>
