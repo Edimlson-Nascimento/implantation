@@ -3489,7 +3489,7 @@ function renderPendencias() {
           </div>
         </div>
         <div class="pendencia-card-analista">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : (licencasErp && licencasErp.length ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="Sem vínculo com o ERP: clique para ver como ligar">—</button></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : ((licencasErp && licencasErp.length) || licencasErpErro || licencasErroAtivas ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${licencasErpErro ? 'Erro ao ler o ERP: ' + escapeHtml(licencasErpErro) : 'Sem vínculo com o ERP: clique para ver como ligar'}">—</button></div>` : ''))(licencasInfo(c))}
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
           <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
@@ -3715,6 +3715,7 @@ function lerNumeroLicenca(id) {
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
 let ticketsAbertosErp = null, ticketsAbertosErpErro = '', ticketsTituloColuna = null, ticketsColunasErp = [];  // tickets em aberto por empresa (lista), junto das licenças
 let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';
+let licencasErroAtivas = '';   // erro ao contar usuários ativos (as contratadas continuam valendo)
 let usuariosColunasErp = [];   // colunas de t01_usuarios (diagnóstico do filtro de usuário ativo)   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
   if (licencasErp !== null || licencasErpCarregando) return;
@@ -3730,6 +3731,7 @@ function garantirLicencasErp() {
       modulosErpErro = json.modulos_erro || '';
       modulosProjetoErpErro = json.modulos_projeto_erro || '';
       usuariosColunasErp = json.usuarios_colunas || [];
+      licencasErroAtivas = json.licencas_erro || '';
       ticketsAbertosErp = Array.isArray(json.tickets_abertos) ? json.tickets_abertos : null;   // null = função antiga, sem tickets
       ticketsAbertosErpErro = json.tickets_erro || '';
       ticketsTituloColuna = json.tickets_titulo_coluna || null;
@@ -3813,15 +3815,16 @@ function licencasInfo(c) {
     const contratadas = erp.contratadas_full + erp.contratadas_crm + erp.contratadas_conversa, ativasBrutas = erp.ativas_total;
     // A regra de "usuário ativo" ainda não está fechada com o ERP: em algumas empresas t01_usuarios devolve milhares de linhas
     // (contatos, não usuários). Número muito acima do contratado é tratado como NÃO CONFIÁVEL e não vira ativas/disponíveis.
-    const suspeito = ativasBrutas > contratadas * 2 + 20;
-    const ativas = suspeito ? null : ativasBrutas;
+    const indisponiveis = ativasBrutas == null;   // a contagem de usuários falhou na função: só as contratadas valem
+    const suspeito = !indisponiveis && ativasBrutas > contratadas * 2 + 20;
+    const ativas = (suspeito || indisponiveis) ? null : ativasBrutas;
     const detalhe = `ERP (${erp.empresa}) — contratadas: Full ${erp.contratadas_full} · CRM ${erp.contratadas_crm} · Conversas ${erp.contratadas_conversa}; em uso: Full ${erp.ativas_full} · CRM ${erp.ativas_crm} · Conversas ${erp.ativas_conversa}`;
     const tipos = [
       { nome: 'Full', contratadas: erp.contratadas_full, ativas: erp.ativas_full },
       { nome: 'CRM', contratadas: erp.contratadas_crm, ativas: erp.ativas_crm },
       { nome: 'Conversas', contratadas: erp.contratadas_conversa, ativas: erp.ativas_conversa }
     ];
-    return { contratadas, ativas, ativasSuspeitas: suspeito ? ativasBrutas : null, disponiveis: suspeito ? null : contratadas - ativasBrutas, origem: 'erp', detalhe, empresa: erp.empresa, empresaId: erp.empresa_id, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
+    return { contratadas, ativas, ativasSuspeitas: suspeito ? ativasBrutas : null, ativasIndisponiveis: indisponiveis, disponiveis: (suspeito || indisponiveis) ? null : contratadas - ativasBrutas, origem: 'erp', detalhe, empresa: erp.empresa, empresaId: erp.empresa_id, via: erp._via, tipos, modulos: modulosDaEmpresaErp(erp.empresa_id) };
   }
   const contratadas = c.licencasContratadas, ativas = c.licencasAtivas;
   if (contratadas == null && ativas == null) return null;
@@ -3868,7 +3871,7 @@ function escolherEmpresaErp(id) {
 // Quadro de licenças e módulos lidos do ERP (usado no cadastro do cliente e no modal aberto pelo cartão de Pendências).
 function licencasQuadroHtml(l, comNota) {
   const disp = n => n == null ? '<b>—</b>' : `<b class="${n < 0 ? 'lic-excedido' : ''}">${n}</b>`;
-  const susp = l.ativasSuspeitas != null;
+  const susp = l.ativasSuspeitas != null || l.ativasIndisponiveis;
   return `<div class="lic-quadro">
       <div class="lic-quadro-tit">✅ Licenças lidas do ERP — ${escapeHtml(l.empresa)} <span class="lic-via">(${l.via === 'id' ? 'pelo ID informado' : l.via === 'codigo' ? 'pelo código do cliente = ID da empresa no ERP' : 'pelo nome — confira se é a empresa certa'})</span></div>
       <div class="lic-tiles">
@@ -3879,7 +3882,7 @@ function licencasQuadroHtml(l, comNota) {
       <table class="lic-tipos"><thead><tr><th>Tipo</th><th>Contratadas</th><th>Em uso</th></tr></thead><tbody>
         ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${susp ? '—' : t.ativas}</td></tr>`).join('')}
       </tbody></table>
-      ${susp ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Usuários ativos não confiável:</b> o ERP devolveu ${l.ativasSuspeitas.toLocaleString('pt-BR')} registros em <code>t01_usuarios</code> para esta empresa (contratadas: ${l.contratadas}), o que indica que a tabela guarda outros registros além dos usuários do sistema. A regra de usuário ativo já foi corrigida na função (view <code>vusuariosplataforma</code>, sem o suporte Intelipulse): se este aviso aparecer, a função ainda deve estar na versão antiga — publique o <code>index.ts</code> atual no Supabase. Enquanto isso, ativas e disponíveis não são mostrados. ${usuariosColunasErp.length ? `<br>Colunas da tabela para levar ao time do ERP: <small>${escapeHtml(usuariosColunasErp.join(', '))}</small>` : ''}</div>` : ''}
+      ${l.ativasIndisponiveis ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Não consegui contar os usuários ativos no ERP</b> (as licenças contratadas estão certas). ${licencasErroAtivas ? `Motivo: <small>${escapeHtml(licencasErroAtivas)}</small>` : ''}<br>Se o motivo falar de permissão na view <code>vusuariosplataforma</code>, é o time do ERP que precisa liberar a leitura dela para o usuário <code>analista_ro</code>.</div>` : (susp ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Usuários ativos não confiável:</b> o ERP devolveu ${l.ativasSuspeitas.toLocaleString('pt-BR')} registros em <code>t01_usuarios</code> para esta empresa (contratadas: ${l.contratadas}), o que indica que a tabela guarda outros registros além dos usuários do sistema. A regra de usuário ativo já foi corrigida na função (view <code>vusuariosplataforma</code>, sem o suporte Intelipulse): se este aviso aparecer, a função ainda deve estar na versão antiga — publique o <code>index.ts</code> atual no Supabase. Enquanto isso, ativas e disponíveis não são mostrados. ${usuariosColunasErp.length ? `<br>Colunas da tabela para levar ao time do ERP: <small>${escapeHtml(usuariosColunasErp.join(', '))}</small>` : ''}</div>` : '')}
       ${modulosHtml(l)}
       ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. Disponíveis = contratadas − em uso, no total: como no CRM, o saldo não é calculado tipo por tipo (um usuário Conversas pode estar usando uma licença Full).</div>` : ''}
     </div>`;
