@@ -1783,6 +1783,7 @@
         <button class="btn btn-sm" onclick="desempMudarPeriodo(1)">Próximo ›</button>
         <button class="btn btn-sm" id="desemp-btn-hoje" onclick="desempPeriodoAtual()">Esta semana</button>
         <span style="flex:1"></span>
+        <button class="btn btn-sm" onclick="scrumAbrir()">📝 Gerar Daily Scrum</button>
         <button class="btn btn-sm" onclick="desempCopiarTexto()">📋 Copiar texto</button>
         <button class="btn btn-sm" onclick="desempBaixarPDF()">📄 Baixar PDF</button>
       </div>
@@ -7892,6 +7893,221 @@ async function avalExcluir(tipo, id) {
   const original = renderDesempenho;
   renderDesempenho = function () { original.apply(this, arguments); renderQualidade(); };
 })();
+</script>
+
+<style id="scrum-css">
+  .scrum-texto { width: 100%; min-height: 380px; max-height: 60vh; resize: vertical; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12.5px; line-height: 1.55; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border-light, rgba(127,127,127,.3)); background: var(--light-bg); color: var(--text-main); white-space: pre-wrap; }
+  .scrum-nota { margin: 8px 0 0; font-size: 12px; color: var(--gray-text); line-height: 1.5; }
+</style>
+<script>
+// ── Daily Scrum Semanal (Desempenho) — 2026-10-28 ──
+// Modelo: "Daily Scrum Semanal – Equipe de Projetos", período seg–sex, 4 blocos (atividades realizadas; pendências e
+// impedimentos; próximos passos; pontos de atenção) + resumo por analista. Tudo sai dos dados que o painel já tem (sem banco novo);
+// só as etapas bloqueadas do cronograma são lidas do Supabase na hora de gerar. O gestor (Edimilson/Gilson) vê a equipe;
+// cada analista vê o relatório só com os próprios itens. O texto é um rascunho EDITÁVEL antes de copiar ou baixar em PDF.
+function scrumPeriodo() {
+  const seg = (typeof desempSemanaIni !== 'undefined' && desempSemanaIni) ? desempSemanaIni : desempSegunda(todayStr());
+  return { seg, sex: addDays(seg, 4), dom: addDays(seg, 6), proxSeg: addDays(seg, 7), proxSex: addDays(seg, 11) };
+}
+
+function scrumNomes(a) { return [...new Set([a.responsavel, ...(a.participantes || [])].filter(Boolean))].map(n => String(n).split(' ')[0]).join(', '); }
+function scrumLinhaCliente(c) { return c && String(c).trim() ? String(c).trim() : 'Sem cliente'; }
+const scrumCurto = (t, n) => desempCortar(String(t || '').replace(/\s+/g, ' ').trim(), n);
+
+// Agrupa itens por cliente: [{cliente, linhas:[...]}], clientes em ordem alfabética
+function scrumPorCliente(itens, getCliente, formatar) {
+  const mapa = new Map();
+  itens.forEach(it => { const c = scrumLinhaCliente(getCliente(it)); if (!mapa.has(c)) mapa.set(c, []); mapa.get(c).push(formatar(it)); });
+  return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([cliente, linhas]) => ({ cliente, linhas }));
+}
+function scrumBloco(grupos, vazio) {
+  if (!grupos.length) return ['• ' + vazio];
+  const out = [];
+  grupos.forEach(g => { out.push(g.cliente); g.linhas.forEach(l => out.push('• ' + l)); });
+  return out;
+}
+
+async function scrumBloqueios(clientesVisiveis) {
+  // etapas marcadas como bloqueadas no cronograma, pelo nome do cliente (os clientes do Cronograma são cadastrados à parte)
+  try {
+    const [e, c] = await Promise.all([
+      sb.from('cronograma_etapas').select('nome, nota_bloqueio, cliente_id').eq('bloqueada', true),
+      sb.from('cronograma_clientes').select('id, nome')
+    ]);
+    if (e.error || c.error) return [];
+    const nomes = new Map((c.data || []).map(x => [x.id, x.nome]));
+    const visiveis = clientesVisiveis ? new Set(clientesVisiveis.map(x => String(x).toLowerCase())) : null;
+    return (e.data || []).map(x => ({ cliente: nomes.get(x.cliente_id) || '', etapa: x.nome, nota: x.nota_bloqueio || '' }))
+      .filter(x => x.cliente && (!visiveis || visiveis.has(x.cliente.toLowerCase())));
+  } catch (err) { return []; }
+}
+
+async function scrumGerarTexto() {
+  const P = scrumPeriodo();
+  const hoje = todayStr();
+  const gestor = desempVerTodos();
+  const eu = gestor ? null : desempNomeProprio();
+  const meu = a => gestor || (eu && (a.responsavel === eu || (a.participantes || []).includes(eu)));
+  const ativas = atividades.filter(a => !a.cancelado && meu(a));
+  const carteira = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao' && (gestor || (eu && c.analistaResponsavel === eu)));
+  const nomesCarteira = carteira.map(c => c.nome);
+
+  // 1) Atividades realizadas
+  const feitas = ativas.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= P.seg && a.concluidoEm <= P.dom)
+    .sort((a, b) => a.concluidoEm.localeCompare(b.concluidoEm));
+  const b1 = scrumBloco(scrumPorCliente(feitas, a => a.clienteNome,
+    a => scrumCurto(a.titulo, 90) + (String(a.resolucao || '').trim() ? ' — ' + scrumCurto(a.resolucao, 140) : '') + ' (' + scrumNomes(a) + ')'),
+    'Nenhuma atividade concluída na semana.');
+
+  // 2) Pendências e impedimentos
+  const abertas = ativas.filter(a => a.coluna !== 'concluida');
+  const impedidas = abertas.filter(a => a.impedidoDesde);
+  const l2 = [];
+  l2.push('Aguardando retorno (cards impedidos)');
+  scrumBloco(scrumPorCliente(impedidas, a => a.clienteNome,
+    a => scrumCurto(a.titulo, 80) + ' — ' + scrumCurto(a.impedidoMotivo || 'aguardando retorno', 90) + ', parado há ' + formatarDuracaoMin(impedidoMinAtual(a)) + ' (' + scrumNomes(a) + ')'),
+    'Nenhuma atividade impedida.').forEach(l => l2.push(l));
+  const comPend = carteira.map(c => ({ c, cli: (c.pendencias || []).filter(p => !p.feito && p.responsavel === 'cliente'), int: (c.pendencias || []).filter(p => !p.feito && p.responsavel === 'rscrm') }))
+    .filter(x => x.cli.length || x.int.length).sort((a, b) => a.c.nome.localeCompare(b.c.nome));
+  l2.push('');
+  l2.push('Pendências em aberto por cliente');
+  const lista = (arr, n) => arr.slice(0, n).map(p => scrumCurto(p.texto, 60)).join('; ') + (arr.length > n ? ' (+' + (arr.length - n) + ')' : '');
+  if (!comPend.length) l2.push('• Nenhuma pendência em aberto.');
+  comPend.forEach(x => {
+    l2.push(x.c.nome);
+    if (x.cli.length) l2.push('• Do cliente (' + x.cli.length + '): ' + lista(x.cli, 3));
+    if (x.int.length) l2.push('• Da Intelipulse (' + x.int.length + '): ' + lista(x.int, 3));
+  });
+
+  // 3) Próximos passos
+  const plan = ativas.filter(a => a.coluna !== 'concluida' && a.sprintSemana === P.proxSeg);
+  const andamento = ativas.filter(a => a.coluna === 'andamento' && a.sprintSemana !== P.proxSeg);
+  const agProx = agendamentos.filter(g => !g.feito && g.data >= P.proxSeg && g.data <= P.proxSex && (gestor || (eu && (g.responsavel === eu || (g.participantes || []).includes(eu)))))
+    .sort((a, b) => (a.data + (a.hora || '')).localeCompare(b.data + (b.hora || '')));
+  const l3 = [];
+  l3.push('Planejado para a semana seguinte');
+  scrumBloco(scrumPorCliente(plan, a => a.clienteNome, a => scrumCurto(a.titulo, 100) + ' (' + scrumNomes(a) + ')'), 'Nada marcado como planejado na sprint.').forEach(l => l3.push(l));
+  l3.push('');
+  l3.push('Em andamento agora');
+  scrumBloco(scrumPorCliente(andamento, a => a.clienteNome, a => scrumCurto(a.titulo, 100) + ' (' + scrumNomes(a) + ')'), 'Nada em andamento fora do planejado.').forEach(l => l3.push(l));
+  l3.push('');
+  l3.push('Agenda da semana seguinte');
+  scrumBloco(scrumPorCliente(agProx, g => g.clienteNome, g => formatDate(g.data).slice(0, 5) + (g.hora ? ' ' + String(g.hora).slice(0, 5) : '') + ' — ' + scrumCurto(g.titulo, 80) + (g.responsavel ? ' (' + String(g.responsavel).split(' ')[0] + ')' : '')), 'Nenhum compromisso agendado.').forEach(l => l3.push(l));
+
+  // 4) Pontos de atenção
+  const l4 = [];
+  const atrasados = abertas.map(a => ({ a, pz: desempPrazoEfetivo(a) })).filter(x => x.pz && x.pz.data < hoje && !x.a.impedidoDesde).sort((x, y) => x.pz.data.localeCompare(y.pz.data));
+  l4.push('Atividades com prazo vencido');
+  if (!atrasados.length) l4.push('• Nenhuma.');
+  atrasados.slice(0, 10).forEach(x => l4.push('• ' + scrumLinhaCliente(x.a.clienteNome) + ' — ' + scrumCurto(x.a.titulo, 80) + ': venceu há ' + daysBetween(x.pz.data, hoje) + ' dia(s) (' + scrumNomes(x.a) + ')'));
+  if (atrasados.length > 10) l4.push('• … e mais ' + (atrasados.length - 10) + '.');
+  const risco = carteira.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
+  l4.push('');
+  l4.push('Clientes em risco (saúde amarela ou vermelha)');
+  if (!risco.length) l4.push('• Nenhum.');
+  risco.sort((a, b) => (a.saude === b.saude ? a.nome.localeCompare(b.nome) : (a.saude === 'vermelho' ? -1 : 1)))
+    .forEach(c => l4.push('• ' + c.nome + ' (' + c.saude + ')' + (c.saudeMotivo ? ': ' + scrumCurto(c.saudeMotivo, 110) : '')));
+  const prazo = carteira.map(c => ({ c, p: prazoImplantacaoInfo(c) })).filter(x => x.p.classe === 'atrasado' || x.p.classe === 'atencao').sort((a, b) => (a.p.diasRestantes ?? 0) - (b.p.diasRestantes ?? 0));
+  l4.push('');
+  l4.push('Prazo de implantação vencido ou perto de vencer');
+  if (!prazo.length) l4.push('• Nenhum.');
+  prazo.forEach(x => l4.push('• ' + x.c.nome + ' — ' + (x.p.linha2 || x.p.texto)));
+  const semContato = carteira.filter(c => !c.ultimoContato || diasDesde(c.ultimoContato) > 7).map(c => c.nome).sort((a, b) => a.localeCompare(b));
+  l4.push('');
+  l4.push('Sem contato há mais de 7 dias');
+  l4.push(semContato.length ? '• ' + semContato.join(', ') : '• Nenhum.');
+  const bloq = await scrumBloqueios(gestor ? null : nomesCarteira);
+  l4.push('');
+  l4.push('Etapas bloqueadas no cronograma');
+  if (!bloq.length) l4.push('• Nenhuma.');
+  bloq.sort((a, b) => a.cliente.localeCompare(b.cliente)).forEach(x => l4.push('• ' + x.cliente + ' — ' + x.etapa + (x.nota ? ': ' + scrumCurto(x.nota, 110) : '')));
+  if (gestor && typeof avalFeedback !== 'undefined' && avalCarregado && avalErro !== 'tabela') {
+    const comFb = new Set(avalFeedback.map(x => x.cliente_id));
+    const semFb = carteira.filter(c => c.inicio && c.previsaoPosImplantacao && !comFb.has(c.id)
+      && (Math.round((dataLocal(c.previsaoPosImplantacao) - dataLocal(c.inicio)) / 86400000) > 0)
+      && diasDesde(c.inicio) / Math.round((dataLocal(c.previsaoPosImplantacao) - dataLocal(c.inicio)) / 86400000) >= 0.5).map(c => c.nome).sort((a, b) => a.localeCompare(b));
+    l4.push('');
+    l4.push('Clientes sem feedback do meio do projeto');
+    l4.push(semFb.length ? '• ' + semFb.join(', ') : '• Nenhum.');
+  }
+
+  // 5) Resumo por analista
+  const analistas = gestor ? PESSOAS : [eu].filter(Boolean);
+  const l5 = analistas.map(nome => {
+    const m = desempMetricas(nome, P.seg, P.dom, 'semana');
+    const planProx = atividades.filter(a => !a.cancelado && a.coluna !== 'concluida' && a.sprintSemana === P.proxSeg && (a.responsavel === nome || (a.participantes || []).includes(nome))).length;
+    return '• ' + nome + ' — entregues ' + m.entregues.length + ' · em andamento ' + m.emAndamento + ' · atrasados ' + m.atrasados.length + ' · impedidos ' + m.impedidos.length + ' · planejado p/ semana seguinte ' + planProx;
+  });
+
+  const topo = [
+    'Daily Scrum Semanal – Equipe de Projetos' + (gestor ? '' : ' (' + eu + ')'),
+    'Período: ' + formatDate(P.seg) + ' a ' + formatDate(P.sex),
+    ''
+  ];
+  const sec = (n, titulo, linhas) => [n + '. ' + titulo, ...linhas, ''];
+  return [...topo, ...sec(1, 'Atividades realizadas', b1), ...sec(2, 'Pendências e impedimentos', l2), ...sec(3, 'Próximos passos', l3),
+    ...sec(4, 'Pontos de atenção', l4), ...sec(5, 'Resumo por analista', l5.length ? l5 : ['• —'])].join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+async function scrumAbrir() {
+  if (!podeVerDesempenho()) return;
+  let ov = document.getElementById('scrum-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.id = 'scrum-modal-overlay';
+    ov.onclick = e => { if (e.target === ov) scrumFechar(); };
+    document.body.appendChild(ov);
+  }
+  const P = scrumPeriodo();
+  ov.innerHTML = '<div class="modal-box" style="max-width:860px;">'
+    + '<h2>Daily Scrum Semanal</h2>'
+    + '<p class="scrum-nota" style="margin-top:0;">Período ' + escapeHtml(formatDate(P.seg)) + ' a ' + escapeHtml(formatDate(P.sex)) + '. Rascunho gerado com os dados do painel: <b>edite o que quiser</b> antes de copiar ou baixar.'
+    + (desempVerTodos() ? '' : ' Mostra só os seus itens.') + '</p>'
+    + '<textarea class="scrum-texto" id="scrum-texto" spellcheck="false">Gerando…</textarea>'
+    + '<p class="scrum-nota">Os blocos 3 e 4 dependem do preenchimento do painel: "Planejado na sprint" nos cards, "Impedido" com o motivo, prazo nos cards e a saúde/contato dos clientes.</p>'
+    + '<div class="modal-footer"><div></div><div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;">'
+    + '<button class="btn" onclick="scrumFechar()">Fechar</button>'
+    + '<button class="btn" onclick="scrumBaixarPDF()">📄 Baixar PDF</button>'
+    + '<button class="btn btn-primary" onclick="scrumCopiar(this)">📋 Copiar texto</button></div></div></div>';
+  ov.classList.add('open');
+  try {
+    document.getElementById('scrum-texto').value = await scrumGerarTexto();
+  } catch (e) {
+    document.getElementById('scrum-texto').value = 'Não consegui gerar o relatório: ' + (e.message || e);
+  }
+}
+function scrumFechar() { const ov = document.getElementById('scrum-modal-overlay'); if (ov) ov.classList.remove('open'); }
+
+async function scrumCopiar(btn) {
+  const t = document.getElementById('scrum-texto').value;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { const ta = document.getElementById('scrum-texto'); ta.select(); document.execCommand('copy'); }
+  if (btn) { const o = btn.textContent; btn.textContent = '✓ Copiado'; setTimeout(() => { btn.textContent = o; }, 1600); }
+}
+
+function scrumBaixarPDF() {
+  const t = document.getElementById('scrum-texto').value;
+  if (!window.jspdf) { alert('A biblioteca de PDF não carregou. Use "Copiar texto".'); return; }
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  const mx = 16, larg = 210 - 2 * mx, alt = 297 - 18;
+  let y = 18;
+  doc.setFont('helvetica', 'normal');
+  t.split('\n').forEach((linha, i) => {
+    const titulo = i === 0, secao = /^\d\. /.test(linha);
+    doc.setFont('helvetica', titulo || secao ? 'bold' : 'normal');
+    doc.setFontSize(titulo ? 15 : (secao ? 12 : 10));
+    const partes = doc.splitTextToSize(linha || ' ', larg);
+    partes.forEach(p => {
+      if (y > alt) { doc.addPage(); y = 18; }
+      doc.text(p, mx, y);
+      y += titulo ? 7.5 : (secao ? 6.5 : 5);
+    });
+    if (secao) y += 1;
+  });
+  const P = scrumPeriodo();
+  doc.save('Daily-Scrum-' + P.seg + '.pdf');
+}
 </script>
 
 </body>
