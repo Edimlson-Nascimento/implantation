@@ -7649,6 +7649,7 @@ async function desempBaixarPDF() {
 // Dados em avaliacoes_feedback_cliente / avaliacoes_treinamento (migracao-avaliacoes.sql). A restrição de quem vê o quê
 // está no BANCO (RLS): Edimilson e Gilson veem e gravam tudo; cada analista só lê as avaliações dele.
 let avalFeedback = [], avalTrein = [], avalCarregado = false, avalCarregando = false, avalErro = '';
+let avalQuest = [], avalQuestPend = [], avalErroQuest = '';   // questionário respondido pelo cliente no portal do Cronograma (cronograma_avaliacoes)
 const AVAL_CRITERIOS = [['dominio', 'Domínio do assunto'], ['clareza', 'Clareza da explicação'], ['seguranca', 'Segurança'], ['postura', 'Postura / apresentação'], ['conducao', 'Condução do treinamento']];
 
 async function avalCarregar(forcar) {
@@ -7664,6 +7665,16 @@ async function avalCarregar(forcar) {
     avalFeedback = f.data || [];
     avalTrein = t.data || [];
     avalErro = '';
+    try {
+      const q = await sb.from('cronograma_avaliacoes').select('*').order('liberada_em', { ascending: false });
+      if (q.error) throw q.error;
+      avalQuest = (q.data || []).filter(x => x.respondida_em);
+      avalQuestPend = (q.data || []).filter(x => !x.respondida_em);
+      avalErroQuest = '';
+    } catch (eq) {
+      avalQuest = []; avalQuestPend = [];
+      avalErroQuest = /does not exist|schema cache|42P01|PGRST205/i.test(String(eq.message || '') + String(eq.code || '')) ? 'tabela' : (eq.message || String(eq));
+    }
   } catch (e) {
     avalFeedback = []; avalTrein = [];
     avalErro = /does not exist|schema cache|42P01|PGRST205/i.test(String(e.message || '') + String(e.code || '')) ? 'tabela' : (e.message || String(e));
@@ -7676,6 +7687,9 @@ async function avalCarregar(forcar) {
 
 const avalMedia = (arr, f) => { const v = arr.map(x => x[f]).filter(n => n != null); return v.length ? v.reduce((s, n) => s + n, 0) / v.length : null; };
 const avalFmt = n => n == null ? '—' : n.toFixed(1).replace('.', ',');
+const AVAL_Q_GRUPOS = [['d', 'Projeto'], ['t', 'Treinamento'], ['a', 'Analista']];
+const avalMediaGrupo = (x, g) => (x[g + '1'] + x[g + '2'] + x[g + '3']) / 3;
+const avalMediaQuest = (arr, g) => arr.length ? arr.reduce((s, x) => s + avalMediaGrupo(x, g), 0) / arr.length : null;
 const avalNome = id => { const c = (state.clients || []).find(x => x.id === id); return c ? c.nome : '(cliente removido)'; };
 const avalIgual = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
@@ -7725,6 +7739,39 @@ function renderQualidade() {
       : '<div class="aval-titulo">Clientes sem feedback do meio do projeto</div><div class="aval-vazio">Nenhum cliente passou da metade do prazo sem feedback.</div>';
   }
 
+  // Questionário respondido pelo cliente (portal do Cronograma): médias por bloco, pendentes e respostas recentes.
+  let questHtml = '';
+  if (avalErroQuest === 'tabela') {
+    questHtml = '<div class="aval-titulo">Questionário respondido pelo cliente</div><div class="aval-vazio">Ainda não ativado' + (gestor ? ': rode o arquivo <b>migracao-avaliacao-cliente.sql</b> no Supabase.' : '.') + '</div>';
+  } else if (avalErroQuest) {
+    questHtml = '<div class="aval-titulo">Questionário respondido pelo cliente</div><div class="aval-vazio" style="color:var(--red);">Não consegui carregar: ' + escapeHtml(avalErroQuest) + '</div>';
+  } else {
+    const minhas = x => gestor || nomes.some(n => avalIgual(x.analista, n));
+    const respondidas = avalQuest.filter(minhas);
+    const linhasQ = nomes.map(nome => {
+      const r = respondidas.filter(x => avalIgual(x.analista, nome));
+      return '<tr><td><b>' + escapeHtml(nome) + '</b></td>'
+        + AVAL_Q_GRUPOS.map(g => '<td>' + (r.length ? '<span class="aval-nota">' + avalFmt(avalMediaQuest(r, g[0])) + '</span>' : '<span class="aval-n">—</span>') + '</td>').join('')
+        + '<td class="aval-n">' + r.length + ' resposta' + (r.length === 1 ? '' : 's') + '</td></tr>';
+    }).join('');
+    const pendentes = gestor ? avalQuestPend.map(x => '<div class="aval-alerta"><b>' + escapeHtml(x.cliente_nome || avalNome(x.cronograma_cliente_id)) + '</b><span>questionário liberado há '
+      + Math.max(0, diasDesde(x.liberada_em)) + ' dia(s)' + (x.analista ? ' · analista ' + escapeHtml(x.analista) : '') + ' · aguardando resposta do cliente</span></div>').join('') : '';
+    const recentesQ = respondidas.slice(0, 8);
+    questHtml = '<div class="aval-titulo">Questionário respondido pelo cliente (nota 1–5)</div>'
+      + '<table class="aval-tabela"><thead><tr><th>Analista</th>' + AVAL_Q_GRUPOS.map(g => '<th>' + g[1] + '</th>').join('') + '<th></th></tr></thead><tbody>' + (linhasQ || '<tr><td colspan="5" class="aval-vazio">Sem analistas.</td></tr>') + '</tbody></table>'
+      + (pendentes ? '<div class="aval-titulo">Aguardando resposta</div>' + pendentes : '')
+      + (recentesQ.length
+        ? '<div class="aval-titulo">Respostas recentes dos clientes</div><table class="aval-tabela"><thead><tr><th>Data</th><th>Cliente</th><th>Analista</th>' + AVAL_Q_GRUPOS.map(g => '<th>' + g[1] + '</th>').join('') + '<th>O que podemos melhorar</th>' + (gestor ? '<th></th>' : '') + '</tr></thead><tbody>'
+          + recentesQ.map(x => '<tr><td>' + escapeHtml(formatDate(String(x.respondida_em).slice(0, 10))) + '</td>'
+            + '<td>' + (gestor ? escapeHtml(x.cliente_nome || avalNome(x.cronograma_cliente_id)) + (x.respondente ? ' <span class="aval-n">(' + escapeHtml(x.respondente) + ')</span>' : '') : '<span class="aval-n">cliente</span>') + '</td>'
+            + '<td>' + escapeHtml(x.analista) + '</td>'
+            + AVAL_Q_GRUPOS.map(g => '<td class="aval-nota">' + avalFmt(avalMediaGrupo(x, g[0])) + '</td>').join('')
+            + '<td class="aval-coment">' + (x.aberta ? escapeHtml(desempCortar(x.aberta, 160)) : '—') + '</td>'
+            + (gestor ? '<td><button class="aval-x" title="Excluir" onclick="avalExcluirQuest(\'' + x.id + '\')">✕</button></td>' : '') + '</tr>').join('') + '</tbody></table>'
+        : '<div class="aval-vazio" style="margin-top:6px;">Nenhum cliente respondeu ainda.</div>')
+      + (gestor ? '<div class="aval-n" style="margin-top:6px;">Para liberar o questionário, use o botão "Liberar questionário" no cronograma do cliente (admin). Analistas veem só as próprias respostas e sem o nome do cliente.</div>' : '');
+  }
+
   const recentes = [
     ...avalFeedback.map(x => ({ tipo: 'feedback', ...x })),
     ...avalTrein.map(x => ({ tipo: 'trein', ...x }))
@@ -7752,6 +7799,7 @@ function renderQualidade() {
     + '<div class="aval-titulo">Por analista</div>'
     + '<table class="aval-tabela"><thead><tr><th>Analista</th><th>Feedback do cliente (nota 1–5)</th><th>Observação do treinamento (média 1–5)</th></tr></thead><tbody>' + (linhas || '<tr><td colspan="3" class="aval-vazio">Sem analistas.</td></tr>') + '</tbody></table>'
     + alertas
+    + questHtml
     + '<div class="aval-titulo">Últimos registros</div>' + recentesHtml
     + '</div>';
 }
@@ -7826,6 +7874,12 @@ async function avalSalvar(tipo) {
   avalCarregar(true);
 }
 
+async function avalExcluirQuest(id) {
+  if (!desempVerTodos() || !confirm('Excluir esta resposta do questionário? Isso não pode ser desfeito.')) return;
+  const { error } = await sb.from('cronograma_avaliacoes').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  avalCarregar(true);
+}
 async function avalExcluir(tipo, id) {
   if (!desempVerTodos() || !confirm('Excluir esta avaliação? Isso não pode ser desfeito.')) return;
   const { error } = await sb.from(tipo === 'trein' ? 'avaliacoes_treinamento' : 'avaliacoes_feedback_cliente').delete().eq('id', id);

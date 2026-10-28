@@ -172,6 +172,33 @@
   .aviso-box h3 { margin:0 0 10px; font-size:17px; color:var(--ink); }
   .aviso-box p { margin:0 0 22px; font-size:13.5px; color:var(--slate); line-height:1.6; white-space:pre-wrap; text-align:left; }
   .aviso-box .btn-primario { width:100%; }
+
+  /* ── AVALIAÇÃO DO ATENDIMENTO (questionário do cliente) ── */
+  .av-card { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--lime); border-radius: 14px; padding: 20px 22px; margin-bottom: 30px; }
+  .av-card h2 { margin: 0 0 4px; font-size: 18px; color: var(--ink); }
+  .av-card .av-sub { margin: 0 0 14px; font-size: 13.5px; color: var(--slate); line-height: 1.55; }
+  .av-grupo { margin: 18px 0 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .av-grupo h3 { margin: 0; font-size: 15px; color: var(--ink); }
+  .av-grupo p { margin: 2px 0 0; font-size: 12.5px; color: var(--slate); }
+  .av-pergunta { padding: 11px 0; }
+  .av-pergunta > span { display: block; font-size: 14px; color: var(--ink); margin-bottom: 8px; line-height: 1.45; }
+  .av-escala { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .av-escala label { position: relative; }
+  .av-escala input { position: absolute; opacity: 0; pointer-events: none; }
+  .av-escala label span { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-weight: 700; font-size: 14px; cursor: pointer; transition: background .12s, border-color .12s; }
+  .av-escala label span:hover { border-color: var(--blue); }
+  .av-escala input:checked + span { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .av-escala input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .av-pontas { display: flex; justify-content: space-between; max-width: 238px; font-size: 10.5px; color: var(--slate); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; letter-spacing: .02em; }
+  .av-form-rodape { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .av-erro { color: var(--red); background: var(--red-soft); font-size: 12.5px; padding: 9px 12px; border-radius: 8px; }
+  .av-obrigado { background: var(--green-soft); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; margin-bottom: 30px; color: var(--ink); }
+  .av-obrigado b { display: block; font-size: 16px; margin-bottom: 2px; }
+  .av-admin-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--slate); }
+  .av-admin-linha b { color: var(--ink); }
+  .av-selo { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .av-selo.pend { background: var(--amber-soft); color: var(--amber); }
+  .av-selo.ok { background: var(--green-soft); color: var(--green); }
   .admin-conteudo { flex:1; padding:28px 32px; max-width:1500px; }
   .admin-etapa-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:18px; }
   .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
@@ -314,6 +341,7 @@
       </div>
       <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
     </div>
+    <div id="avaliacao-wrap"></div>
     <div class="stepper" id="stepper"></div>
     <div id="etapas-wrap"></div>
   </main>
@@ -349,6 +377,19 @@
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: liberar questionário de avaliação (admin) ═══ -->
+<div id="av-admin-overlay" class="aviso-overlay" hidden onclick="if(event.target===this) fecharLiberarAvaliacao()">
+  <div class="aviso-box" style="text-align:left;">
+    <h3>Liberar questionário de avaliação</h3>
+    <p id="av-admin-texto" style="white-space:normal;margin-bottom:14px;"></p>
+    <div class="campo"><label for="av-admin-analista">Analista avaliado</label><select id="av-admin-analista"></select></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-primario" style="flex:1;background:var(--slate);" onclick="fecharLiberarAvaliacao()">Cancelar</button>
+      <button class="btn-primario" style="flex:1;" id="av-admin-confirmar" onclick="withLockAdmin(this, confirmarLiberarAvaliacao)">Liberar</button>
     </div>
   </div>
 </div>
@@ -540,6 +581,7 @@ async function abrirApp() {
   document.getElementById('cliente-nome-header').textContent = clienteAtual.nome;
   await carregarDadosCliente(clienteAtual.id);
   renderClienteAll();
+  carregarAvaliacaoPendente();
 }
 
 async function carregarDadosCliente(clienteId) {
@@ -835,8 +877,10 @@ async function criarCliente() {
 async function selecionarClienteAdmin(clienteId) {
   clienteSelAdmin = todosClientes.find(c => c.id === clienteId);
   renderListaClientesAdmin();
+  avStatusAdmin = null;
   await carregarDadosCliente(clienteId);
   renderAdminConteudo();
+  carregarStatusAvaliacaoAdmin(clienteId);
 }
 
 function pctConcluido(lista) {
@@ -863,6 +907,7 @@ function renderAdminConteudo() {
       </div>
       <button class="admin-mini-btn" onclick="abrirVisaoClientePreview()">👁 Visão do Cliente</button>
     </div>
+    <div class="av-admin-linha" id="av-admin-status"></div>
     <div class="admin-add-etapa-row">
       <input type="text" id="admin-nova-etapa-nome" placeholder="Nome da nova etapa...">
       <button class="admin-mini-btn" onclick="withLockAdmin(this, criarEtapa)">+ Nova etapa</button>
@@ -871,6 +916,7 @@ function renderAdminConteudo() {
     <div id="admin-etapas-lista"></div>
   `;
   renderEtapasAdmin();
+  renderAvAdminStatus();
 }
 
 function todasEtapasColapsadas() {
@@ -1097,6 +1143,153 @@ async function excluirSubitem(id) {
   if (avisarSeErro(error, 'excluir o sub-item')) return;
   subitens = subitens.filter(s => s.id !== id);
   renderEtapasAdmin();
+}
+
+/* ── QUESTIONÁRIO DE AVALIAÇÃO (2026-10-28) ──
+   O cliente responde UMA vez cada round liberado pela Intelipulse. 10 perguntas, em 3 blocos separados (projeto, treinamento,
+   analista), notas de 1 a 5 + 1 aberta. A resposta só entra pela função responder_avaliacao_cliente (migracao-avaliacao-cliente.sql);
+   o admin do Cronograma NUNCA vê as notas aqui — só se o round está pendente ou respondido. */
+const AV_GRUPOS = [
+  { titulo: 'O projeto', sub: 'Como está a implantação até agora.', itens: [
+    ['d1', 'Os prazos combinados no projeto estão sendo cumpridos.'],
+    ['d2', 'Recebo informações claras sobre o andamento da implantação.'],
+    ['d3', 'O projeto está avançando como eu esperava.'] ] },
+  { titulo: 'O treinamento', sub: 'O treinamento que você acompanhou.', itens: [
+    ['t1', 'O conteúdo do treinamento foi claro e fácil de entender.'],
+    ['t2', 'O ritmo e a duração do treinamento foram adequados.'],
+    ['t3', 'Depois do treinamento, me sinto seguro para usar o sistema no dia a dia.'] ] },
+  { titulo: 'O analista', sub: 'O profissional da Intelipulse que acompanha o seu projeto.', itens: [
+    ['a1', 'O analista demonstra domínio do que explica.'],
+    ['a2', 'O analista é atencioso e paciente com as minhas dúvidas.'],
+    ['a3', 'O analista responde e resolve as minhas solicitações no prazo combinado.'] ] }
+];
+let avPendente = null;      // { id } do round liberado e ainda sem resposta (visão do cliente)
+let avRespostas = {};
+let avAgradecer = false;
+let avStatusAdmin = null;   // rounds do cliente selecionado no admin (só estado, sem notas)
+
+async function carregarAvaliacaoPendente() {
+  if (modoPreviewAdmin || !clienteAtual) return;
+  const { data, error } = await sb.from('cronograma_avaliacoes').select('id').eq('cronograma_cliente_id', clienteAtual.id)
+    .is('respondida_em', null).order('liberada_em', { ascending: false }).limit(1);
+  if (error) { console.warn('Questionário indisponível:', error.message); return; }   // tabela ainda não criada: simplesmente não aparece
+  avPendente = (data && data[0]) || null;
+  avRespostas = {};
+  renderAvaliacaoCliente();
+}
+
+function renderAvaliacaoCliente() {
+  const el = document.getElementById('avaliacao-wrap');
+  if (!el) return;
+  if (avAgradecer) {
+    el.innerHTML = '<div class="av-obrigado"><b>Obrigado pela sua avaliação! 💚</b>As respostas ajudam a Intelipulse a melhorar o seu atendimento.</div>';
+    return;
+  }
+  if (!avPendente) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="av-card">
+    <h2>Sua opinião é importante para nós</h2>
+    <p class="av-sub">São só 10 perguntas rápidas (cerca de 2 minutos), separadas em três partes: o projeto, o treinamento e o analista.
+      Marque de <b>1</b> (discordo totalmente) a <b>5</b> (concordo totalmente). Suas respostas são vistas apenas pela gestão da Intelipulse.</p>
+    <div id="av-form">${AV_GRUPOS.map((g, gi) => `
+      <div class="av-grupo"><h3>${gi + 1}. ${escapeHtml(g.titulo)}</h3><p>${escapeHtml(g.sub)}</p></div>
+      ${g.itens.map(([k, texto]) => `<div class="av-pergunta"><span>${escapeHtml(texto)}</span>
+        <div class="av-escala" role="radiogroup" aria-label="${escapeHtml(texto)}">${[1, 2, 3, 4, 5].map(n => `<label><input type="radio" name="av-${k}" value="${n}" onchange="avMarcar('${k}', ${n})"><span>${n}</span></label>`).join('')}</div>
+        <div class="av-pontas"><span>discordo</span><span>concordo</span></div></div>`).join('')}`).join('')}
+      <div class="av-grupo"><h3>4. Para finalizar</h3></div>
+      <div class="av-form-rodape">
+        <div class="campo" style="margin:0;"><label for="av-aberta">O que podemos fazer melhor? (opcional)</label><textarea id="av-aberta" rows="3" maxlength="2000" placeholder="Elogios, sugestões, o que não ficou bom..."></textarea></div>
+        <div class="campo" style="margin:0;"><label for="av-nome">Seu nome (opcional)</label><input type="text" id="av-nome" maxlength="120" placeholder="Quem está respondendo"></div>
+        <div class="av-erro" id="av-erro" hidden></div>
+        <div><button class="btn-primario" id="av-enviar" onclick="withLock(this, enviarAvaliacao)">Enviar avaliação</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function avMarcar(k, n) { avRespostas[k] = n; const e = document.getElementById('av-erro'); if (e) e.hidden = true; }
+
+async function enviarAvaliacao() {
+  const erro = document.getElementById('av-erro');
+  const faltam = AV_GRUPOS.flatMap(g => g.itens).filter(([k]) => !avRespostas[k]);
+  if (faltam.length) {
+    erro.textContent = 'Faltam ' + faltam.length + ' resposta(s) de 1 a 5. Confira as perguntas acima.';
+    erro.hidden = false;
+    return;
+  }
+  const r = avRespostas;
+  const { error } = await sb.rpc('responder_avaliacao_cliente', {
+    p_id: avPendente.id,
+    p_d1: r.d1, p_d2: r.d2, p_d3: r.d3, p_t1: r.t1, p_t2: r.t2, p_t3: r.t3, p_a1: r.a1, p_a2: r.a2, p_a3: r.a3,
+    p_aberta: document.getElementById('av-aberta').value.trim(), p_respondente: document.getElementById('av-nome').value.trim()
+  });
+  if (error) {
+    erro.textContent = 'Não consegui enviar: ' + error.message;
+    erro.hidden = false;
+    return;
+  }
+  avPendente = null;
+  avAgradecer = true;
+  renderAvaliacaoCliente();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* — admin: liberar o questionário e ver o estado (sem notas) — */
+async function carregarStatusAvaliacaoAdmin(clienteId) {
+  const { data, error } = await sb.rpc('avaliacao_status_cliente', { p_cliente: clienteId });
+  if (!clienteSelAdmin || clienteSelAdmin.id !== clienteId) return;   // trocou de cliente enquanto carregava
+  avStatusAdmin = error ? { erro: error.message } : (data || []);
+  renderAvAdminStatus();
+}
+
+function renderAvAdminStatus() {
+  const el = document.getElementById('av-admin-status');
+  if (!el || !clienteSelAdmin) return;
+  if (avStatusAdmin === null) { el.innerHTML = '<span>📝 Avaliação do cliente: carregando…</span>'; return; }
+  if (avStatusAdmin.erro) {
+    el.innerHTML = '<span>📝 Avaliação do cliente: indisponível ainda (rode <b>migracao-avaliacao-cliente.sql</b> no Supabase).</span>';
+    return;
+  }
+  const pendente = avStatusAdmin.find(r => !r.respondida_em);
+  const respondidas = avStatusAdmin.filter(r => r.respondida_em);
+  const dia = iso => fmtDateBR(String(iso).slice(0, 10));
+  el.innerHTML = '<span>📝 <b>Avaliação do cliente</b></span>'
+    + (pendente
+      ? '<span class="av-selo pend">liberada em ' + dia(pendente.liberada_em) + ' · aguardando resposta</span><button class="admin-mini-btn" onclick="withLockAdmin(this, () => cancelarAvaliacaoAdmin(\'' + pendente.id + '\'))">Cancelar liberação</button>'
+      : '<button class="admin-mini-btn" onclick="abrirLiberarAvaliacao()">Liberar questionário</button>')
+    + (respondidas.length ? '<span class="av-selo ok">' + respondidas.length + ' respondida' + (respondidas.length === 1 ? '' : 's') + ' · última em ' + dia(respondidas[0].respondida_em) + '</span>' : '')
+    + '<span style="flex-basis:100%;font-size:11.5px;">O link é o mesmo do cronograma. O cliente vê o questionário ao entrar. As notas aparecem só no Desempenho do painel de gestão (Edimilson, Gilson e o próprio analista).</span>';
+}
+
+async function abrirLiberarAvaliacao() {
+  if (!clienteSelAdmin) return;
+  document.getElementById('av-admin-texto').textContent = 'O cliente "' + clienteSelAdmin.nome + '" verá o questionário (10 perguntas) assim que entrar no cronograma, e responde uma única vez. Normalmente se libera depois do primeiro treinamento e antes do go-live.';
+  // analista sugerido: o responsável do cliente de mesmo nome no painel de gestão; a lista vem de "pessoas"
+  const [{ data: pessoas }, { data: cli }] = await Promise.all([
+    sb.from('pessoas').select('nome, apenas_visualizacao').order('ordem'),
+    sb.from('clientes').select('analista_responsavel').ilike('nome', clienteSelAdmin.nome).limit(1)
+  ]);
+  const nomes = (pessoas || []).filter(x => !x.apenas_visualizacao).map(x => x.nome);
+  const sugerido = cli && cli[0] ? cli[0].analista_responsavel : '';
+  document.getElementById('av-admin-analista').innerHTML = '<option value="">— escolher —</option>' + nomes.map(n => '<option value="' + escapeHtml(n) + '"' + (n === sugerido ? ' selected' : '') + '>' + escapeHtml(n) + '</option>').join('');
+  document.getElementById('av-admin-overlay').hidden = false;
+}
+function fecharLiberarAvaliacao() { document.getElementById('av-admin-overlay').hidden = true; }
+
+async function confirmarLiberarAvaliacao() {
+  const analista = document.getElementById('av-admin-analista').value;
+  if (!analista) { alert('Escolha o analista que será avaliado.'); return; }
+  const { error } = await sb.rpc('liberar_avaliacao_cliente', { p_cliente: clienteSelAdmin.id, p_analista: analista });
+  if (avisarSeErro(error, 'liberar o questionário')) return;
+  fecharLiberarAvaliacao();
+  await carregarStatusAvaliacaoAdmin(clienteSelAdmin.id);
+  mostrarAviso('Questionário liberado', 'Quando "' + clienteSelAdmin.nome + '" entrar no cronograma, verá o questionário no topo da tela.', '📝');
+}
+
+async function cancelarAvaliacaoAdmin(id) {
+  if (!confirm('Cancelar a liberação deste questionário? O cliente deixa de vê-lo.')) return;
+  const { error } = await sb.rpc('cancelar_avaliacao_liberada', { p_id: id });
+  if (avisarSeErro(error, 'cancelar a liberação')) return;
+  await carregarStatusAvaliacaoAdmin(clienteSelAdmin.id);
 }
 
 /* ── BOOT: retoma sessão ativa, se houver ── */
