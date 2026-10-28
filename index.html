@@ -7638,7 +7638,7 @@ function renderDesempenho() {
   raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
     + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>' + (ehMes ? 'Desempenho do Mês' : 'Desempenho da Sprint') + '</h1><p>' + escapeHtml((d.verTodos ? 'Equipe de Implantação' : 'Desempenho de ' + d.analistas.map(a => a.nome).join(', ')) + ' · ' + (ehMes ? d.rotulo : 'semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim))) + '</p></div>'
     + '<div class="desemp-corpo">' + resumo + '<div class="desemp-cards">' + cards + '</div>' + nota + '</div></div>'
-    + (!d.verTodos ? '' : '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas no Supabase e só você e o Gilson veem) <span id="desemp-obs-status" style="font-weight:400;font-size:11.5px;color:var(--gray-text);"></span></div>'
+    + (!d.verTodos ? '' : '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório) <span id="desemp-obs-status" style="font-weight:400;font-size:11.5px;color:var(--gray-text);"></span></div>'
     + d.analistas.map((a, i) => '<div><label>' + escapeHtml(a.nome) + '</label><textarea oninput="desempSalvarObs(' + i + ', \'' + a.nome.replace(/'/g, "\\'") + '\', this.value)" placeholder="Fatos, exemplos, combinados do 1:1...">' + escapeHtml(desempLerObs(a.nome)) + '</textarea></div>').join('')
     + '</div>');
 }
