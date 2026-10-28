@@ -4720,23 +4720,45 @@ function renderPrazoImplantacaoLista() {
   }).join('');
 }
 
+// Crédito carregado na Anthropic: guardado no Supabase (tabela configuracoes, chave busca_ia_credito_usd), igual para toda a equipe.
+// Antes ficava no localStorage de cada navegador. Se a tabela ainda não existir, usa o valor local como reserva.
 const CREDITO_IA_KEY = 'ws_busca_ia_credito_usd';
-function lerCreditoIA() {
-  try { const v = parseFloat(localStorage.getItem(CREDITO_IA_KEY)); return isNaN(v) ? null : v; } catch (e) { return null; }
+let creditoIA = null, creditoIACarregado = false;
+function lerCreditoIA() { return creditoIA; }
+function creditoIALocal() { try { const v = parseFloat(localStorage.getItem(CREDITO_IA_KEY)); return isNaN(v) ? null : v; } catch (e) { return null; } }
+async function carregarCreditoIA() {
+  if (creditoIACarregado) return;
+  const { data, error } = await sb.from('configuracoes').select('valor').eq('chave', 'busca_ia_credito_usd').maybeSingle();
+  if (error) { creditoIA = creditoIALocal(); return; }          // tabela ainda não existe: reserva local, e tenta de novo na próxima vez
+  creditoIACarregado = true;
+  const v = data ? parseFloat(data.valor) : NaN;
+  if (!isNaN(v)) { creditoIA = v; try { localStorage.removeItem(CREDITO_IA_KEY); } catch (e) {} return; }
+  const local = creditoIALocal();                                 // valor antigo deste navegador: migra para o Supabase
+  creditoIA = local;
+  if (local !== null) {
+    const r = await sb.from('configuracoes').upsert({ chave: 'busca_ia_credito_usd', valor: String(local), atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() }, { onConflict: 'chave' });
+    if (!r.error) { try { localStorage.removeItem(CREDITO_IA_KEY); } catch (e) {} }
+  }
 }
-function definirCreditoIA() {
+async function definirCreditoIA() {
   const atual = lerCreditoIA();
-  const txt = prompt('Quanto de crédito você carregou na Anthropic, em dólares (US$)?\nEx.: 5 ou 10.50. O restante é estimado: crédito menos o custo total das buscas.\nO saldo real fica no Console da Anthropic (Billing).', atual !== null ? String(atual) : '');
+  const txt = prompt('Quanto de crédito você carregou na Anthropic, em dólares (US$)?\nEx.: 5 ou 10.50. O restante é estimado: crédito menos o custo total das buscas.\nO saldo real fica no Console da Anthropic (Billing).', atual !== null ? String(atual).replace('.', ',') : '');
   if (txt === null) return;
   const v = parseFloat(txt.replace(',', '.'));
   if (isNaN(v) || v < 0) { alert('Valor inválido.'); return; }
-  try { localStorage.setItem(CREDITO_IA_KEY, String(v)); } catch (e) {}
+  const { error } = await sb.from('configuracoes').upsert({ chave: 'busca_ia_credito_usd', valor: String(v), atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() }, { onConflict: 'chave' });
+  if (error) {
+    try { localStorage.setItem(CREDITO_IA_KEY, String(v)); } catch (e) {}
+    alert('Não consegui salvar no Supabase (' + error.message + ').\nRode o arquivo migracao-configuracoes.sql. Por enquanto o valor ficou guardado só neste navegador.');
+  } else { creditoIACarregado = true; try { localStorage.removeItem(CREDITO_IA_KEY); } catch (e) {} }
+  creditoIA = v;
   renderUsoBuscaIA();
 }
 
 async function renderUsoBuscaIA() {
   const el = document.getElementById('uso-busca-ia-cards');
   if (!el) return;
+  await carregarCreditoIA();
   const inicioMes = todayStr().slice(0, 7) + '-01';
   const { data, error } = await sb.from('busca_ia_uso').select('custo_estimado, created_at');
   if (error) {
@@ -7422,12 +7444,69 @@ function desempLeitura(m, ticketsMedia) {
   return { perfil, fortes, melhorar, acoes };
 }
 
-function desempObsChave(nome) { const p = desempPeriodo(); return 'ws_desemp_obs_' + (p.modo === 'mes' ? 'mes_' : '') + p.ini + '_' + nome; }
-function desempLerObs(nome) { try { return localStorage.getItem(desempObsChave(nome)) || ''; } catch (e) { return ''; } }
+// Observações do gestor: guardadas no Supabase (tabela desempenho_observacoes, só Edimilson e Gilson leem/gravam — RLS), por
+// analista e período. Antes ficavam no localStorage do navegador (migracao-configuracoes.sql). O texto fica num cache em memória
+// (leitura síncrona para a tela, o texto exportado e o PDF) e é gravado com um pequeno atraso depois de parar de digitar.
+let desempObsCache = new Map(), desempObsCarregado = false, desempObsCarregando = false;
+const desempObsTimers = {};
+const desempObsRegex = /^ws_desemp_obs_(mes_)?(\d{4}-\d{2}-\d{2})_(.+)$/;
+function desempObsChave(nome) { const p = desempPeriodo(); return p.modo + '|' + p.ini + '|' + nome; }
+function desempLerObs(nome) { return desempObsCache.get(desempObsChave(nome)) || ''; }
+function desempObsStatus(txt, erro) { const e = document.getElementById('desemp-obs-status'); if (e) { e.textContent = txt || ''; e.style.color = erro ? 'var(--red)' : 'var(--gray-text)'; } }
+function desempObsSemTabela(error) { return /does not exist|schema cache|42P01|PGRST205/i.test(String((error && error.message) || '') + String((error && error.code) || '')); }
+
+async function desempObsGravar(modo, ini, nome, texto) {
+  const tabela = sb.from('desempenho_observacoes');
+  const r = texto.trim()
+    ? await tabela.upsert({ periodo: modo, periodo_ini: ini, analista: nome, texto, atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() }, { onConflict: 'periodo,periodo_ini,analista' })
+    : await sb.from('desempenho_observacoes').delete().eq('periodo', modo).eq('periodo_ini', ini).eq('analista', nome);
+  return r.error || null;
+}
+
 function desempSalvarObs(i, nome, valor) {
-  try { if (valor.trim()) localStorage.setItem(desempObsChave(nome), valor); else localStorage.removeItem(desempObsChave(nome)); } catch (e) {}
+  const p = desempPeriodo();
+  const chave = desempObsChave(nome);
+  if (valor.trim()) desempObsCache.set(chave, valor); else desempObsCache.delete(chave);
   const el = document.getElementById('desemp-obs-view-' + i);
   if (el) { el.style.display = valor.trim() ? '' : 'none'; const t = el.querySelector('span'); if (t) t.textContent = valor; }
+  desempObsStatus('salvando…');
+  clearTimeout(desempObsTimers[chave]);
+  desempObsTimers[chave] = setTimeout(async () => {
+    const erro = await desempObsGravar(p.modo, p.ini, nome, valor);
+    if (!erro) { desempObsStatus('✓ salvo no Supabase às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })); return; }
+    // Sem a tabela (SQL ainda não rodado): guarda neste navegador só para não perder o texto; migra sozinho quando a tabela existir.
+    if (desempObsSemTabela(erro)) {
+      try { const k = 'ws_desemp_obs_' + (p.modo === 'mes' ? 'mes_' : '') + p.ini + '_' + nome; if (valor.trim()) localStorage.setItem(k, valor); else localStorage.removeItem(k); } catch (e) {}
+      desempObsStatus('⚠ A tabela ainda não existe no Supabase: rode migracao-configuracoes.sql. O texto ficou guardado só neste navegador por enquanto.', true);
+    } else desempObsStatus('⚠ Não consegui salvar: ' + erro.message, true);
+  }, 700);
+}
+
+async function desempObsCarregar() {
+  if (desempObsCarregando || desempObsCarregado || !desempVerTodos()) return;
+  desempObsCarregando = true;
+  try {
+    const { data, error } = await sb.from('desempenho_observacoes').select('periodo, periodo_ini, analista, texto');
+    if (error) throw error;
+    desempObsCache = new Map((data || []).map(x => [x.periodo + '|' + x.periodo_ini + '|' + x.analista, x.texto]));
+    // migra o que ainda estiver guardado só neste navegador (versão antiga) e limpa o local depois de gravar
+    const locais = [];
+    for (let k = 0; k < localStorage.length; k++) { const chave = localStorage.key(k); const m = desempObsRegex.exec(chave || ''); if (m) locais.push({ chave, modo: m[1] ? 'mes' : 'semana', ini: m[2], nome: m[3], texto: localStorage.getItem(chave) || '' }); }
+    for (const l of locais) {
+      const kc = l.modo + '|' + l.ini + '|' + l.nome;
+      if (!l.texto.trim()) { localStorage.removeItem(l.chave); continue; }
+      if (desempObsCache.has(kc)) continue;       // o Supabase já tem texto deste período: não sobrescreve
+      const erro = await desempObsGravar(l.modo, l.ini, l.nome, l.texto);
+      if (!erro) { desempObsCache.set(kc, l.texto); localStorage.removeItem(l.chave); }
+    }
+    desempObsCarregado = true;
+  } catch (e) {
+    desempObsCarregado = true;                    // não insiste a cada tela; recarregar a página tenta de novo
+    desempObsStatus(desempObsSemTabela(e) ? '⚠ Rode migracao-configuracoes.sql no Supabase para guardar as observações.' : '⚠ Não consegui carregar as observações: ' + (e.message || e), true);
+  } finally {
+    desempObsCarregando = false;
+    renderDesempenho();
+  }
 }
 
 function desempMudarPeriodo(delta) {
@@ -7464,6 +7543,7 @@ function renderDesempenho() {
   if (!podeVerDesempenho()) { raiz.innerHTML = '<p style="color:var(--gray-text);">Esta área é restrita.</p>'; return; }
   if (!desempSemanaIni) desempSemanaIni = desempSegunda(todayStr());
   if (!desempMesIni) desempMesIni = todayStr().slice(0, 7) + '-01';
+  if (desempVerTodos() && !desempObsCarregado) desempObsCarregar();
   if (!desempTicketsRows) desempCarregarTickets(); else if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) desempTicketsRows = grafanaQuadroUltimasLinhas;
 
   const d = desempDados();
@@ -7558,7 +7638,7 @@ function renderDesempenho() {
   raiz.innerHTML = '<div class="desemp-doc" id="desempenho-visual">'
     + '<div class="desemp-head"><img src="logo-intelipulse.png" alt="Intelipulse"><h1>' + (ehMes ? 'Desempenho do Mês' : 'Desempenho da Sprint') + '</h1><p>' + escapeHtml((d.verTodos ? 'Equipe de Implantação' : 'Desempenho de ' + d.analistas.map(a => a.nome).join(', ')) + ' · ' + (ehMes ? d.rotulo : 'semana de ' + desempCurto(d.ini) + ' a ' + formatDate(d.fim))) + '</p></div>'
     + '<div class="desemp-corpo">' + resumo + '<div class="desemp-cards">' + cards + '</div>' + nota + '</div></div>'
-    + (!d.verTodos ? '' : '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas só neste navegador)</div>'
+    + (!d.verTodos ? '' : '<div class="desemp-obs-editor"><div style="font-weight:700;font-size:13px;color:var(--text-main);">Observações do gestor (entram no relatório; ficam guardadas no Supabase e só você e o Gilson veem) <span id="desemp-obs-status" style="font-weight:400;font-size:11.5px;color:var(--gray-text);"></span></div>'
     + d.analistas.map((a, i) => '<div><label>' + escapeHtml(a.nome) + '</label><textarea oninput="desempSalvarObs(' + i + ', \'' + a.nome.replace(/'/g, "\\'") + '\', this.value)" placeholder="Fatos, exemplos, combinados do 1:1...">' + escapeHtml(desempLerObs(a.nome)) + '</textarea></div>').join('')
     + '</div>');
 }
