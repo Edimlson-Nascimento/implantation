@@ -1787,6 +1787,7 @@
         <button class="btn btn-sm" onclick="desempBaixarPDF()">📄 Baixar PDF</button>
       </div>
       <div id="desempenho-conteudo"></div>
+      <div id="desemp-qualidade"></div>
     </div>
   </section>
 
@@ -7616,6 +7617,227 @@ async function desempBaixarPDF() {
   pdf.addImage(imgData, 'PNG', 0, 0, widthMm, heightMm);
   pdf.save('Desempenho-' + (desempModo === 'mes' ? 'Mes-' : 'Sprint-') + desempPeriodo().ini + '.pdf');
 }
+</script>
+
+<style id="aval-css">
+  #desemp-qualidade { margin-top: 22px; }
+  .aval-box { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 12px; padding: 16px 18px; background: var(--white); }
+  .aval-box h3 { margin: 0 0 4px; font-size: 16px; color: var(--text-main); }
+  .aval-sub { margin: 0 0 12px; font-size: 12.5px; color: var(--gray-text); line-height: 1.5; }
+  .aval-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .aval-titulo { margin: 16px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
+  .aval-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .aval-tabela th { text-align: left; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); padding: 4px 8px; }
+  .aval-tabela td { padding: 7px 8px; border-top: 1px solid var(--border-light, rgba(127,127,127,.22)); vertical-align: top; color: var(--text-main); }
+  .aval-n { color: var(--gray-text); font-size: 11.5px; }
+  .aval-nota { font-weight: 700; }
+  .aval-vazio { font-size: 13px; color: var(--gray-text); }
+  .aval-alerta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--amber); border-radius: 8px; background: rgba(245,158,11,.10); font-size: 13px; color: var(--text-main); }
+  .aval-alerta b { color: var(--amber); }
+  .aval-tipo { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(59,130,246,.18); color: #3B82F6; white-space: nowrap; }
+  .aval-tipo.trein { background: rgba(139,92,246,.18); color: #8B5CF6; }
+  .aval-coment { color: var(--gray-text); font-size: 12px; }
+  .aval-x { border: 0; background: none; color: var(--gray-text); cursor: pointer; font-size: 14px; }
+  .aval-x:hover { color: var(--red); }
+  .aval-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .aval-grid2 .full { grid-column: 1 / -1; }
+  @media (max-width: 640px) { .aval-grid2 { grid-template-columns: 1fr; } }
+</style>
+<script>
+// ── Qualidade e satisfação do cliente (Desempenho) — sugestões do Gilson, 2026-10-28 ──
+// Feedback falado do cliente no meio do projeto + observação do treinamento (5 critérios).
+// Dados em avaliacoes_feedback_cliente / avaliacoes_treinamento (migracao-avaliacoes.sql). A restrição de quem vê o quê
+// está no BANCO (RLS): Edimilson e Gilson veem e gravam tudo; cada analista só lê as avaliações dele.
+let avalFeedback = [], avalTrein = [], avalCarregado = false, avalCarregando = false, avalErro = '';
+const AVAL_CRITERIOS = [['dominio', 'Domínio do assunto'], ['clareza', 'Clareza da explicação'], ['seguranca', 'Segurança'], ['postura', 'Postura / apresentação'], ['conducao', 'Condução do treinamento']];
+
+async function avalCarregar(forcar) {
+  if (avalCarregando || (avalCarregado && !forcar)) return;
+  avalCarregando = true;
+  try {
+    const [f, t] = await Promise.all([
+      sb.from('avaliacoes_feedback_cliente').select('*').order('data', { ascending: false }),
+      sb.from('avaliacoes_treinamento').select('*').order('data', { ascending: false })
+    ]);
+    const erro = f.error || t.error;
+    if (erro) throw erro;
+    avalFeedback = f.data || [];
+    avalTrein = t.data || [];
+    avalErro = '';
+  } catch (e) {
+    avalFeedback = []; avalTrein = [];
+    avalErro = /does not exist|schema cache|42P01|PGRST205/i.test(String(e.message || '') + String(e.code || '')) ? 'tabela' : (e.message || String(e));
+  } finally {
+    avalCarregando = false;
+    avalCarregado = true;
+    renderQualidade();
+  }
+}
+
+const avalMedia = (arr, f) => { const v = arr.map(x => x[f]).filter(n => n != null); return v.length ? v.reduce((s, n) => s + n, 0) / v.length : null; };
+const avalFmt = n => n == null ? '—' : n.toFixed(1).replace('.', ',');
+const avalNome = id => { const c = (state.clients || []).find(x => x.id === id); return c ? c.nome : '(cliente removido)'; };
+const avalIgual = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+function renderQualidade() {
+  const raiz = document.getElementById('desemp-qualidade');
+  if (!raiz) return;
+  if (typeof podeVerDesempenho !== 'function' || !podeVerDesempenho()) { raiz.innerHTML = ''; return; }
+  if (!avalCarregado) avalCarregar();
+  const gestor = desempVerTodos();
+
+  if (avalErro === 'tabela') {
+    raiz.innerHTML = '<div class="aval-box"><h3>Qualidade e satisfação do cliente</h3><p class="aval-sub">As tabelas de avaliação ainda não existem no banco.'
+      + (gestor ? ' Rode o arquivo <b>migracao-avaliacoes.sql</b> no SQL Editor do Supabase (projeto <i>implantation</i>) e clique em Atualizar.' : '') + '</p></div>';
+    return;
+  }
+  if (avalErro) {
+    raiz.innerHTML = '<div class="aval-box"><h3>Qualidade e satisfação do cliente</h3><p class="aval-sub" style="color:var(--red);">Não consegui carregar as avaliações: ' + escapeHtml(avalErro) + '</p></div>';
+    return;
+  }
+
+  const nomes = gestor ? PESSOAS : [desempNomeProprio()].filter(Boolean);
+  const linhas = nomes.map(nome => {
+    const f = avalFeedback.filter(x => avalIgual(x.analista, nome));
+    const t = avalTrein.filter(x => avalIgual(x.analista, nome));
+    const geralT = t.length ? t.reduce((s, x) => s + AVAL_CRITERIOS.reduce((q, c) => q + x[c[0]], 0) / AVAL_CRITERIOS.length, 0) / t.length : null;
+    const porCrit = t.length ? AVAL_CRITERIOS.map(c => c[1].split(' ')[0] + ' ' + avalFmt(avalMedia(t, c[0]))).join(' · ') : '';
+    return '<tr><td><b>' + escapeHtml(nome) + '</b></td>'
+      + '<td>' + (f.length ? '<span class="aval-nota">' + avalFmt(avalMedia(f, 'nota')) + '</span> <span class="aval-n">(' + f.length + ' feedback' + (f.length === 1 ? '' : 's') + ')</span>' : '<span class="aval-n">sem registros</span>') + '</td>'
+      + '<td>' + (t.length ? '<span class="aval-nota">' + avalFmt(geralT) + '</span> <span class="aval-n">(' + t.length + ' observaç' + (t.length === 1 ? 'ão' : 'ões') + ')</span><div class="aval-n">' + escapeHtml(porCrit) + '</div>' : '<span class="aval-n">sem registros</span>') + '</td></tr>';
+  }).join('');
+
+  // Alerta (só gestor): cliente em implantação que passou da metade do prazo (início → previsão pós-implantação) sem nenhum feedback.
+  let alertas = '';
+  if (gestor) {
+    const comFeedback = new Set(avalFeedback.map(x => x.cliente_id));
+    const lista = (state.clients || [])
+      .filter(c => (c.fase || 'implantacao') === 'implantacao' && c.inicio && c.previsaoPosImplantacao && !comFeedback.has(c.id))
+      .map(c => {
+        const total = Math.round((dataLocal(c.previsaoPosImplantacao) - dataLocal(c.inicio)) / 86400000);
+        return { c, pct: total > 0 ? Math.round(diasDesde(c.inicio) / total * 100) : null };
+      })
+      .filter(x => x.pct !== null && x.pct >= 50)
+      .sort((a, b) => b.pct - a.pct);
+    alertas = lista.length
+      ? '<div class="aval-titulo">Clientes sem feedback do meio do projeto</div>' + lista.map(x => '<div class="aval-alerta"><b>' + escapeHtml(x.c.nome) + '</b>'
+          + '<span>' + (x.c.analistaResponsavel ? 'analista ' + escapeHtml(x.c.analistaResponsavel) + ' · ' : '') + (x.pct >= 100 ? 'o prazo de implantação já venceu (' + x.pct + '%)' : x.pct + '% do prazo de implantação já passou') + '</span></div>').join('')
+      : '<div class="aval-titulo">Clientes sem feedback do meio do projeto</div><div class="aval-vazio">Nenhum cliente passou da metade do prazo sem feedback.</div>';
+  }
+
+  const recentes = [
+    ...avalFeedback.map(x => ({ tipo: 'feedback', ...x })),
+    ...avalTrein.map(x => ({ tipo: 'trein', ...x }))
+  ].filter(x => gestor || nomes.some(n => avalIgual(x.analista, n))).sort((a, b) => String(b.data).localeCompare(String(a.data)) || String(b.created_at).localeCompare(String(a.created_at))).slice(0, 12);
+  const recentesHtml = recentes.length
+    ? '<table class="aval-tabela"><thead><tr><th>Data</th><th>Tipo</th><th>Cliente</th><th>Analista</th><th>Nota</th><th>Comentário</th>' + (gestor ? '<th></th>' : '') + '</tr></thead><tbody>'
+      + recentes.map(x => {
+        const nota = x.tipo === 'feedback' ? (x.nota == null ? '—' : x.nota) : avalFmt(AVAL_CRITERIOS.reduce((s, c) => s + x[c[0]], 0) / AVAL_CRITERIOS.length);
+        const quem = x.tipo === 'feedback' ? x.coletado_por : x.observador;
+        return '<tr><td>' + escapeHtml(formatDate(String(x.data).slice(0, 10))) + '</td>'
+          + '<td><span class="aval-tipo ' + (x.tipo === 'trein' ? 'trein' : '') + '">' + (x.tipo === 'trein' ? 'Treinamento' : 'Feedback') + '</span></td>'
+          + '<td>' + escapeHtml(avalNome(x.cliente_id)) + '</td><td>' + escapeHtml(x.analista) + '</td>'
+          + '<td class="aval-nota">' + nota + '</td>'
+          + '<td class="aval-coment">' + escapeHtml(desempCortar(x.comentario || '', 140)) + (quem ? ' <span class="aval-n">— ' + escapeHtml(quem) + '</span>' : '') + '</td>'
+          + (gestor ? '<td><button class="aval-x" title="Excluir" onclick="avalExcluir(\'' + x.tipo + '\',\'' + x.id + '\')">✕</button></td>' : '') + '</tr>';
+      }).join('') + '</tbody></table>'
+    : '<div class="aval-vazio">Nenhuma avaliação registrada ainda.</div>';
+
+  raiz.innerHTML = '<div class="aval-box">'
+    + '<h3>Qualidade e satisfação do cliente</h3>'
+    + '<p class="aval-sub">' + (gestor
+      ? 'Feedback falado do cliente no meio do projeto e observação do analista no treinamento. Com poucas avaliações a média engana: olhe o número entre parênteses e os comentários. Só você e o Gilson veem e registram; cada analista vê apenas as próprias.'
+      : 'Avaliações registradas sobre o seu trabalho. Servem para a conversa de desenvolvimento com o gestor.') + '</p>'
+    + (gestor ? '<div class="aval-acoes"><button class="btn btn-sm" onclick="avalAbrir(\'feedback\')">+ Feedback do cliente (meio do projeto)</button><button class="btn btn-sm" onclick="avalAbrir(\'trein\')">+ Observação de treinamento</button></div>' : '')
+    + '<div class="aval-titulo">Por analista</div>'
+    + '<table class="aval-tabela"><thead><tr><th>Analista</th><th>Feedback do cliente (nota 1–5)</th><th>Observação do treinamento (média 1–5)</th></tr></thead><tbody>' + (linhas || '<tr><td colspan="3" class="aval-vazio">Sem analistas.</td></tr>') + '</tbody></table>'
+    + alertas
+    + '<div class="aval-titulo">Últimos registros</div>' + recentesHtml
+    + '</div>';
+}
+
+function avalOpcoesNota(sel) {
+  return '<option value="">—</option>' + [5, 4, 3, 2, 1].map(n => '<option value="' + n + '"' + (String(sel) === String(n) ? ' selected' : '') + '>' + n + (n === 5 ? ' — ótimo' : n === 1 ? ' — ruim' : '') + '</option>').join('');
+}
+
+function avalAbrir(tipo) {
+  if (!desempVerTodos()) return;
+  let ov = document.getElementById('aval-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.id = 'aval-modal-overlay';
+    ov.onclick = e => { if (e.target === ov) avalFechar(); };
+    document.body.appendChild(ov);
+  }
+  const clientes = (state.clients || []).filter(c => (c.fase || 'implantacao') === 'implantacao').sort((a, b) => a.nome.localeCompare(b.nome));
+  const ehTrein = tipo === 'trein';
+  ov.innerHTML = '<div class="modal-box" style="max-width:560px;">'
+    + '<h2>' + (ehTrein ? 'Observação de treinamento' : 'Feedback do cliente (meio do projeto)') + '</h2>'
+    + '<div class="aval-grid2" style="margin-top:8px;">'
+    + '<div class="form-field full"><label>Cliente</label><select id="aval-cliente" onchange="avalCliente()"><option value="">— escolher —</option>' + clientes.map(c => '<option value="' + c.id + '">' + escapeHtml(c.nome) + '</option>').join('') + '</select></div>'
+    + '<div class="form-field"><label>Analista avaliado</label><select id="aval-analista"><option value="">— escolher —</option>' + PESSOAS.map(p => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('') + '</select></div>'
+    + '<div class="form-field"><label>' + (ehTrein ? 'Data do treinamento' : 'Data da conversa') + '</label><input type="date" id="aval-data" value="' + todayStr() + '" max="' + todayStr() + '"></div>'
+    + (ehTrein
+      ? AVAL_CRITERIOS.map(c => '<div class="form-field"><label>' + c[1] + '</label><select id="aval-' + c[0] + '">' + avalOpcoesNota('') + '</select></div>').join('')
+      : '<div class="form-field"><label>Satisfação geral do cliente (1–5)</label><select id="aval-nota">' + avalOpcoesNota('') + '</select></div>')
+    + '<div class="form-field full"><label>Comentário' + (ehTrein ? '' : ' (o que o cliente disse)') + '</label><textarea id="aval-comentario" rows="3" placeholder="' + (ehTrein ? 'Pontos observados, exemplos, o que melhorar...' : 'Feedback falado: o que está bom, o que preocupa...') + '"></textarea></div>'
+    + '</div>'
+    + '<p class="aval-sub" style="margin-top:8px;">Registrado por <b>' + escapeHtml(currentPessoaNome || '') + '</b>. O analista só consegue ler; não edita nem apaga.</p>'
+    + '<div class="modal-footer"><div></div><div style="display:flex;gap:8px;margin-left:auto;"><button class="btn" onclick="avalFechar()">Cancelar</button><button class="btn btn-primary" onclick="avalSalvar(\'' + tipo + '\')">Salvar</button></div></div>'
+    + '</div>';
+  ov.classList.add('open');
+}
+function avalFechar() { const ov = document.getElementById('aval-modal-overlay'); if (ov) ov.classList.remove('open'); }
+// ao escolher o cliente, já sugere o analista responsável dele
+function avalCliente() {
+  const c = (state.clients || []).find(x => x.id === document.getElementById('aval-cliente').value);
+  if (c && c.analistaResponsavel) document.getElementById('aval-analista').value = c.analistaResponsavel;
+}
+
+async function avalSalvar(tipo) {
+  const v = id => (document.getElementById(id) || {}).value || '';
+  const cliente_id = v('aval-cliente'), analista = v('aval-analista'), data = v('aval-data'), comentario = v('aval-comentario').trim();
+  if (!cliente_id) { alert('Escolha o cliente.'); return; }
+  if (!analista) { alert('Escolha o analista avaliado.'); return; }
+  if (!data) { alert('Informe a data.'); return; }
+  if (data > todayStr()) { alert('A data não pode ser no futuro.'); return; }
+  let tabela, payload;
+  if (tipo === 'trein') {
+    payload = { cliente_id, analista, data, observador: currentPessoaNome || '', comentario };
+    for (const c of AVAL_CRITERIOS) {
+      const n = Number(v('aval-' + c[0]));
+      if (!(n >= 1 && n <= 5)) { alert('Dê uma nota de 1 a 5 para "' + c[1] + '".'); return; }
+      payload[c[0]] = n;
+    }
+    tabela = 'avaliacoes_treinamento';
+  } else {
+    const nota = v('aval-nota') ? Number(v('aval-nota')) : null;
+    if (nota === null && !comentario) { alert('Informe a nota ou escreva o comentário do cliente.'); return; }
+    payload = { cliente_id, analista, data, coletado_por: currentPessoaNome || '', nota, comentario };
+    tabela = 'avaliacoes_feedback_cliente';
+  }
+  const { error } = await sb.from(tabela).insert(payload);
+  if (error) {
+    alert('Erro ao salvar a avaliação: ' + error.message + (/does not exist|schema cache/i.test(error.message) ? '\n\nRode o arquivo migracao-avaliacoes.sql no Supabase.' : ''));
+    return;
+  }
+  avalFechar();
+  avalCarregar(true);
+}
+
+async function avalExcluir(tipo, id) {
+  if (!desempVerTodos() || !confirm('Excluir esta avaliação? Isso não pode ser desfeito.')) return;
+  const { error } = await sb.from(tipo === 'trein' ? 'avaliacoes_treinamento' : 'avaliacoes_feedback_cliente').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  avalCarregar(true);
+}
+
+// Encaixa o bloco no Desempenho sem mexer no código dele: toda vez que o Desempenho é desenhado, desenha este bloco também.
+(function () {
+  const original = renderDesempenho;
+  renderDesempenho = function () { original.apply(this, arguments); renderQualidade(); };
+})();
 </script>
 
 </body>
