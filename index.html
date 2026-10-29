@@ -508,6 +508,10 @@
   .ag-cliente-badge { font-size:11px; font-weight:700; color:var(--navy); background:rgba(0,255,122,0.18); padding:2px 9px; border-radius:100px; }
   :root[data-theme="dark"] .ag-cliente-badge { color: var(--green); }
   .ag-cliente-badge.lead { color:#B45309; background:rgba(180,83,9,0.14); }
+  .ag-outlook-badge { font-size:11px; font-weight:700; color:#0F6CBD; background:rgba(15,108,189,0.14); padding:2px 9px; border-radius:100px; }
+  :root[data-theme="dark"] .ag-outlook-badge { color:#6CB8FF; background:rgba(108,184,255,0.16); }
+  .outlook-status { font-size:12px; color:var(--gray-text); }
+  .outlook-status.erro { color:var(--amber); }
   .ag-reagendado-badge { font-size:11px; font-weight:700; color:#7C3AED; background:rgba(124,58,237,0.14); padding:2px 9px; border-radius:100px; }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
@@ -1653,6 +1657,8 @@
             <button class="view-toggle-btn" id="cal-view-btn-cards" onclick="setCalendarioView('cards')">▦ Cards</button>
             <button class="view-toggle-btn" id="cal-view-btn-mensal" onclick="setCalendarioView('mensal')">📅 Mês</button>
           </div>
+          <span class="outlook-status" id="outlook-status"></span>
+          <button class="btn btn-sm" id="btn-sync-outlook" onclick="sincronizarOutlook(true)" title="Importar agora os compromissos da agenda do Outlook">🔄 Outlook</button>
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
@@ -2441,7 +2447,7 @@ async function loadState() {
     agendamentos = ags.map(a => ({
       id: a.id, clienteId: a.cliente_id, clienteNome: a.cliente_nome || '', titulo: a.titulo, tipo: a.tipo,
       data: a.data, hora: a.hora ? a.hora.slice(0,5) : '', observacao: a.observacao || '', feito: a.feito,
-      responsavel: a.responsavel || '', participantes: a.participantes || [], reagendadoDe: a.reagendado_de || null
+      responsavel: a.responsavel || '', participantes: a.participantes || [], reagendadoDe: a.reagendado_de || null, outlookUid: a.outlook_uid || null
     }));
   }
 
@@ -2502,6 +2508,7 @@ function setTab(tab) {
   }
   activeTab = tab;
   document.getElementById('tab-calendario').classList.toggle('active', tab === 'calendario');
+  if ((tab === 'calendario' || tab === 'pendencias') && typeof sincronizarOutlookAuto === 'function') sincronizarOutlookAuto();
   document.getElementById('tab-clientes').classList.toggle('active', tab === 'clientes');
   document.getElementById('tab-pendencias').classList.toggle('active', tab === 'pendencias');
   document.getElementById('tab-resumo').classList.toggle('active', tab === 'resumo');
@@ -5463,7 +5470,7 @@ function renderCalendario() {
             <div class="agenda-card-titulo">${escapeHtml(a.titulo)}</div>
             <div class="agenda-card-meta">
               ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
-              ${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
+              ${a.outlookUid ? `<span class="ag-outlook-badge" title="Veio da agenda do Outlook">Outlook</span>` : ''}${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
               ${a.responsavel ? `<span class="ag-resp">${avatarHtml(a.responsavel)}<span>${escapeHtml(a.responsavel)}</span></span>` : ''}
               ${partBadge(a)}
             </div>
@@ -5486,7 +5493,7 @@ function renderCalendario() {
               <div class="ag-titulo-row">
                 <span class="ag-titulo">${escapeHtml(a.titulo)}</span>
                 ${nomeExibicao ? `<span class="ag-cliente-badge ${cliente ? '' : 'lead'}">${escapeHtml(nomeExibicao)}${cliente ? '' : ' (lead)'}</span>` : ''}
-                ${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
+                ${a.outlookUid ? `<span class="ag-outlook-badge" title="Veio da agenda do Outlook">Outlook</span>` : ''}${a.reagendadoDe ? `<span class="ag-reagendado-badge" title="Era ${formatDate(a.reagendadoDe)}">🔁 Reagendado</span>` : ''}
               </div>
               <div class="ag-meta">${tipoChip(a)}${a.observacao ? ' · ' + escapeHtml(a.observacao) : ''}</div>
             </div>
@@ -5634,9 +5641,46 @@ async function saveAgendamento() {
   render();
 }
 
+// Agenda do Outlook: a função agenda-outlook lê o calendário publicado (link ICS, guardado só como secret no Supabase) e
+// grava em agendamentos. Só lê do Outlook; nada volta para lá. Roda ao abrir a Agenda/Pendências (no máximo a cada 10 min) e no botão.
+const OUTLOOK_FN_URL = `${SUPABASE_URL}/functions/v1/agenda-outlook`;
+let outlookSyncEm = 0, outlookSyncRodando = false, outlookIndisponivel = false;
+function outlookStatus(txt, erro) { const e = document.getElementById('outlook-status'); if (e) { e.textContent = txt || ''; e.classList.toggle('erro', !!erro); } }
+async function sincronizarOutlook(manual) {
+  if (outlookSyncRodando) return;
+  if (!manual && outlookIndisponivel) return;
+  outlookSyncRodando = true; outlookSyncEm = Date.now();
+  const btn = document.getElementById('btn-sync-outlook');
+  if (btn) btn.disabled = true;
+  outlookStatus('sincronizando com o Outlook…');
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Sessão expirada: entre de novo.');
+    const res = await fetch(OUTLOOK_FN_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: '{}' });
+    if (res.status === 404) { outlookIndisponivel = true; outlookStatus('Outlook: a função agenda-outlook ainda não foi publicada no Supabase.', true); return; }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || ('erro ' + res.status));
+    if (j.erro) { if (j.configurado === false) outlookIndisponivel = true; outlookStatus('Outlook: ' + j.erro, true); return; }
+    outlookIndisponivel = false;
+    const hm = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    outlookStatus('Outlook ✓ ' + hm + (j.inseridos || j.atualizados || j.removidos ? ' · ' + j.inseridos + ' novos, ' + j.atualizados + ' atualizados, ' + j.removidos + ' removidos' : ' · tudo em dia'));
+    if (j.inseridos || j.atualizados || j.removidos) await refreshDados();
+  } catch (e) {
+    outlookStatus('Outlook: não consegui sincronizar (' + (e.message || e) + ')', true);
+  } finally {
+    outlookSyncRodando = false;
+    const b2 = document.getElementById('btn-sync-outlook'); if (b2) b2.disabled = false;
+  }
+}
+function sincronizarOutlookAuto() {
+  if (outlookIndisponivel || outlookSyncRodando || Date.now() - outlookSyncEm < 10 * 60 * 1000) return;
+  sincronizarOutlook(false);
+}
+
 async function deleteAgendamento() {
   if (!editingAgendamentoId) return;
-  if (!confirm('Excluir este agendamento?')) return;
+  const agOutlook = agendamentos.find(a => a.id === editingAgendamentoId);
+  if (!confirm(agOutlook && agOutlook.outlookUid ? 'Este compromisso veio do Outlook e volta na próxima sincronização enquanto existir lá.\nPara tirá-lo de vez, exclua no Outlook.\n\nExcluir mesmo assim?' : 'Excluir este agendamento?')) return;
   const { error } = await sb.from('agendamentos').delete().eq('id', editingAgendamentoId);
   if (error) { alert('Erro ao excluir agendamento: ' + error.message); return; }
   agendamentos = agendamentos.filter(a => a.id !== editingAgendamentoId);
