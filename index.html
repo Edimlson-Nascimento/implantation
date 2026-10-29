@@ -8740,9 +8740,10 @@ async function bkCarregarMensal() {
 function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, rotuloFechado) {
   const pm = (linhasMes || []).reduce((m, l) => (!m || l.mes < m ? l.mes : m), null);
   const primeiro = bkPrimeiroDia(hist || [], pm ? pm + '-01' : null);
+  const mostrarEvo = !inicio || inicio <= addDays(todayStr(), -14);   // tickets: só depois de 2 semanas de anotações
   const cards = BK_GRUPOS.map(g => {
     const doGrupo = itens.filter(i => i.grupo === g.k);
-    const evo = hist ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length, primeiro) : null;
+    const evo = hist && mostrarEvo ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length, primeiro) : null;
     return bkCard(g, doGrupo, evo, verbo, bkMesesHtml(linhasMes, g.k, rotuloFechado));
   }).join('');
   return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + itens.length + ' em aberto no total</small></h3>'
@@ -8770,8 +8771,8 @@ function renderBacklog() {
   else {
     const temHist = Array.isArray(bkHist);
     const inicio = temHist ? bkInicioRegistro() : null;
-    const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. A linha do tempo <b>Criados por mês</b> usa a data de criação de todos os tickets do ERP (abertos e já fechados) e mostra como cada um está hoje. Como o ERP não informa quando o ticket foi fechado, a <b>evolução semanal</b> do que estava em aberto é montada pelo próprio painel, que anota o dia em que vê o ticket sair da lista de abertos (fechado ou cancelado)'
-      + (temHist ? '; ela começa em <b>' + formatDate(inicio) + '</b>.' : '.');
+    const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. A linha do tempo <b>Criados por mês</b> usa a data de criação de todos os tickets do ERP (abertos e já fechados) e mostra como cada um está hoje. Como o ERP não informa quando o ticket foi fechado, o painel anota' + (temHist ? ' desde <b>' + formatDate(inicio) + '</b>' : '') + ' o dia em que vê cada ticket sair da lista de abertos (fechado ou cancelado); quando houver pelo menos 2 semanas de anotações, aparece aqui a evolução do que estava em aberto.'
+      + '';
     const aviso = bkHistSemTabela ? 'A evolução dos tickets ainda não está sendo guardada: rode o arquivo <b>migracao-backlog.sql</b> no SQL Editor do Supabase. Enquanto isso o quadro mostra só a situação de hoje.'
       : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').' : '');
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados');
@@ -8830,7 +8831,7 @@ function bkTexto() {
     BK_GRUPOS.forEach(g => {
       const doGrupo = itens.filter(i => i.grupo === g.k);
       const r = bkResumo(doGrupo);
-      const e = hist ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length) : null;
+      const e = hist && (!inicio || inicio <= addDays(todayStr(), -14)) ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length) : null;   // tickets: só depois de 2 semanas de anotações
       L.push('• ' + g.nome + ': ' + r.total + ' em aberto' + (r.total ? ' · idade média ' + bkMedio(r.medio) + ' · mais antigo ' + bkDias(r.maisAntigo) + ' · ' + r.velhos15 + ' há mais de 15 dias'
         + ' (até 7d: ' + r.faixas[0].n + ' · 8-15d: ' + r.faixas[1].n + ' · 16-30d: ' + r.faixas[2].n + ' · +30d: ' + r.faixas[3].n + ')' : '')
         + (e ? ' · últimos 30 dias: ' + e.entrou + ' entraram, ' + e.saiu + ' ' + verbo : ''));
