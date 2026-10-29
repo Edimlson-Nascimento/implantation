@@ -8796,8 +8796,8 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
     + '<div>' + barra + '</div>'
     + '<div>' + (mesesHtml || '') + '</div>'
     + '<div>' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div>'
-    + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 6) + '</div>'
-    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 8) + '</div>'
+    + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999) + '</div>'
+    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999) + '</div>'
     + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
     + '</div>';
 }
