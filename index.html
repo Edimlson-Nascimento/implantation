@@ -1619,6 +1619,17 @@
     </div>
 
     <div class="resumo-box config-section" style="margin-top:12px;">
+      <div class="config-section-header" onclick="toggleConfigSection('raias')">
+        <h2>Raias do quadro</h2>
+        <span class="config-chevron" id="chevron-raias">▸</span>
+      </div>
+      <div class="config-section-body" id="body-raias" style="display:none">
+        <p style="font-size:12.5px;color:var(--gray-text);margin-top:4px;">As raias (colunas) do quadro de Atividades. Dá para renomear, mudar a ordem e desligar as que a equipe não usa. "Concluído" fica sempre por último e não pode ser desligada. Para desligar uma raia, ela precisa estar sem atividades.</p>
+        <div id="raias-aviso"></div>
+        <div id="raias-list" class="etapas-list"></div>
+      </div>
+    </div>
+    <div class="resumo-box config-section" style="margin-top:12px;">
       <div class="config-section-header" onclick="toggleConfigSection('treinamentos-padrao')">
         <h2>Etapas Padrão de Treinamento</h2>
         <span class="config-chevron" id="chevron-treinamentos-padrao">▸</span>
@@ -2288,6 +2299,96 @@ const KANBAN_COLUMNS = [
   { id:'concluida', nome:'Concluído' }
 ];
 const ATIV_LABEL_NAMES = { red:'Incidente Crítico', orange:'Alta Urgência', yellow:'Atenção', blue:'Rotina' };
+// Raias (colunas) do quadro de Atividades: configuráveis em Configurações → "Raias do quadro" (tabela kanban_raias,
+// migracao-raias.sql). Dá para renomear, reordenar e desligar; "Concluído" fica sempre ligada e por último. Sem a tabela,
+// valem as 4 raias de antes (RAIAS_PADRAO) e só não dá para salvar mudanças.
+const RAIAS_PADRAO = [
+  { id: 'urgencias', nome: 'Fila de Urgências (Hoje)', ordem: 1, ativa: true },
+  { id: 'afazer',    nome: 'A Fazer (Próximos)',        ordem: 2, ativa: true },
+  { id: 'andamento', nome: 'Em Andamento',              ordem: 3, ativa: true },
+  { id: 'concluida', nome: 'Concluído',                 ordem: 4, ativa: true }
+];
+const RAIA_CORES = { urgencias: '#DC2626', afazer: '#F59E0B', andamento: '#8B5CF6' };
+let RAIAS = RAIAS_PADRAO.map(r => ({ ...r })), raiasDoBanco = false;
+function raiasOrdenadas() { return [...RAIAS].sort((a, b) => (a.id === 'concluida') - (b.id === 'concluida') || a.ordem - b.ordem); }
+function raiasAbertasAtivas() { return raiasOrdenadas().filter(r => r.id !== 'concluida' && r.ativa !== false); }
+function raiaAtiva(id) { const r = RAIAS.find(x => x.id === id); return !r || r.ativa !== false; }
+function primeiraRaiaAberta() { const r = raiasAbertasAtivas()[0]; return r ? r.id : 'afazer'; }
+// nome sem o complemento entre parênteses ("Fila de Urgências (Hoje)" → "Fila de Urgências"), para cartões e gráficos
+function raiaNomeCurto(id) { const r = RAIAS.find(x => x.id === id); return r ? r.nome.replace(/\s*\([^)]*\)\s*/g, ' ').trim() : id; }
+function rebuildKanbanColumns() {
+  KANBAN_COLUMNS.length = 0;
+  raiasOrdenadas().filter(r => r.id === 'concluida' || r.ativa !== false).forEach(r => KANBAN_COLUMNS.push({ id: r.id, nome: r.nome }));
+}
+// atividade que ficou numa raia desligada (ex.: criada num navegador desatualizado) aparece na primeira raia aberta
+function normalizarColunasAtividades() {
+  const alvo = primeiraRaiaAberta();
+  atividades.forEach(a => { if (a.coluna !== 'concluida' && !raiaAtiva(a.coluna)) a.coluna = alvo; });
+}
+function renderRaiasConfig() {
+  const el = document.getElementById('raias-list');
+  if (!el) return;
+  const aviso = document.getElementById('raias-aviso');
+  if (aviso) aviso.innerHTML = raiasDoBanco ? '' : '<p style="font-size:12px;color:var(--amber);margin:6px 0;">⚠ Esta configuração ainda não está no Supabase: rode o arquivo migracao-raias.sql no SQL Editor para poder salvar as mudanças.</p>';
+  const lista = raiasOrdenadas();
+  const abertas = lista.filter(r => r.id !== 'concluida');
+  el.innerHTML = lista.map(r => {
+    const fixa = r.id === 'concluida';
+    const n = atividades.filter(a => a.coluna === r.id && !a.cancelado).length;
+    const i = abertas.findIndex(x => x.id === r.id);
+    return `
+      <div class="etapa-row">
+        <button class="icon-btn" ${fixa || i <= 0 ? 'disabled' : ''} onclick="moveRaia('${r.id}',-1)" title="Mover para a esquerda">↑</button>
+        <button class="icon-btn" ${fixa || i === abertas.length - 1 ? 'disabled' : ''} onclick="moveRaia('${r.id}',1)" title="Mover para a direita">↓</button>
+        <input type="text" value="${escapeHtml(r.nome)}" onchange="renameRaia('${r.id}', this.value)">
+        <span class="etapa-usage">${n} atividade${n === 1 ? '' : 's'}</span>
+        <label class="chk" title="${fixa ? 'Concluído não pode ser desligada' : 'Desligue para esconder a raia do quadro'}"><input type="checkbox" ${r.ativa !== false ? 'checked' : ''} ${fixa ? 'disabled' : ''} onchange="toggleRaia('${r.id}', this.checked)"> Ativa</label>
+      </div>`;
+  }).join('');
+}
+async function salvarRaia(r) {
+  const { error } = await sb.from('kanban_raias').upsert({ id: r.id, nome: r.nome, ordem: r.ordem, ativa: r.ativa !== false }, { onConflict: 'id' });
+  if (error) {
+    alert('Não consegui salvar a raia: ' + error.message + (/does not exist|schema cache|42P01|PGRST205/i.test(error.message) ? '\nRode o arquivo migracao-raias.sql no SQL Editor do Supabase.' : ''));
+    return false;
+  }
+  raiasDoBanco = true;
+  return true;
+}
+function depoisDeMudarRaias() { rebuildKanbanColumns(); renderRaiasConfig(); render(); }
+async function renameRaia(id, nome) {
+  const r = RAIAS.find(x => x.id === id);
+  nome = String(nome || '').trim();
+  if (!r || !nome || nome === r.nome) { renderRaiasConfig(); return; }
+  const antes = r.nome;
+  r.nome = nome;
+  if (!(await salvarRaia(r))) { r.nome = antes; renderRaiasConfig(); return; }
+  depoisDeMudarRaias();
+}
+async function moveRaia(id, dir) {
+  const abertas = raiasOrdenadas().filter(r => r.id !== 'concluida');
+  const i = abertas.findIndex(r => r.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= abertas.length) return;
+  const snapshot = RAIAS.map(r => ({ id: r.id, ordem: r.ordem }));
+  [abertas[i], abertas[j]] = [abertas[j], abertas[i]];
+  abertas.forEach((r, k) => { r.ordem = k + 1; });
+  for (const r of abertas) {
+    if (!(await salvarRaia(r))) { snapshot.forEach(s => { RAIAS.find(x => x.id === s.id).ordem = s.ordem; }); renderRaiasConfig(); return; }
+  }
+  depoisDeMudarRaias();
+}
+async function toggleRaia(id, ativa) {
+  const r = RAIAS.find(x => x.id === id);
+  if (!r || r.id === 'concluida') { renderRaiasConfig(); return; }
+  if (!ativa) {
+    const n = atividades.filter(a => a.coluna === id && !a.cancelado).length;
+    if (n) { alert('A raia "' + r.nome + '" tem ' + n + ' atividade(s). Mova-as para outra raia antes de desligar.'); renderRaiasConfig(); return; }
+    if (!raiasAbertasAtivas().some(x => x.id !== id)) { alert('Precisa existir ao menos uma raia aberta além de Concluído.'); renderRaiasConfig(); return; }
+  }
+  r.ativa = ativa;
+  if (!(await salvarRaia(r))) { r.ativa = !ativa; renderRaiasConfig(); return; }
+  depoisDeMudarRaias();
+}
 const ATIVIDADE_IMAGENS_BUCKET = 'atividade-imagens';
 let atividades = [];
 let pessoaFiltro = 'Todos';
@@ -2417,6 +2518,19 @@ async function loadState() {
   }
   rebuildTipoMaps();
 
+  const { data: raiasRows, error: errRaia } = await sb.from('kanban_raias').select('*').order('ordem');
+  RAIAS = RAIAS_PADRAO.map(r => ({ ...r }));
+  if (errRaia) {
+    console.warn('Tabela kanban_raias ainda não disponível:', errRaia.message);
+    raiasDoBanco = false;
+  } else {
+    raiasDoBanco = true;
+    (raiasRows || []).forEach(row => {
+      const r = RAIAS.find(x => x.id === row.id);
+      if (r) { r.nome = row.nome || r.nome; r.ordem = Number(row.ordem) || r.ordem; r.ativa = row.ativa !== false; }
+    });
+  }
+  rebuildKanbanColumns();
   const { data: clientes, error: errC } = await sb.from('clientes').select('*').order('nome');
   if (errC) { alert('Erro ao carregar clientes do banco: ' + errC.message); return; }
   let { data: contatos, error: errCt } = await sb.from('contatos_cliente').select('*').order('created_at');
@@ -2551,6 +2665,7 @@ function setTab(tab) {
 function render() {
   if (typeof atualizarMenuDesempenho === 'function') atualizarMenuDesempenho();
   sincronizarFiltrosDeHoje();
+  normalizarColunasAtividades();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
   document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes' || activeTab === 'pendencias');
@@ -2594,17 +2709,13 @@ function renderStats() {
   const emImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
   const emRisco = state.clients.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
   const contatadosHoje = emImplantacao.filter(c => c.ultimoContato === today);
-  const urgencias = atividades.filter(a => a.coluna === 'urgencias' && !a.cancelado);
-  const afazer = atividades.filter(a => a.coluna === 'afazer' && !a.cancelado);
-  const andamento = atividades.filter(a => a.coluna === 'andamento' && !a.cancelado);
+  const raiasStats = raiasAbertasAtivas().map(r => ({ nome: raiaNomeCurto(r.id), n: atividades.filter(a => a.coluna === r.id && !a.cancelado).length }));
   const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
     <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco</div></div>
     <div class="stat-card"><div class="num">${contatadosHoje.length}/${emImplantacao.length}</div><div class="lbl">Contatados hoje</div></div>
-    <div class="stat-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div></div>
-    <div class="stat-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div></div>
-    <div class="stat-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div></div>
+    ${raiasStats.map(r => `<div class="stat-card"><div class="num">${r.n}</div><div class="lbl">${escapeHtml(r.nome)}</div></div>`).join('')}
     <div class="stat-card"><div class="num">${concluidosHoje.length}</div><div class="lbl">Concluídos hoje</div></div>
   `;
 }
@@ -4165,9 +4276,7 @@ function renderResumoPainel(dia, concluidosHoje, ehHoje) {
     </div>
     <div class="rp-tile rp-fila">
       <h3>Fila atual <span>abertas agora</span></h3>
-      <div class="rp-num"><span>Fila de Urgências</span><b>${abertas('urgencias').length}</b></div>
-      <div class="rp-num"><span>A Fazer</span><b>${abertas('afazer').length}</b></div>
-      <div class="rp-num"><span>Em Andamento</span><b>${nAndamento}</b></div>
+      ${raiasAbertasAtivas().map(r => `<div class="rp-num"><span>${escapeHtml(raiaNomeCurto(r.id))}</span><b>${abertas(r.id).length}</b></div>`).join('')}
     </div>
     <div class="rp-tile rp-pessoa">
       <h3>Entregas por pessoa <span>concluídas ${ehHoje ? 'hoje' : 'no dia'}</span></h3>
@@ -4842,15 +4951,11 @@ function renderIndicadores() {
     (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)))
   );
 
-  const urgencias = atividadesFiltradas.filter(a => a.coluna === 'urgencias');
-  const afazer = atividadesFiltradas.filter(a => a.coluna === 'afazer');
-  const andamento = atividadesFiltradas.filter(a => a.coluna === 'andamento');
+  const raiasInd = raiasAbertasAtivas().map(r => ({ r, lista: atividadesFiltradas.filter(a => a.coluna === r.id) }));
   const concluidas = atividadesFiltradas.filter(a => a.coluna === 'concluida');
 
   document.getElementById('indicadores-stats-row').innerHTML = `
-    <div class="ind-card"><div class="num">${urgencias.length}</div><div class="lbl">Fila de Urgências</div><div class="sub">${urgencias.length ? `média ${mediaIdadeAbertos(urgencias)} dia(s) em aberto` : '—'}</div></div>
-    <div class="ind-card"><div class="num">${afazer.length}</div><div class="lbl">A Fazer</div><div class="sub">${afazer.length ? `média ${mediaIdadeAbertos(afazer)} dia(s) em aberto` : '—'}</div></div>
-    <div class="ind-card"><div class="num">${andamento.length}</div><div class="lbl">Em Andamento</div><div class="sub">${andamento.length ? `média ${mediaIdadeAbertos(andamento)} dia(s) em aberto` : '—'}</div></div>
+    ${raiasInd.map(({ r, lista }) => `<div class="ind-card"><div class="num">${lista.length}</div><div class="lbl">${escapeHtml(raiaNomeCurto(r.id))}</div><div class="sub">${lista.length ? `média ${mediaIdadeAbertos(lista)} dia(s) em aberto` : '—'}</div></div>`).join('')}
     <div class="ind-card"><div class="num">${concluidas.length}</div><div class="lbl">Concluídas</div><div class="sub">total (todo o período)</div></div>
   `;
 
@@ -4882,9 +4987,7 @@ function renderIndicadores() {
   `).join('');
 
   montarPizza('pizza-fila', [
-    { label: 'Fila de Urgências', valor: urgencias.length, cor: '#DC2626' },
-    { label: 'A Fazer', valor: afazer.length, cor: '#F59E0B' },
-    { label: 'Em Andamento', valor: andamento.length, cor: '#8B5CF6' }
+    ...raiasInd.map(({ r, lista }) => ({ label: raiaNomeCurto(r.id), valor: lista.length, cor: RAIA_CORES[r.id] || '#94A3B8' }))
   ]);
 
   const wrapPizzaPessoa = document.getElementById('pizza-pessoa-wrap');
@@ -4973,6 +5076,7 @@ function renderEtapas() {
   }).join('');
   renderPessoasList();
   renderTiposAgendamento();
+  renderRaiasConfig();
   renderTreinamentosPadrao();
 }
 
@@ -6351,7 +6455,10 @@ function openAtividadeModal(id, coluna) {
   atualizarDestaqueOrtografico('at-titulo', 'at-titulo-overlay');
   document.getElementById('at-responsavel').value = a.responsavel;
   document.getElementById('at-criado-por').value = a.criadoPor || a.responsavel;
-  document.getElementById('at-coluna').value = a.coluna;
+  const selColuna = document.getElementById('at-coluna');
+  selColuna.innerHTML = KANBAN_COLUMNS.map(c => '<option value="' + c.id + '">' + escapeHtml(c.nome) + '</option>').join('');
+  selColuna.value = a.coluna;
+  if (!selColuna.value) selColuna.value = KANBAN_COLUMNS[0].id;
   document.getElementById('at-cliente-nome').value = a.clienteNome;
   document.getElementById('at-resolucao').value = a.resolucao;
   document.getElementById('at-prazo').value = a.prazo || '';
