@@ -1311,6 +1311,8 @@
   .pend-obs-dia-item span { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
   .pend-obs-dia-item button { border: none; background: none; color: var(--gray-text); cursor: pointer; font-size: 12px; padding: 0 2px; }
   .pend-obs-dia-item button:hover { color: var(--red); }
+  .pend-obs-dia-reg .pend-obs-dia-item { background: transparent; border-left: none; padding: 2px 0; margin-bottom: 2px; }
+  .pend-obs-edit { flex: 1; min-width: 0; width: 100%; resize: vertical; padding: 6px 8px; border: 1px solid var(--green-mid, #00C853); border-radius: 8px; background: var(--white); color: var(--text-main); font: inherit; font-size: 12.5px; line-height: 1.4; box-sizing: border-box; }
   .pend-obs-dia textarea { width: 100%; min-height: 58px; resize: vertical; padding: 9px 11px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--white); color: var(--text-main); font: inherit; font-size: 13px; line-height: 1.45; box-sizing: border-box; }
   .pend-obs-dia textarea:focus { outline: none; border-color: var(--green-mid, #00C853); }
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
@@ -2815,16 +2817,23 @@ function obsDiaNotasDeContato(c) {
 }
 function obsDiaRegistroHtml(c) {
   const notas = obsDiaNotasDeContato(c);
-  return notas.length ? '<div class="pend-obs-dia-reg"><b>Contato registrado hoje</b>' + notas.map(h => escapeHtml(h.texto)).join('\n') + '</div>' : '';
+  return notas.length ? '<div class="pend-obs-dia-reg"><b>Contato registrado hoje</b>' + notas.map(h => obsDiaItemHtml(c, h, false)).join('') + '</div>' : '';
 }
 const obsDiaFila = {};
 // observações de hoje do cliente, da mais antiga para a mais nova (o Histórico guarda a mais nova primeiro)
 function obsDiaLista(c) { const hoje = todayStr(); return (c.historico || []).filter(h => h.data === hoje && String(h.texto).startsWith(OBS_DIA_TAG)).reverse(); }
 function obsDiaStatus(id, txt, erro) { const e = document.getElementById('pgeral-obs-status-' + id); if (e) { e.textContent = txt || ''; e.classList.toggle('erro', !!erro); } }
-function obsDiaListaHtml(c) {
-  return obsDiaLista(c).map(h => '<div class="pend-obs-dia-item"><span>' + escapeHtml(String(h.texto).slice(OBS_DIA_TAG.length)) + '</span><button type="button" title="Excluir esta observação" onclick="obsDiaRemover(\'' + c.id + '\', \'' + h.id + '\')">✕</button></div>').join('');
+function obsDiaItemHtml(c, h, comTag) {
+  const txt = comTag ? String(h.texto).slice(OBS_DIA_TAG.length) : h.texto;
+  return '<div class="pend-obs-dia-item" id="pgeral-obs-item-' + h.id + '"><span>' + escapeHtml(txt) + '</span>'
+    + '<button type="button" title="Editar" onclick="obsDiaEditar(\'' + c.id + '\', \'' + h.id + '\')">✏️</button>'
+    + '<button type="button" title="Excluir" onclick="obsDiaRemover(\'' + c.id + '\', \'' + h.id + '\')">✕</button></div>';
 }
-function obsDiaRedesenhar(c) { const e = document.getElementById('pgeral-obs-lista-' + c.id); if (e) e.innerHTML = obsDiaListaHtml(c); }
+function obsDiaListaHtml(c) { return obsDiaLista(c).map(h => obsDiaItemHtml(c, h, true)).join(''); }
+function obsDiaRedesenhar(c) {
+  const e = document.getElementById('pgeral-obs-lista-' + c.id); if (e) e.innerHTML = obsDiaListaHtml(c);
+  const r = document.getElementById('pgeral-obs-reg-' + c.id); if (r) r.innerHTML = obsDiaRegistroHtml(c);
+}
 // Enter registra a observação; Shift+Enter pula linha dentro dela
 function obsDiaTecla(ev, id) {
   if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); obsDiaAdicionar(id); }
@@ -2854,9 +2863,43 @@ async function gravarObsDia(id, corpo) {
     obsDiaStatus(id, '⚠ não salvou: ' + ((e && e.message) || e), true);
   }
 }
+function obsDiaEditar(id, hid) {
+  const c = state.clients.find(x => x.id === id);
+  const h = c && c.historico.find(x => String(x.id) === String(hid));
+  const el = document.getElementById('pgeral-obs-item-' + hid);
+  if (!h || !el) return;
+  const ehObs = String(h.texto).startsWith(OBS_DIA_TAG);
+  el.innerHTML = '<textarea class="pend-obs-edit" rows="2"></textarea>'
+    + '<button type="button" title="Salvar (Enter)" onclick="obsDiaSalvarEdicao(\'' + id + '\', \'' + hid + '\')">✓</button>'
+    + '<button type="button" title="Cancelar (Esc)" onclick="obsDiaRedesenhar(state.clients.find(x => x.id === \'' + id + '\'))">✕</button>';
+  const t = el.querySelector('textarea');
+  t.value = ehObs ? String(h.texto).slice(OBS_DIA_TAG.length) : h.texto;
+  t.onkeydown = ev => {
+    if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); obsDiaSalvarEdicao(id, hid); }
+    else if (ev.key === 'Escape') obsDiaRedesenhar(c);
+  };
+  t.focus();
+}
+async function obsDiaSalvarEdicao(id, hid) {
+  const c = state.clients.find(x => x.id === id);
+  const h = c && c.historico.find(x => String(x.id) === String(hid));
+  const el = document.getElementById('pgeral-obs-item-' + hid);
+  const t = el && el.querySelector('textarea');
+  if (!h || !t) return;
+  const corpo = t.value.trim();
+  if (!corpo) { obsDiaStatus(id, 'Texto vazio: use o ✕ para excluir.', true); return; }
+  const texto = (String(h.texto).startsWith(OBS_DIA_TAG) ? OBS_DIA_TAG : '') + corpo;
+  const { error } = await sb.from('historico').update({ texto }).eq('id', hid);
+  if (error) { obsDiaStatus(id, '⚠ não salvou: ' + error.message, true); return; }
+  h.texto = texto;
+  obsDiaRedesenhar(c);
+  obsDiaStatus(id, '✓ alterado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+}
 async function obsDiaRemover(id, hid) {
   const c = state.clients.find(x => x.id === id);
   if (!c) return;
+  const h = c.historico.find(x => String(x.id) === String(hid));
+  if (h && !String(h.texto).startsWith(OBS_DIA_TAG) && !confirm('Excluir este registro de contato? Ele também some do Histórico de Contatos do cadastro.')) return;
   const { error } = await sb.from('historico').delete().eq('id', hid);
   if (error) { obsDiaStatus(id, '⚠ não excluiu: ' + error.message, true); return; }
   c.historico = c.historico.filter(h => String(h.id) !== String(hid));
@@ -3769,7 +3812,7 @@ function renderPendencias() {
       </div>
       <div class="pend-obs-dia">
         <div class="pend-obs-dia-top"><label for="pgeral-obs-${c.id}">Observação do dia</label><span class="pend-obs-dia-status" id="pgeral-obs-status-${c.id}"></span></div>
-        ${obsDiaRegistroHtml(c)}
+        <div id="pgeral-obs-reg-${c.id}">${obsDiaRegistroHtml(c)}</div>
         <div id="pgeral-obs-lista-${c.id}">${obsDiaListaHtml(c)}</div>
         <textarea id="pgeral-obs-${c.id}" rows="2" placeholder="Digite e aperte Enter para registrar (Shift+Enter pula linha). Fica no Histórico do cadastro." onkeydown="obsDiaTecla(event, '${c.id}')"></textarea>
       </div>
