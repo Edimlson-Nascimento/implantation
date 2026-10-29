@@ -1299,6 +1299,11 @@
   .pca-sub { display: flex; flex-direction: column; gap: 3px; }
   .pca-sub .pca-rot { min-width: 58px; }
   .pend-card-esq-txt .pendencia-card-nome { align-items: baseline; gap: 8px; }
+  /* Cabeçalho sempre na mesma ordem: avatar + nome no topo à esquerda, licenças/módulos/tickets à direita sem invadir o nome */
+  .pendencia-card-header { align-items: flex-start; }
+  .pend-card-esq { flex: 0 0 auto; align-items: flex-start; max-width: 45%; }
+  .pendencia-card-analista { flex: 0 1 auto; min-width: 0; max-width: 55%; }
+  .pendencia-card-analista .pca-modulos { flex-wrap: wrap; }
   .pend-info-esq { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
   .pend-info-esq .contato-hoje-box { margin: 0; padding: 4px 8px; gap: 6px; font-size: 11.5px; border-radius: 8px; flex-wrap: nowrap; }
   .pend-info-esq .contato-hoje-box > span { white-space: nowrap; }
@@ -2021,7 +2026,7 @@
       <div class="form-field">
         <label>Fase</label>
         <div style="display:flex;gap:8px;align-items:center;">
-          <select id="f-fase" style="flex:1;">
+          <select id="f-fase" style="flex:1;" onchange="sincronizarAnalistaBase()">
             <option value="implantacao">Em Implantação</option>
             <option value="base">Na Base (só manutenção)</option>
           </select>
@@ -2252,6 +2257,7 @@ let notifiedTreinamentoIds = new Set();
 let editingTreinamentoId = null;
 
 let PESSOAS = ['Edimilson', 'Jefferson', 'Leandro'];
+const ANALISTA_BASE = 'Atendimento';  // clientes na Base não têm analista de implantação: quem atende é o Atendimento
 let PESSOAS_FULL = [];
 const KANBAN_COLUMNS = [
   { id:'urgencias', nome:'Fila de Urgências (Hoje)' },
@@ -2406,7 +2412,7 @@ async function loadState() {
     codigo: c.codigo || '',
     nome: c.nome,
     responsavel: c.responsavel || '',
-    analistaResponsavel: c.analista_responsavel || '',
+    analistaResponsavel: c.fase === 'base' ? ANALISTA_BASE : (c.analista_responsavel || ''),
     etapa: c.etapa,
     fase: c.fase || 'implantacao',
     saude: c.saude || 'verde',
@@ -2832,8 +2838,8 @@ function openModal(id) {
   document.getElementById('f-codigo').value = c.codigo || '';
   document.getElementById('f-nome').value = c.nome;
   document.getElementById('f-responsavel').value = c.responsavel || '';
-  document.getElementById('f-analista-responsavel').innerHTML = '<option value="">Sem analista definido</option>' + PESSOAS.map(p => `<option value="${p}">${p}</option>`).join('');
-  document.getElementById('f-analista-responsavel').value = c.analistaResponsavel || '';
+  document.getElementById('f-analista-responsavel').innerHTML = '<option value="">Sem analista definido</option>' + [...PESSOAS, ANALISTA_BASE].map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('f-analista-responsavel').value = c.fase === 'base' ? ANALISTA_BASE : (c.analistaResponsavel || '');
   document.getElementById('f-etapa').value = c.etapa;
   document.getElementById('f-fase').value = c.fase || 'implantacao';
   document.getElementById('f-saude').value = c.saude || 'verde';
@@ -3484,8 +3490,8 @@ function renderPendencias() {
           <div class="pend-card-esq-txt">
             <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
             <div class="pca-sub">
-              ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Contato</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '')((c.contatos || []).find(x => x.principal))}
-              ${c.analistaResponsavel ? `<div class="pca-linha"><span class="pca-rot">Analista</span><b>${escapeHtml(c.analistaResponsavel)}</b></div>` : ''}
+              ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Contato</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '<div class="pca-linha pca-cobrar" title="Sem contato principal: abra o cadastro do cliente e marque a ★ em um contato"><span class="pca-rot">Contato</span><b>—</b></div>')((c.contatos || []).find(x => x.principal))}
+              <div class="pca-linha"><span class="pca-rot">Analista</span><b>${c.analistaResponsavel ? escapeHtml(c.analistaResponsavel) : '—'}</b></div>
               ${prazoLinhaHtml(c)}
             </div>
           </div>
@@ -3701,8 +3707,13 @@ async function registrarContatoModal() {
   renderStats();
 }
 
+function sincronizarAnalistaBase() {
+  if (document.getElementById('f-fase').value === 'base') document.getElementById('f-analista-responsavel').value = ANALISTA_BASE;
+}
+
 function moverParaBase() {
   document.getElementById('f-fase').value = 'base';
+  sincronizarAnalistaBase();
   document.getElementById('f-proximo').value = '';
 }
 
@@ -3963,7 +3974,7 @@ async function saveClient(silent) {
     codigo: document.getElementById('f-codigo').value.trim() || null,
     nome,
     responsavel: document.getElementById('f-responsavel').value.trim(),
-    analista_responsavel: document.getElementById('f-analista-responsavel').value || null,
+    analista_responsavel: novaFase === 'base' ? ANALISTA_BASE : (document.getElementById('f-analista-responsavel').value || null),
     etapa: document.getElementById('f-etapa').value,
     fase: novaFase,
     saude: novaSaude,
