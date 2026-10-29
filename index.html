@@ -1307,6 +1307,10 @@
   .pend-obs-dia-reg { font-size: 12.5px; line-height: 1.45; color: var(--text-main); background: var(--light-bg); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .pend-obs-dia-reg b { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); display: block; margin-bottom: 2px; }
   .pend-obs-dia-status.erro { color: var(--red); }
+  .pend-obs-dia-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.45; color: var(--text-main); border-left: 3px solid var(--green-mid, #00C853); background: var(--white); border-radius: 0 8px 8px 0; padding: 6px 8px 6px 10px; margin-bottom: 5px; }
+  .pend-obs-dia-item span { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pend-obs-dia-item button { border: none; background: none; color: var(--gray-text); cursor: pointer; font-size: 12px; padding: 0 2px; }
+  .pend-obs-dia-item button:hover { color: var(--red); }
   .pend-obs-dia textarea { width: 100%; min-height: 58px; resize: vertical; padding: 9px 11px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--white); color: var(--text-main); font: inherit; font-size: 13px; line-height: 1.45; box-sizing: border-box; }
   .pend-obs-dia textarea:focus { outline: none; border-color: var(--green-mid, #00C853); }
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
@@ -2813,45 +2817,51 @@ function obsDiaRegistroHtml(c) {
   const notas = obsDiaNotasDeContato(c);
   return notas.length ? '<div class="pend-obs-dia-reg"><b>Contato registrado hoje</b>' + notas.map(h => escapeHtml(h.texto)).join('\n') + '</div>' : '';
 }
-const obsDiaTimers = {}, obsDiaFila = {};
-function obsDiaDoCliente(c) { const hoje = todayStr(); return (c.historico || []).find(h => h.data === hoje && String(h.texto).startsWith(OBS_DIA_TAG)) || null; }
+const obsDiaFila = {};
+// observações de hoje do cliente, da mais antiga para a mais nova (o Histórico guarda a mais nova primeiro)
+function obsDiaLista(c) { const hoje = todayStr(); return (c.historico || []).filter(h => h.data === hoje && String(h.texto).startsWith(OBS_DIA_TAG)).reverse(); }
 function obsDiaStatus(id, txt, erro) { const e = document.getElementById('pgeral-obs-status-' + id); if (e) { e.textContent = txt || ''; e.classList.toggle('erro', !!erro); } }
-function obsDiaDigitou(id, valor) {
-  clearTimeout(obsDiaTimers[id]);
-  obsDiaStatus(id, 'digitando…');
-  obsDiaTimers[id] = setTimeout(() => {
-    obsDiaFila[id] = (obsDiaFila[id] || Promise.resolve()).then(() => salvarObsDia(id, valor));   // uma gravação por vez, para não duplicar a linha
-  }, 700);
+function obsDiaListaHtml(c) {
+  return obsDiaLista(c).map(h => '<div class="pend-obs-dia-item"><span>' + escapeHtml(String(h.texto).slice(OBS_DIA_TAG.length)) + '</span><button type="button" title="Excluir esta observação" onclick="obsDiaRemover(\'' + c.id + '\', \'' + h.id + '\')">✕</button></div>').join('');
 }
-async function salvarObsDia(id, valor) {
+function obsDiaRedesenhar(c) { const e = document.getElementById('pgeral-obs-lista-' + c.id); if (e) e.innerHTML = obsDiaListaHtml(c); }
+// Enter registra a observação; Shift+Enter pula linha dentro dela
+function obsDiaTecla(ev, id) {
+  if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); obsDiaAdicionar(id); }
+}
+function obsDiaAdicionar(id) {
+  const campo = document.getElementById('pgeral-obs-' + id);
+  if (!campo) return;
+  const corpo = campo.value.trim();
+  if (!corpo) return;
+  campo.value = '';
+  obsDiaFila[id] = (obsDiaFila[id] || Promise.resolve()).then(() => gravarObsDia(id, corpo));   // uma gravação por vez, na ordem digitada
+}
+async function gravarObsDia(id, corpo) {
   const c = state.clients.find(x => x.id === id);
   if (!c) return;
-  const corpo = String(valor || '').trim();
-  const atual = obsDiaDoCliente(c);
+  const texto = OBS_DIA_TAG + corpo;
+  obsDiaStatus(id, 'salvando…');
   try {
-    if (!corpo) {
-      if (atual) {
-        const { error } = await sb.from('historico').delete().eq('id', atual.id);
-        if (error) throw error;
-        c.historico = c.historico.filter(h => h.id !== atual.id);
-      }
-      obsDiaStatus(id, '');
-      return;
-    }
-    const texto = OBS_DIA_TAG + corpo;
-    if (atual) {
-      const { error } = await sb.from('historico').update({ texto }).eq('id', atual.id);
-      if (error) throw error;
-      atual.texto = texto;
-    } else {
-      const { data: row, error } = await sb.from('historico').insert({ cliente_id: id, data: todayStr(), texto }).select().single();
-      if (error) throw error;
-      c.historico.unshift({ id: row.id, data: todayStr(), texto });
-    }
-    obsDiaStatus(id, '✓ salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    const { data: row, error } = await sb.from('historico').insert({ cliente_id: id, data: todayStr(), texto }).select().single();
+    if (error) throw error;
+    c.historico.unshift({ id: row.id, data: todayStr(), texto });
+    obsDiaRedesenhar(c);
+    obsDiaStatus(id, '✓ registrado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   } catch (e) {
+    const campo = document.getElementById('pgeral-obs-' + id);
+    if (campo && !campo.value) campo.value = corpo;   // devolve o texto para não perder o que foi digitado
     obsDiaStatus(id, '⚠ não salvou: ' + ((e && e.message) || e), true);
   }
+}
+async function obsDiaRemover(id, hid) {
+  const c = state.clients.find(x => x.id === id);
+  if (!c) return;
+  const { error } = await sb.from('historico').delete().eq('id', hid);
+  if (error) { obsDiaStatus(id, '⚠ não excluiu: ' + error.message, true); return; }
+  c.historico = c.historico.filter(h => String(h.id) !== String(hid));
+  obsDiaRedesenhar(c);
+  obsDiaStatus(id, '');
 }
 
 async function marcarContatoHoje(clienteId, canal) {
@@ -3760,7 +3770,8 @@ function renderPendencias() {
       <div class="pend-obs-dia">
         <div class="pend-obs-dia-top"><label for="pgeral-obs-${c.id}">Observação do dia</label><span class="pend-obs-dia-status" id="pgeral-obs-status-${c.id}"></span></div>
         ${obsDiaRegistroHtml(c)}
-        <textarea id="pgeral-obs-${c.id}" placeholder="Anote aqui o que aconteceu hoje com este cliente (fica no Histórico do cadastro)..." oninput="obsDiaDigitou('${c.id}', this.value)">${escapeHtml((obsDiaDoCliente(c) || { texto: OBS_DIA_TAG }).texto.slice(OBS_DIA_TAG.length))}</textarea>
+        <div id="pgeral-obs-lista-${c.id}">${obsDiaListaHtml(c)}</div>
+        <textarea id="pgeral-obs-${c.id}" rows="2" placeholder="Digite e aperte Enter para registrar (Shift+Enter pula linha). Fica no Histórico do cadastro." onkeydown="obsDiaTecla(event, '${c.id}')"></textarea>
       </div>
     </div>
   `).join('');
