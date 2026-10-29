@@ -8584,6 +8584,8 @@ function scrumBaixarPDF() {
   .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px 14px; align-items: stretch; }
   .bk-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: grid; grid-row: span 9; grid-template-rows: subgrid; row-gap: 12px; }
   .bk-card > div { min-width: 0; }
+  .bk-card > .bk-bloco { border-top: 2px solid var(--border-light, rgba(127,127,127,.4)); padding-top: 12px; }
+  .bk-card > .bk-bloco:empty { border-top-color: transparent; padding-top: 0; }
   @supports not (grid-template-rows: subgrid) { .bk-card { display: flex; flex-direction: column; grid-row: auto; } }
   .bk-card-top { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: var(--text-main); }
   .bk-card-top i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
@@ -8794,11 +8796,11 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
     + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
     + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
     + '<div>' + barra + '</div>'
-    + '<div>' + (mesesHtml || '') + '</div>'
-    + '<div>' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div>'
-    + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999) + '</div>'
-    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999) + '</div>'
-    + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
+    + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
+    + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div>'
+    + '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999) + '</div>'
+    + '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999) + '</div>'
+    + '<div class="bk-bloco"><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
     + '</div>';
 }
 
