@@ -1839,7 +1839,8 @@
           <p class="bk-sub">O que está em aberto agora e há quanto tempo. <b>Implantação</b> = clientes em implantação; <b>Atendimento</b> = clientes na Base; <b>Intelipulse</b> = trabalho interno.</p>
         </div>
         <div class="bk-acoes">
-          <button class="btn btn-sm" onclick="bkAtualizar()" title="Buscar os tickets de novo no ERP">🔄 Atualizar tickets</button>
+          <span class="bk-status" id="bk-status"></span>
+          <button class="btn btn-sm" id="bk-btn-atualizar" onclick="bkAtualizar()" title="Buscar os tickets de novo no ERP">🔄 Atualizar tickets</button>
           <button class="btn btn-sm" onclick="bkCopiar()" title="Copiar o resumo como texto">📋 Copiar texto</button>
         </div>
       </div>
@@ -3909,6 +3910,7 @@ function garantirLicencasErp() {
       console.warn('Licenças do ERP indisponíveis:', licencasErpErro);
     } finally {
       licencasErpCarregando = false;
+      bkTicketsEm = new Date();
       if (activeTab === 'pendencias') renderPendencias();
       if (activeTab === 'backlog') renderBacklog();
       if (document.getElementById('modal-overlay').classList.contains('open')) atualizarDicaLicencasErp();
@@ -7103,6 +7105,7 @@ function showAuthScreen() {
 
 async function refreshDados() {
   await loadState();
+  if (activeTab === 'backlog' || activeTab === 'pendencias') { licencasErp = null; licencasErpErro = ''; }   // render() busca o ERP de novo
   render();
 }
 
@@ -8447,7 +8450,8 @@ function scrumBaixarPDF() {
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
   .bk-sub { margin: 0; font-size: 12.5px; color: var(--gray-text); line-height: 1.5; max-width: 760px; }
-  .bk-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bk-acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .bk-status { font-size: 12px; color: var(--gray-text); }
   .bk-secao { margin-top: 22px; }
   .bk-secao-tit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 0 0 4px; font-size: 16px; font-weight: 800; color: var(--text-main); }
   .bk-secao-tit small { font-size: 12px; font-weight: 600; color: var(--gray-text); }
@@ -8483,6 +8487,7 @@ function scrumBaixarPDF() {
 // tickets do ERP (lista de tickets sem fechar, com a data de criação, vinda da função tickets-erp) e atividades do painel (não
 // concluídas e não canceladas). Atendimento = clientes na Base; Intelipulse = interno (cliente código 1) ou atividade sem cliente
 // cadastrado. Sem histórico: o ERP não guarda a data de fechamento, então é sempre a foto de hoje.
+let bkTicketsEm = null;
 const BK_GRUPOS = [
   { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
   { k: 'atendimento', nome: 'Atendimento (Base)', cor: '#6366F1' },
@@ -8590,6 +8595,10 @@ function renderBacklog() {
     : bkSecao('🎫 Tickets do ERP', 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. O ERP não guarda a data de fechamento, por isso este quadro mostra só a situação de hoje, sem evolução no tempo.', bkItensTickets(), 'ticket');
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade.', bkItensAtividades(), 'atividade');
   el.innerHTML = tickets + ativ;
+  const st = document.getElementById('bk-status'), bt = document.getElementById('bk-btn-atualizar');
+  const carregando = licencasErp === null;
+  if (st) st.textContent = carregando ? 'Atualizando os tickets…' : (bkTicketsEm ? 'Tickets lidos às ' + bkTicketsEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
+  if (bt) bt.disabled = carregando;
 }
 
 function bkAtualizar() { licencasErp = null; licencasErpErro = ''; renderBacklog(); }
