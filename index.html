@@ -3911,6 +3911,7 @@ function garantirLicencasErp() {
     } finally {
       licencasErpCarregando = false;
       bkTicketsEm = new Date();
+      if (typeof bkSincronizarTickets === 'function') bkSincronizarTickets();
       if (activeTab === 'pendencias') renderPendencias();
       if (activeTab === 'backlog') renderBacklog();
       if (document.getElementById('modal-overlay').classList.contains('open')) atualizarDicaLicencasErp();
@@ -8480,14 +8481,26 @@ function scrumBaixarPDF() {
   .bk-lista li > em { color: var(--gray-text); }
   .bk-lista li > em.velho { color: var(--red); font-weight: 700; }
   .bk-vazio { font-size: 12.5px; color: var(--gray-text); }
-  .bk-aviso { padding: 14px 16px; border: 1px dashed var(--border-light, rgba(127,127,127,.4)); border-radius: 12px; font-size: 13px; color: var(--gray-text); line-height: 1.5; }
+  .bk-aviso { padding: 14px 16px; border: 1px dashed var(--border-light, rgba(127,127,127,.4)); border-radius: 12px; font-size: 13px; color: var(--gray-text); line-height: 1.5; margin-bottom: 12px; }
+  .bk-evo { display: flex; align-items: flex-end; gap: 6px; height: 74px; }
+  .bk-evo > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; color: var(--gray-text); }
+  .bk-evo em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-evo i { display: block; width: 100%; max-width: 26px; border-radius: 4px 4px 0 0; background: rgba(127,127,127,.45); }
+  .bk-evo .atual i { background: var(--accent, #14B8A6); }
+  .bk-evo .sem em, .bk-evo .sem span { opacity: .5; }
+  .bk-evo .sem i { opacity: .35; }
+  .bk-fluxo { font-size: 12.5px; color: var(--gray-text); line-height: 1.5; margin-top: 4px; }
+  .bk-fluxo b { color: var(--text-main); }
 </style>
 <script>
-// Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento. Dois blocos no mesmo formato:
-// tickets do ERP (lista de tickets sem fechar, com a data de criação, vinda da função tickets-erp) e atividades do painel (não
-// concluídas e não canceladas). Atendimento = clientes na Base; Intelipulse = interno (cliente código 1) ou atividade sem cliente
-// cadastrado. Sem histórico: o ERP não guarda a data de fechamento, então é sempre a foto de hoje.
-let bkTicketsEm = null;
+// Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento, com a evolução.
+// Dois blocos no mesmo formato: tickets do ERP e atividades do painel. Atendimento = clientes na Base; Intelipulse = interno
+// (cliente código 1) ou atividade sem cliente cadastrado.
+// EVOLUÇÃO — atividades: usa as datas de criação e de conclusão que o painel já guarda. Tickets: o ERP não informa quando o
+// ticket foi fechado; o painel anota (tabela backlog_tickets, migracao-backlog.sql) os tickets abertos a cada leitura do ERP e
+// grava em fechado_em o dia em que vê um ticket sair da lista de abertos (fechado OU cancelado). O histórico dos tickets
+// começa na primeira leitura depois do SQL.
+let bkTicketsEm = null, bkHist = null, bkHistErro = '', bkHistSemTabela = false, bkSyncRodando = false, bkSyncEm = 0;
 const BK_GRUPOS = [
   { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
   { k: 'atendimento', nome: 'Atendimento (Base)', cor: '#6366F1' },
@@ -8501,7 +8514,14 @@ const BK_FAIXAS = [
 ];
 const bkSemNumero = s => String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim();
 const bkCorta = (t, n) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+const bkDia = ds => formatDate(ds).slice(0, 5);
 
+function bkGrupoAtividade(a) {
+  const nome = String(a.clienteNome || '').trim().toLowerCase();
+  const c = nome ? state.clients.find(x => String(x.nome).trim().toLowerCase() === nome) : null;
+  if (!c || String(c.codigo || '').trim() === '1') return 'interno';
+  return (c.fase || 'implantacao') === 'base' ? 'atendimento' : 'implantacao';
+}
 function bkItensTickets() {
   return (ticketsAbertosErp || []).map(t => {
     const id = Number(t.empresa_id);
@@ -8518,15 +8538,44 @@ function bkItensTickets() {
   });
 }
 function bkItensAtividades() {
-  return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida').map(a => {
-    const nome = String(a.clienteNome || '').trim().toLowerCase();
-    const c = nome ? state.clients.find(x => String(x.nome).trim().toLowerCase() === nome) : null;
-    const grupo = !c || String(c.codigo || '').trim() === '1' ? 'interno' : ((c.fase || 'implantacao') === 'base' ? 'atendimento' : 'implantacao');
-    return {
-      grupo, cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0,
-      situacao: raiaNomeCurto(a.coluna), pessoa: a.responsavel || '—', impedido: !!a.impedidoDesde
-    };
+  return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida').map(a => ({
+    grupo: bkGrupoAtividade(a), cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0,
+    situacao: raiaNomeCurto(a.coluna), pessoa: a.responsavel || '—', impedido: !!a.impedidoDesde
+  }));
+}
+// histórico: um item por ticket/atividade, com o dia de criação e (se já saiu do backlog) o dia em que saiu
+function bkHistTickets() {
+  return (bkHist || []).map(r => {
+    const classe = tkClasseDe(Number(r.empresa_id), null);
+    return { grupo: classe === 'base' ? 'atendimento' : classe, criado: r.criado_em ? desempDataLocal(r.criado_em) : r.visto_primeiro, fechado: r.fechado_em || null };
   });
+}
+function bkHistAtividades() {
+  return atividades.filter(a => !a.cancelado && a.criadoEm).map(a => ({
+    grupo: bkGrupoAtividade(a), criado: desempDataLocal(a.criadoEm), fechado: a.coluna === 'concluida' ? (a.concluidoEm || null) : null
+  }));
+}
+function bkInicioRegistro() {
+  const hoje = todayStr();
+  return (bkHist || []).reduce((m, r) => (r.visto_primeiro && r.visto_primeiro < m ? r.visto_primeiro : m), hoje);
+}
+function bkSemanas() {
+  const hoje = todayStr();
+  const seg = addDays(hoje, -((new Date(hoje + 'T00:00:00').getDay() + 6) % 7));
+  const w = [];
+  for (let k = 7; k >= 0; k--) { const ini = addDays(seg, -7 * k); w.push({ ini, fim: k === 0 ? hoje : addDays(ini, 6) }); }
+  return w;
+}
+function bkEvoCalc(itens, inicio, abertoAgora) {
+  const hoje = todayStr();
+  const semanas = bkSemanas().map(w => ({ ...w, ok: !inicio || w.fim >= inicio, abertos: itens.filter(i => i.criado <= w.fim && (!i.fechado || i.fechado > w.fim)).length }));
+  semanas[semanas.length - 1].abertos = abertoAgora;           // a semana atual usa o número ao vivo
+  const ini30 = addDays(hoje, -29);
+  const desde = inicio && inicio > ini30 ? inicio : ini30;
+  const entrou = itens.filter(i => i.criado >= desde && i.criado <= hoje).length;
+  const sairam = itens.filter(i => i.fechado && i.fechado >= desde && i.fechado <= hoje);
+  const tempo = sairam.length ? sairam.reduce((s, i) => s + Math.max(0, daysBetween(i.criado, i.fechado)), 0) / sairam.length : null;
+  return { semanas, entrou, saiu: sairam.length, tempo, desde, parcial: desde !== ini30 };
 }
 
 function bkResumo(itens) {
@@ -8549,10 +8598,20 @@ function bkResumo(itens) {
 const bkDias = n => n + (n === 1 ? ' dia' : ' dias');
 const bkMedio = n => n === null ? '—' : String(n.toFixed(1)).replace('.', ',') + ' d';
 
-function bkCard(g, itens, tipo) {
+function bkEvoHtml(e, verbo) {
+  const max = Math.max(1, ...e.semanas.map(s => s.abertos));
+  const ult = e.semanas.length - 1;
+  const barras = '<div class="bk-evo">' + e.semanas.map((s, k) => '<div class="' + (k === ult ? 'atual ' : '') + (s.ok ? '' : 'sem') + '" title="' + (s.ok ? s.abertos + ' em aberto até ' + bkDia(s.fim) : 'sem histórico nesta semana') + '"><em>' + (s.ok ? s.abertos : '—') + '</em><i style="height:' + (s.ok ? Math.max(3, Math.round(s.abertos / max * 38)) : 3) + 'px"></i><span>' + bkDia(s.ini) + '</span></div>').join('') + '</div>';
+  const fluxo = '<div class="bk-fluxo">Últimos 30 dias' + (e.parcial ? ' (desde ' + bkDia(e.desde) + ')' : '') + ': <b>' + e.entrou + '</b> entraram · <b>' + e.saiu + '</b> ' + verbo
+    + (e.tempo !== null ? ' · levaram em média <b>' + bkMedio(e.tempo) + '</b> para sair' : '') + '</div>';
+  return '<div><div class="bk-sec">Em aberto no fim de cada semana</div>' + barras + fluxo + '</div>';
+}
+
+function bkCard(g, itens, evo, verbo) {
   const r = bkResumo(itens);
   const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
-  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div></div>';
+  const evoHtml = evo ? bkEvoHtml(evo, verbo) : '';
+  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div>' + evoHtml + '</div>';
   const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
     + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
   const lista = (arr, max) => '<ul class="bk-lista">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
@@ -8563,20 +8622,26 @@ function bkCard(g, itens, tipo) {
     + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
     + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
     + '<div>' + barra + '</div>'
+    + evoHtml
     + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 6) + '</div>'
     + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 6) + '</div>'
     + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
     + '</div>';
 }
 
-function bkSecao(titulo, fonte, itens, tipo) {
-  const totalGeral = itens.length;
-  return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + totalGeral + ' em aberto no total</small></h3>'
-    + '<p class="bk-fonte">' + fonte + '</p>'
-    + '<div class="bk-grid">' + BK_GRUPOS.map(g => bkCard(g, itens.filter(i => i.grupo === g.k), tipo)).join('') + '</div></div>';
+// itens = em aberto agora; hist = todos (abertos e já saídos) com criado/fechado, ou null se não há histórico
+function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso) {
+  const cards = BK_GRUPOS.map(g => {
+    const doGrupo = itens.filter(i => i.grupo === g.k);
+    const evo = hist ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length) : null;
+    return bkCard(g, doGrupo, evo, verbo);
+  }).join('');
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + itens.length + ' em aberto no total</small></h3>'
+    + '<p class="bk-fonte">' + fonte + '</p>' + (aviso ? '<div class="bk-aviso">' + aviso + '</div>' : '')
+    + '<div class="bk-grid">' + cards + '</div></div>';
 }
 
-// null = ainda não dá para mostrar os tickets (texto explicando o motivo)
+// null = os tickets já podem ser mostrados; senão, o texto explicando o motivo
 function bkTicketsIndisponivel() {
   if (licencasErp === null) return 'Carregando os tickets do ERP…';
   if (licencasErpErro) return 'Não consegui ler o ERP agora (' + escapeHtml(licencasErpErro) + '). Use "Atualizar tickets" para tentar de novo.';
@@ -8590,10 +8655,18 @@ function renderBacklog() {
   if (!el) return;
   garantirLicencasErp();
   const indisp = bkTicketsIndisponivel();
-  const tickets = indisp
-    ? '<div class="bk-secao"><h3 class="bk-secao-tit">🎫 Tickets do ERP</h3><div class="bk-aviso">' + indisp + '</div></div>'
-    : bkSecao('🎫 Tickets do ERP', 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. O ERP não guarda a data de fechamento, por isso este quadro mostra só a situação de hoje, sem evolução no tempo.', bkItensTickets(), 'ticket');
-  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade.', bkItensAtividades(), 'atividade');
+  let tickets;
+  if (indisp) tickets = '<div class="bk-secao"><h3 class="bk-secao-tit">🎫 Tickets do ERP</h3><div class="bk-aviso">' + indisp + '</div></div>';
+  else {
+    const temHist = Array.isArray(bkHist);
+    const inicio = temHist ? bkInicioRegistro() : null;
+    const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. O ERP não informa quando o ticket foi fechado: o painel anota sozinho o dia em que vê o ticket sair da lista de abertos (fechado ou cancelado) e é com isso que monta a evolução'
+      + (temHist ? '. O histórico dos tickets começa em <b>' + formatDate(inicio) + '</b>.' : '.');
+    const aviso = bkHistSemTabela ? 'A evolução dos tickets ainda não está sendo guardada: rode o arquivo <b>migracao-backlog.sql</b> no SQL Editor do Supabase. Enquanto isso o quadro mostra só a situação de hoje.'
+      : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').' : '');
+    tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso);
+  }
+  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '');
   el.innerHTML = tickets + ativ;
   const st = document.getElementById('bk-status'), bt = document.getElementById('bk-btn-atualizar');
   const carregando = licencasErp === null;
@@ -8601,22 +8674,61 @@ function renderBacklog() {
   if (bt) bt.disabled = carregando;
 }
 
-function bkAtualizar() { licencasErp = null; licencasErpErro = ''; renderBacklog(); }
+// Anota os tickets abertos e dá baixa (fechado_em = hoje) nos que saíram da lista. Roda quando o ERP é lido, no máximo a cada 30 min.
+async function bkSincronizarTickets() {
+  if (bkSyncRodando || Date.now() - bkSyncEm < 30 * 60 * 1000) return;
+  if (!Array.isArray(ticketsAbertosErp) || ticketsAbertosErpErro || licencasErpErro) return;
+  bkSyncRodando = true; bkSyncEm = Date.now();
+  const hoje = todayStr();
+  const COLS = 'ticket_id, empresa_id, criado_em, visto_primeiro, visto_ultimo, fechado_em';
+  try {
+    const { data: rows, error } = await sb.from('backlog_tickets').select(COLS).limit(20000);
+    if (error) throw error;
+    const porId = new Map((rows || []).map(r => [Number(r.ticket_id), r]));
+    const atuais = ticketsAbertosErp.filter(t => t.id != null);
+    const idsAtuais = new Set(atuais.map(t => Number(t.id)));
+    const campos = t => ({ numero: String(t.numero || t.id), empresa_id: Number(t.empresa_id), status: t.status || '', pessoa: t.pessoa || '', titulo: String(t.titulo || '').slice(0, 300), criado_em: t.criado_em || null });
+    const novos = atuais.filter(t => !porId.has(Number(t.id))).map(t => ({ ticket_id: Number(t.id), ...campos(t), visto_primeiro: hoje, visto_ultimo: hoje }));
+    const renovar = atuais.filter(t => { const r = porId.get(Number(t.id)); return r && (r.visto_ultimo !== hoje || r.fechado_em); }).map(t => ({ ticket_id: Number(t.id), ...campos(t), visto_ultimo: hoje, fechado_em: null }));
+    // só dá baixa se a lista veio completa (vazia ou no limite de 3000 pode ser falha de leitura)
+    const completa = atuais.length > 0 && atuais.length < 3000;
+    const sairam = completa ? (rows || []).filter(r => !r.fechado_em && !idsAtuais.has(Number(r.ticket_id))).map(r => Number(r.ticket_id)) : [];
+    for (let i = 0; i < novos.length; i += 300) { const { error: e1 } = await sb.from('backlog_tickets').insert(novos.slice(i, i + 300)); if (e1) throw e1; }
+    for (let i = 0; i < renovar.length; i += 300) { const { error: e2 } = await sb.from('backlog_tickets').upsert(renovar.slice(i, i + 300), { onConflict: 'ticket_id' }); if (e2) throw e2; }
+    for (let i = 0; i < sairam.length; i += 200) { const { error: e3 } = await sb.from('backlog_tickets').update({ fechado_em: hoje }).in('ticket_id', sairam.slice(i, i + 200)); if (e3) throw e3; }
+    const { data: depois, error: e4 } = await sb.from('backlog_tickets').select(COLS).limit(20000);
+    if (e4) throw e4;
+    bkHist = depois || []; bkHistErro = ''; bkHistSemTabela = false;
+  } catch (e) {
+    bkHistErro = (e && e.message) || String(e);
+    bkHistSemTabela = /does not exist|schema cache|42P01|PGRST205/i.test(bkHistErro);
+    if (bkHistSemTabela) bkHistErro = '';
+    bkHist = null;
+  }
+  bkSyncRodando = false;
+  if (activeTab === 'backlog') renderBacklog();
+}
+
+function bkAtualizar() { licencasErp = null; licencasErpErro = ''; bkSyncEm = 0; renderBacklog(); }
 
 function bkTexto() {
   const L = ['BACKLOG DE IMPLANTAÇÃO E ATENDIMENTO', 'Posição de ' + formatDate(todayStr()), ''];
-  const bloco = (titulo, itens) => {
+  const bloco = (titulo, itens, hist, inicio, verbo) => {
     L.push(titulo);
     BK_GRUPOS.forEach(g => {
-      const r = bkResumo(itens.filter(i => i.grupo === g.k));
+      const doGrupo = itens.filter(i => i.grupo === g.k);
+      const r = bkResumo(doGrupo);
+      const e = hist ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length) : null;
       L.push('• ' + g.nome + ': ' + r.total + ' em aberto' + (r.total ? ' · idade média ' + bkMedio(r.medio) + ' · mais antigo ' + bkDias(r.maisAntigo) + ' · ' + r.velhos15 + ' há mais de 15 dias'
-        + ' (até 7d: ' + r.faixas[0].n + ' · 8-15d: ' + r.faixas[1].n + ' · 16-30d: ' + r.faixas[2].n + ' · +30d: ' + r.faixas[3].n + ')' : ''));
+        + ' (até 7d: ' + r.faixas[0].n + ' · 8-15d: ' + r.faixas[1].n + ' · 16-30d: ' + r.faixas[2].n + ' · +30d: ' + r.faixas[3].n + ')' : '')
+        + (e ? ' · últimos 30 dias: ' + e.entrou + ' entraram, ' + e.saiu + ' ' + verbo : ''));
     });
     L.push('');
   };
   const indisp = bkTicketsIndisponivel();
-  if (indisp) L.push('TICKETS DO ERP', '• indisponível agora', ''); else bloco('TICKETS DO ERP (sem fechar, qualquer data)', bkItensTickets());
-  bloco('ATIVIDADES DO PAINEL (não concluídas)', bkItensAtividades());
+  if (indisp) L.push('TICKETS DO ERP', '• indisponível agora', '');
+  else { const th = Array.isArray(bkHist); bloco('TICKETS DO ERP (sem fechar, qualquer data)', bkItensTickets(), th ? bkHistTickets() : null, th ? bkInicioRegistro() : null, 'saíram do backlog'); }
+  bloco('ATIVIDADES DO PAINEL (não concluídas)', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas');
   return L.join('\n').trim();
 }
 function bkCopiar() {
