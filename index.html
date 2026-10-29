@@ -512,6 +512,8 @@
   :root[data-theme="dark"] .ag-outlook-badge { color:#6CB8FF; background:rgba(108,184,255,0.16); }
   .outlook-status { font-size:12px; color:var(--gray-text); }
   .outlook-status.erro { color:var(--amber); }
+  .ag-fd-nav { display:flex; align-items:center; gap:6px; }
+  .ag-filtro-data { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; }
   .ag-reagendado-badge { font-size:11px; font-weight:700; color:#7C3AED; background:rgba(124,58,237,0.14); padding:2px 9px; border-radius:100px; }
   .ag-item .ag-meta { font-size:12px; color:var(--gray-text); margin-top:2px; }
   .ag-item input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
@@ -1663,6 +1665,20 @@
         </div>
       </div>
       <div class="pessoa-filter" id="pessoa-filter-agenda" style="margin-top:14px;"></div>
+      <div class="ag-filtro-data" id="ag-filtro-data">
+        <span style="font-size:12px;color:var(--gray-text);font-weight:600;">Período</span>
+        <div class="view-toggle">
+          <button class="view-toggle-btn active" id="ag-fd-tudo" onclick="setAgFiltroData('tudo')">Tudo</button>
+          <button class="view-toggle-btn" id="ag-fd-semana" onclick="setAgFiltroData('semana')">Semana</button>
+          <button class="view-toggle-btn" id="ag-fd-mes" onclick="setAgFiltroData('mes')">Mês</button>
+        </div>
+        <span class="ag-fd-nav" id="ag-fd-nav" style="display:none;">
+          <button class="btn btn-sm" onclick="agMoverFiltro(-1)" title="Período anterior">‹</button>
+          <b id="ag-fd-rotulo" style="font-size:13px;min-width:140px;text-align:center;"></b>
+          <button class="btn btn-sm" onclick="agMoverFiltro(1)" title="Próximo período">›</button>
+          <button class="btn btn-sm" onclick="agFiltroHoje()">Hoje</button>
+        </span>
+      </div>
       <input type="text" id="search-agenda" placeholder="Buscar por empresa ou assunto..." style="margin-top:10px;width:100%;max-width:360px;" oninput="renderCalendario()">
       <label class="chk" style="margin-top:10px;"><input type="checkbox" id="show-concluidos-agenda" autocomplete="off" onchange="renderCalendario()"> Mostrar concluídos</label>
       <div id="calendario-list" class="calendario-list"></div>
@@ -5410,6 +5426,7 @@ function rebuildTipoMaps() {
 
 function setCalendarioView(view) {
   calendarioView = view;
+  const fdBar = document.getElementById('ag-filtro-data'); if (fdBar) fdBar.style.display = view === 'mensal' ? 'none' : '';
   document.getElementById('cal-view-btn-lista').classList.toggle('active', view === 'lista');
   document.getElementById('cal-view-btn-cards').classList.toggle('active', view === 'cards');
   document.getElementById('cal-view-btn-mensal').classList.toggle('active', view === 'mensal');
@@ -5421,8 +5438,42 @@ function setCalendarioView(view) {
 
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+// Filtro de data da Agenda (Cards e Lista): Tudo, uma semana (segunda a domingo) ou um mês, com navegação ‹ ›.
+let agFiltroModo = 'tudo', agFiltroRef = null;   // agFiltroRef = segunda da semana ou dia 1 do mês (AAAA-MM-DD)
+function agRefDeHoje(modo) {
+  const h = todayStr();
+  if (modo === 'semana') { const d = new Date(h + 'T00:00:00'); return addDays(h, -((d.getDay() + 6) % 7)); }
+  return h.slice(0, 8) + '01';
+}
+function agIniFim() {
+  if (agFiltroModo === 'semana') return { ini: agFiltroRef, fim: addDays(agFiltroRef, 6) };
+  if (agFiltroModo === 'mes') { const [y, m] = agFiltroRef.split('-').map(Number); return { ini: agFiltroRef, fim: y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0') }; }
+  return null;
+}
+function setAgFiltroData(modo) { agFiltroModo = modo; agFiltroRef = modo === 'tudo' ? null : agRefDeHoje(modo); renderCalendario(); }
+function agMoverFiltro(dir) {
+  if (agFiltroModo === 'semana') agFiltroRef = addDays(agFiltroRef, 7 * dir);
+  else if (agFiltroModo === 'mes') { const [y, m] = agFiltroRef.split('-').map(Number); const d = new Date(y, m - 1 + dir, 1); agFiltroRef = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }
+  renderCalendario();
+}
+function agFiltroHoje() { if (agFiltroModo !== 'tudo') { agFiltroRef = agRefDeHoje(agFiltroModo); renderCalendario(); } }
+function agNoPeriodo(a) {
+  if (agFiltroModo === 'tudo' || calendarioView === 'mensal') return true;
+  const r = agIniFim();
+  return a.data >= r.ini && a.data <= r.fim;
+}
+function atualizarFiltroDataAg() {
+  ['tudo', 'semana', 'mes'].forEach(m => { const b = document.getElementById('ag-fd-' + m); if (b) b.classList.toggle('active', agFiltroModo === m); });
+  const nav = document.getElementById('ag-fd-nav'); if (nav) nav.style.display = agFiltroModo === 'tudo' ? 'none' : '';
+  const rot = document.getElementById('ag-fd-rotulo'); if (!rot) return;
+  const r = agIniFim();
+  rot.textContent = !r ? '' : agFiltroModo === 'mes' ? MESES_PT[Number(r.ini.slice(5, 7)) - 1] + ' de ' + r.ini.slice(0, 4)
+    : formatDate(r.ini).slice(0, 5) + ' a ' + formatDate(r.fim).slice(0, 5) + '/' + r.fim.slice(0, 4);
+}
+
 function renderCalendario() {
   renderPessoaFilterInto('pessoa-filter-agenda');
+  atualizarFiltroDataAg();
   const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
   const containerId = calendarioView === 'cards' ? 'calendario-cards-wrap' : calendarioView === 'mensal' ? 'calendario-mensal-wrap' : 'calendario-list';
   const container = document.getElementById(containerId);
@@ -5431,6 +5482,7 @@ function renderCalendario() {
   const busca = document.getElementById('search-agenda').value.toLowerCase();
   const list = agendamentos
     .filter(a => showConcluidos || !a.feito)
+    .filter(agNoPeriodo)
     .filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)))
     .filter(a => {
       if (!busca) return true;
@@ -5441,7 +5493,7 @@ function renderCalendario() {
     .sort((a,b) => (a.data + (a.hora||'99:99')).localeCompare(b.data + (b.hora||'99:99')));
 
   if (list.length === 0 && calendarioView !== 'mensal') {
-    container.innerHTML = `<div class="empty-state"><div class="big">🗓</div><h3>Nenhum agendamento</h3><p>Marque uma reunião ou ligação com "+ Novo Agendamento".</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="big">🗓</div><h3>Nenhum agendamento${agFiltroModo !== 'tudo' ? ' neste período' : ''}</h3><p>Marque uma reunião ou ligação com "+ Novo Agendamento".</p></div>`;
     return;
   }
 
@@ -5663,8 +5715,8 @@ async function sincronizarOutlook(manual) {
     if (j.erro) { if (j.configurado === false) outlookIndisponivel = true; outlookStatus('Outlook: ' + j.erro, true); return; }
     outlookIndisponivel = false;
     const hm = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    outlookStatus('Outlook ✓ ' + hm + (j.inseridos || j.atualizados || j.removidos ? ' · ' + j.inseridos + ' novos, ' + j.atualizados + ' atualizados, ' + j.removidos + ' removidos' : ' · tudo em dia'));
-    if (j.inseridos || j.atualizados || j.removidos) await refreshDados();
+    outlookStatus('Outlook ✓ ' + hm + (j.inseridos || j.atualizados || j.removidos || j.concluidos ? ' · ' + j.inseridos + ' novos, ' + j.atualizados + ' atualizados, ' + j.removidos + ' removidos, ' + (j.concluidos || 0) + ' concluídos' : ' · tudo em dia'));
+    if (j.inseridos || j.atualizados || j.removidos || j.concluidos) await refreshDados();
   } catch (e) {
     outlookStatus('Outlook: não consegui sincronizar (' + (e.message || e) + ')', true);
   } finally {
