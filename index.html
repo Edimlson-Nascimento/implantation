@@ -8581,8 +8581,10 @@ function scrumBaixarPDF() {
   .bk-secao-tit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 0 0 4px; font-size: 16px; font-weight: 800; color: var(--text-main); }
   .bk-secao-tit small { font-size: 12px; font-weight: 600; color: var(--gray-text); }
   .bk-fonte { margin: 0 0 12px; font-size: 12px; color: var(--gray-text); line-height: 1.5; }
-  .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: stretch; }
-  .bk-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px 14px; align-items: stretch; }
+  .bk-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: grid; grid-row: span 9; grid-template-rows: subgrid; row-gap: 12px; }
+  .bk-card > div { min-width: 0; }
+  @supports not (grid-template-rows: subgrid) { .bk-card { display: flex; flex-direction: column; grid-row: auto; } }
   .bk-card-top { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: var(--text-main); }
   .bk-card-top i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .bk-total { font-size: 38px; font-weight: 800; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
@@ -8781,7 +8783,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
   if (tipo === 'ticket') r.faixas.forEach((f, k) => { f.cor = BK_PALETA_TICKET[k]; });
   const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
   const evoHtml = (mesesHtml || '') + (evo ? bkEvoHtml(evo, verbo) : '');
-  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div>' + evoHtml + '</div>';
+  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div><div></div><div>' + (mesesHtml || '') + '</div><div>' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div><div></div><div></div><div></div></div>';
   const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
     + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
   const lista = (arr, max) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
@@ -8792,7 +8794,8 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
     + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
     + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
     + '<div>' + barra + '</div>'
-    + evoHtml
+    + '<div>' + (mesesHtml || '') + '</div>'
+    + '<div>' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div>'
     + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 6) + '</div>'
     + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 8) + '</div>'
     + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
