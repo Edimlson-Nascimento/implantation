@@ -8643,7 +8643,7 @@ function scrumBaixarPDF() {
 // ticket foi fechado; o painel anota (tabela backlog_tickets, migracao-backlog.sql) os tickets abertos a cada leitura do ERP e
 // grava em fechado_em o dia em que vê um ticket sair da lista de abertos (fechado OU cancelado). O histórico dos tickets
 // começa na primeira leitura depois do SQL.
-let bkMensal = null, bkMensalBusca = 0, bkTicketsEm = null, bkHist = null, bkHistErro = '', bkHistSemTabela = false, bkSyncRodando = false, bkSyncEm = 0;
+let bkMensal = null, bkSemanal = null, bkSemanalSemFn = false, bkMensalBusca = 0, bkTicketsEm = null, bkHist = null, bkHistErro = '', bkHistSemTabela = false, bkSyncRodando = false, bkSyncEm = 0;
 const BK_GRUPOS = [
   { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
   { k: 'atendimento', nome: 'Atendimento (Base)', cor: '#6366F1' },
@@ -8780,12 +8780,12 @@ function bkEvoHtml(e, verbo) {
     + (e.tempo !== null ? ' · levaram em média <b>' + bkMedio(e.tempo) + '</b> para sair' : '') + '</div>';
   return '<div><div class="bk-sec">Em aberto no fim de cada ' + unidade + '</div>' + barras + fluxo + '</div>';
 }
-function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
+function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
   const r = bkResumo(itens);
   if (tipo === 'ticket') r.faixas.forEach((f, k) => { f.cor = BK_PALETA_TICKET[k]; });
   const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
   const evoHtml = (mesesHtml || '') + (evo ? bkEvoHtml(evo, verbo) : '');
-  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div><div></div><div>' + (mesesHtml || '') + '</div><div>' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div><div></div><div></div><div></div></div>';
+  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div><div></div><div>' + (mesesHtml || '') + '</div><div>' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div><div></div><div></div><div></div></div>';
   const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
     + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
   const lista = (arr, max) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
@@ -8797,7 +8797,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
     + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
     + '<div>' + barra + '</div>'
     + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
-    + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + '</div>'
+    + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div>'
     + '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999) + '</div>'
     + '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999) + '</div>'
     + '<div class="bk-bloco"><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
@@ -8820,6 +8820,32 @@ function bkLinhasMesAtividades() {
     mes: desempDataLocal(a.criadoEm).slice(0, 7), grupo: bkGrupoAtividade(a),
     estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
   }));
+}
+function bkLinhasSemTickets() {
+  return (bkSemanal || []).map(r => ({ sem: r.sem, grupo: r.classe === 'base' ? 'atendimento' : r.classe, estado: r.grupo, n: Number(r.n) || 0 }));
+}
+// Criados por SEMANA (segunda-feira) e como estão hoje. Só pela criação: o ERP não informa quando o ticket foi fechado.
+function bkSemanasHtml(linhas, gk, rotuloFechado) {
+  if (!linhas || !linhas.length) return '';
+  const seg0 = segundaDe(todayStr());
+  const chaves = [];
+  for (let k = 11; k >= 0; k--) chaves.push(addDays(seg0, -7 * k));
+  const por = new Map();
+  linhas.filter(l => l.grupo === gk).forEach(l => { const o = por.get(l.sem) || { aberto: 0, fechado: 0, cancelado: 0 }; o[l.estado] = (o[l.estado] || 0) + l.n; por.set(l.sem, o); });
+  const tot = o => o ? o.aberto + o.fechado + o.cancelado : 0;
+  const max = Math.max(1, ...chaves.map(k => tot(por.get(k))));
+  const barras = chaves.map((k, i) => {
+    const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
+    const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
+    const seg = BK_ESTADOS.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
+    return '<div title="' + t + ' criados na semana de ' + formatDate(k) + ': ' + o.aberto + ' em aberto, ' + o.fechado + ' ' + rotuloFechado + ', ' + o.cancelado + ' cancelados"><em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
+  }).join('');
+  let t4 = 0, a4 = 0;
+  chaves.slice(-4).forEach(k => { const o = por.get(k); if (o) { t4 += tot(o); a4 += o.aberto; } });
+  const resumo = t4 ? 'Dos criados nas últimas 4 semanas, <b>' + a4 + '</b> de <b>' + t4 + '</b> (' + Math.round(a4 / t4 * 100) + '%) seguem em aberto.' : 'Nada criado nas últimas 4 semanas.';
+  return '<div><div class="bk-sec">Criados por semana e como estão hoje</div><div class="bk-mes-wrap">' + barras + '</div>'
+    + '<div class="bk-mes-leg">' + BK_ESTADOS.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
+    + '<div class="bk-fluxo">' + resumo + '</div></div>';
 }
 function bkMesesHtml(linhas, gk, rotuloFechado) {
   if (!linhas || !linhas.length) return '';
@@ -8858,8 +8884,7 @@ function bkMesesHtml(linhas, gk, rotuloFechado) {
     + '<div class="bk-fluxo">' + resumo + '</div></div>';
 }
 async function bkCarregarMensal() {
-  if (ticketsMensal && ticketsMensal.length) return;               // Indicadores já trouxe (é a mesma série, de sempre)
-  if (bkMensal || Date.now() - bkMensalBusca < 120000) return;
+  if (bkSemanal || Date.now() - bkMensalBusca < 120000) return;
   bkMensalBusca = Date.now();
   try {
     const { data: { session } } = await sb.auth.getSession();
@@ -8867,19 +8892,21 @@ async function bkCarregarMensal() {
     const json = await res.json();
     if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
     bkMensal = Array.isArray(json.mensal) ? tkPrepararLinhas(json.mensal) : null;
-  } catch (e) { bkMensal = null; }
+    bkSemanalSemFn = !Array.isArray(json.semanal);   // função antiga ainda no ar (sem a série semanal)
+    bkSemanal = Array.isArray(json.semanal) ? tkPrepararLinhas(json.semanal) : null;
+  } catch (e) { bkMensal = null; bkSemanal = null; }
   if (activeTab === 'backlog') renderBacklog();
 }
 
 // itens = em aberto agora; hist = todos (abertos e já saídos) com criado/fechado, ou null se não há histórico
-function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, rotuloFechado, tipo) {
+function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, rotuloFechado, tipo, linhasSem) {
   const pm = (linhasMes || []).reduce((m, l) => (!m || l.mes < m ? l.mes : m), null);
   const primeiro = bkPrimeiroDia(hist || [], pm ? pm + '-01' : null);
   const mostrarEvo = !inicio || inicio <= addDays(todayStr(), -14);   // tickets: só depois de 2 semanas de anotações
   const cards = BK_GRUPOS.map(g => {
     const doGrupo = itens.filter(i => i.grupo === g.k);
     const evo = hist && mostrarEvo ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length, primeiro) : null;
-    return bkCard(g, doGrupo, evo, verbo, bkMesesHtml(linhasMes, g.k, rotuloFechado), tipo);
+    return bkCard(g, doGrupo, evo, verbo, bkMesesHtml(linhasMes, g.k, rotuloFechado), tipo, linhasSem ? bkSemanasHtml(linhasSem, g.k, rotuloFechado) : '');
   }).join('');
   return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + itens.length + ' em aberto no total</small></h3>'
     + '<p class="bk-fonte">' + fonte + '</p>' + (aviso ? '<div class="bk-aviso">' + aviso + '</div>' : '')
@@ -8909,8 +8936,9 @@ function renderBacklog() {
     const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. A linha do tempo <b>Criados por mês</b> usa a data de criação de todos os tickets do ERP (abertos e já fechados) e mostra como cada um está hoje. Como o ERP não informa quando o ticket foi fechado, o painel anota' + (temHist ? ' desde <b>' + formatDate(inicio) + '</b>' : '') + ' o dia em que vê cada ticket sair da lista de abertos (fechado ou cancelado); quando houver pelo menos 2 semanas de anotações, aparece aqui a evolução do que estava em aberto.'
       + '';
     const aviso = bkHistSemTabela ? 'A evolução dos tickets ainda não está sendo guardada: rode o arquivo <b>migracao-backlog.sql</b> no SQL Editor do Supabase. Enquanto isso o quadro mostra só a situação de hoje.'
-      : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').' : '');
-    tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket');
+      : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').'
+        : (bkSemanalSemFn ? 'Para ver o gráfico <b>Criados por semana</b>, publique a versão nova da função <b>tickets-erp</b> no Supabase (Edge Functions → tickets-erp → Code → colar o index.ts → Deploy).' : ''));
+    tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
   el.innerHTML = tickets + ativ;
