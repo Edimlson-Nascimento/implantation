@@ -1457,6 +1457,7 @@
       <button class="nav-item active" id="tab-atividades" onclick="setTab('atividades')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z"/></svg>Atividades</button>
       <button class="nav-item" id="tab-lamina" onclick="setTab('lamina')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16"/></svg>Lâmina</button>
       <button class="nav-item" id="tab-indicadores" onclick="setTab('indicadores')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Indicadores</button>
+      <button class="nav-item" id="tab-backlog" onclick="setTab('backlog')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h9"/></svg>Backlog</button>
       <button class="nav-item" id="tab-buscar" onclick="setTab('buscar')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
       <button class="nav-item" id="tab-desempenho" style="display:none" onclick="setTab('desempenho')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8M15 7h5v5"/></svg>Desempenho</button>
     </nav>
@@ -1830,6 +1831,21 @@
     </div>
   </section>
 
+  <section id="view-backlog" style="display:none">
+    <div class="resumo-box">
+      <div class="bk-topo">
+        <div>
+          <h2 style="margin-bottom:4px;">Backlog de Implantação e Atendimento</h2>
+          <p class="bk-sub">O que está em aberto agora e há quanto tempo. <b>Implantação</b> = clientes em implantação; <b>Atendimento</b> = clientes na Base; <b>Intelipulse</b> = trabalho interno.</p>
+        </div>
+        <div class="bk-acoes">
+          <button class="btn btn-sm" onclick="bkAtualizar()" title="Buscar os tickets de novo no ERP">🔄 Atualizar tickets</button>
+          <button class="btn btn-sm" onclick="bkCopiar()" title="Copiar o resumo como texto">📋 Copiar texto</button>
+        </div>
+      </div>
+      <div id="backlog-conteudo"></div>
+    </div>
+  </section>
   <section id="view-buscar" style="display:none">
     <div class="resumo-box">
       <h2>Buscar</h2>
@@ -2647,6 +2663,8 @@ function setTab(tab) {
   document.getElementById('tab-lamina').classList.toggle('active', tab === 'lamina');
   document.getElementById('tab-indicadores').classList.toggle('active', tab === 'indicadores');
   document.getElementById('tab-buscar').classList.toggle('active', tab === 'buscar');
+  document.getElementById('tab-backlog').classList.toggle('active', tab === 'backlog');
+  document.getElementById('view-backlog').style.display = tab === 'backlog' ? '' : 'none';
   document.getElementById('view-calendario').style.display = tab === 'calendario' ? '' : 'none';
   document.getElementById('view-clientes').style.display = tab === 'clientes' ? '' : 'none';
   document.getElementById('view-pendencias').style.display = tab === 'pendencias' ? '' : 'none';
@@ -2684,6 +2702,7 @@ function render() {
   else if (activeTab === 'atividades') renderAtividades();
   else if (activeTab === 'lamina') renderLamina();
   else if (activeTab === 'indicadores') renderIndicadores();
+  else if (activeTab === 'backlog') renderBacklog();
   else if (activeTab === 'buscar') {}
   else if (activeTab === 'desempenho') renderDesempenho();
   else renderResumo();
@@ -3891,6 +3910,7 @@ function garantirLicencasErp() {
     } finally {
       licencasErpCarregando = false;
       if (activeTab === 'pendencias') renderPendencias();
+      if (activeTab === 'backlog') renderBacklog();
       if (document.getElementById('modal-overlay').classList.contains('open')) atualizarDicaLicencasErp();
     }
   })();
@@ -8424,5 +8444,177 @@ function scrumBaixarPDF() {
 }
 </script>
 
+<style id="backlog-css">
+  .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .bk-sub { margin: 0; font-size: 12.5px; color: var(--gray-text); line-height: 1.5; max-width: 760px; }
+  .bk-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bk-secao { margin-top: 22px; }
+  .bk-secao-tit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 0 0 4px; font-size: 16px; font-weight: 800; color: var(--text-main); }
+  .bk-secao-tit small { font-size: 12px; font-weight: 600; color: var(--gray-text); }
+  .bk-fonte { margin: 0 0 12px; font-size: 12px; color: var(--gray-text); line-height: 1.5; }
+  .bk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: stretch; }
+  .bk-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .bk-card-top { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: var(--text-main); }
+  .bk-card-top i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .bk-total { font-size: 38px; font-weight: 800; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-total small { font-size: 12.5px; font-weight: 600; color: var(--gray-text); margin-left: 6px; }
+  .bk-meta { font-size: 12.5px; color: var(--gray-text); line-height: 1.5; margin-top: -4px; }
+  .bk-meta b { color: var(--text-main); }
+  .bk-meta .ruim { color: var(--red); font-weight: 700; }
+  .bk-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--light-bg); }
+  .bk-bar i { display: block; height: 100%; }
+  .bk-leg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; color: var(--gray-text); margin-top: 8px; }
+  .bk-leg span { display: flex; align-items: center; gap: 6px; }
+  .bk-leg i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .bk-leg b { color: var(--text-main); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .bk-sec { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); margin: 2px 0 4px; }
+  .bk-lista { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: var(--text-main); }
+  .bk-lista li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--border-light, rgba(127,127,127,.2)); }
+  .bk-lista li:last-child { border-bottom: 0; }
+  .bk-lista li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .bk-lista li > b, .bk-lista li > em { flex: none; font-style: normal; font-variant-numeric: tabular-nums; }
+  .bk-lista li > em { color: var(--gray-text); }
+  .bk-lista li > em.velho { color: var(--red); font-weight: 700; }
+  .bk-vazio { font-size: 12.5px; color: var(--gray-text); }
+  .bk-aviso { padding: 14px 16px; border: 1px dashed var(--border-light, rgba(127,127,127,.4)); border-radius: 12px; font-size: 13px; color: var(--gray-text); line-height: 1.5; }
+</style>
+<script>
+// Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento. Dois blocos no mesmo formato:
+// tickets do ERP (lista de tickets sem fechar, com a data de criação, vinda da função tickets-erp) e atividades do painel (não
+// concluídas e não canceladas). Atendimento = clientes na Base; Intelipulse = interno (cliente código 1) ou atividade sem cliente
+// cadastrado. Sem histórico: o ERP não guarda a data de fechamento, então é sempre a foto de hoje.
+const BK_GRUPOS = [
+  { k: 'implantacao', nome: 'Implantação', cor: '#14B8A6' },
+  { k: 'atendimento', nome: 'Atendimento (Base)', cor: '#6366F1' },
+  { k: 'interno', nome: 'Intelipulse (interno)', cor: '#9CA3AF' }
+];
+const BK_FAIXAS = [
+  { nome: 'até 7 dias', max: 7, cor: '#16A34A' },
+  { nome: '8 a 15 dias', max: 15, cor: '#F2C94C' },
+  { nome: '16 a 30 dias', max: 30, cor: '#F59E0B' },
+  { nome: 'mais de 30 dias', max: Infinity, cor: '#DC2626' }
+];
+const bkSemNumero = s => String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim();
+const bkCorta = (t, n) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+
+function bkItensTickets() {
+  return (ticketsAbertosErp || []).map(t => {
+    const id = Number(t.empresa_id);
+    const classe = tkClasseDe(id, null);                        // interno | implantacao | base
+    const cli = tkClienteDoPainel(id);
+    const emp = (licencasErp || []).find(e => Number(e.empresa_id) === id);
+    return {
+      grupo: classe === 'base' ? 'atendimento' : classe,
+      cliente: id === 1 ? 'Intelipulse' : (cli ? cli.nome : (emp ? emp.empresa : 'Empresa ' + id)),
+      rotulo: '#' + (t.numero || t.id), titulo: t.titulo || '', dias: diasDesde(t.criado_em),
+      situacao: t.grupo === 'dev' ? 'Fila de desenvolvimento' : (bkSemNumero(t.status) || '—'),
+      pessoa: t.pessoa || 'Sem responsável', impedido: false
+    };
+  });
+}
+function bkItensAtividades() {
+  return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida').map(a => {
+    const nome = String(a.clienteNome || '').trim().toLowerCase();
+    const c = nome ? state.clients.find(x => String(x.nome).trim().toLowerCase() === nome) : null;
+    const grupo = !c || String(c.codigo || '').trim() === '1' ? 'interno' : ((c.fase || 'implantacao') === 'base' ? 'atendimento' : 'implantacao');
+    return {
+      grupo, cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0,
+      situacao: raiaNomeCurto(a.coluna), pessoa: a.responsavel || '—', impedido: !!a.impedidoDesde
+    };
+  });
+}
+
+function bkResumo(itens) {
+  const faixas = BK_FAIXAS.map(f => ({ ...f, n: 0 }));
+  const porSit = new Map(), porPessoa = new Map();
+  let soma = 0, impedidos = 0;
+  itens.forEach(i => {
+    faixas[BK_FAIXAS.findIndex(f => i.dias <= f.max)].n++;
+    porSit.set(i.situacao, (porSit.get(i.situacao) || 0) + 1);
+    porPessoa.set(i.pessoa, (porPessoa.get(i.pessoa) || 0) + 1);
+    soma += i.dias; if (i.impedido) impedidos++;
+  });
+  const ord = m => [...m.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+  return {
+    total: itens.length, faixas, impedidos, medio: itens.length ? soma / itens.length : null,
+    velhos15: itens.filter(i => i.dias > 15).length, maisAntigo: itens.length ? Math.max(...itens.map(i => i.dias)) : 0,
+    porSit: ord(porSit), porPessoa: ord(porPessoa), antigos: [...itens].sort((a, b) => b.dias - a.dias).slice(0, 5)
+  };
+}
+const bkDias = n => n + (n === 1 ? ' dia' : ' dias');
+const bkMedio = n => n === null ? '—' : String(n.toFixed(1)).replace('.', ',') + ' d';
+
+function bkCard(g, itens, tipo) {
+  const r = bkResumo(itens);
+  const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
+  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div></div>';
+  const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
+    + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
+  const lista = (arr, max) => '<ul class="bk-lista">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
+  const antigos = '<ul class="bk-lista">' + r.antigos.map(i => '<li><span>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(bkCorta(i.cliente, 22)) + (i.titulo ? ' — ' + escapeHtml(bkCorta(i.titulo, 60)) : '') + '</span><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></li>').join('') + '</ul>';
+  return '<div class="bk-card">' + topo
+    + '<div class="bk-total">' + r.total + '<small>em aberto</small></div>'
+    + '<div class="bk-meta">Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>'
+    + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
+    + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
+    + '<div>' + barra + '</div>'
+    + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 6) + '</div>'
+    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 6) + '</div>'
+    + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
+    + '</div>';
+}
+
+function bkSecao(titulo, fonte, itens, tipo) {
+  const totalGeral = itens.length;
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + totalGeral + ' em aberto no total</small></h3>'
+    + '<p class="bk-fonte">' + fonte + '</p>'
+    + '<div class="bk-grid">' + BK_GRUPOS.map(g => bkCard(g, itens.filter(i => i.grupo === g.k), tipo)).join('') + '</div></div>';
+}
+
+// null = ainda não dá para mostrar os tickets (texto explicando o motivo)
+function bkTicketsIndisponivel() {
+  if (licencasErp === null) return 'Carregando os tickets do ERP…';
+  if (licencasErpErro) return 'Não consegui ler o ERP agora (' + escapeHtml(licencasErpErro) + '). Use "Atualizar tickets" para tentar de novo.';
+  if (ticketsAbertosErp === null) return 'A função tickets-erp publicada no Supabase é antiga e não traz a lista de tickets: publique a versão atual.';
+  if (ticketsAbertosErpErro) return 'Não consegui ler os tickets no ERP (' + escapeHtml(ticketsAbertosErpErro) + ').';
+  return null;
+}
+
+function renderBacklog() {
+  const el = document.getElementById('backlog-conteudo');
+  if (!el) return;
+  garantirLicencasErp();
+  const indisp = bkTicketsIndisponivel();
+  const tickets = indisp
+    ? '<div class="bk-secao"><h3 class="bk-secao-tit">🎫 Tickets do ERP</h3><div class="bk-aviso">' + indisp + '</div></div>'
+    : bkSecao('🎫 Tickets do ERP', 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. O ERP não guarda a data de fechamento, por isso este quadro mostra só a situação de hoje, sem evolução no tempo.', bkItensTickets(), 'ticket');
+  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade.', bkItensAtividades(), 'atividade');
+  el.innerHTML = tickets + ativ;
+}
+
+function bkAtualizar() { licencasErp = null; licencasErpErro = ''; renderBacklog(); }
+
+function bkTexto() {
+  const L = ['BACKLOG DE IMPLANTAÇÃO E ATENDIMENTO', 'Posição de ' + formatDate(todayStr()), ''];
+  const bloco = (titulo, itens) => {
+    L.push(titulo);
+    BK_GRUPOS.forEach(g => {
+      const r = bkResumo(itens.filter(i => i.grupo === g.k));
+      L.push('• ' + g.nome + ': ' + r.total + ' em aberto' + (r.total ? ' · idade média ' + bkMedio(r.medio) + ' · mais antigo ' + bkDias(r.maisAntigo) + ' · ' + r.velhos15 + ' há mais de 15 dias'
+        + ' (até 7d: ' + r.faixas[0].n + ' · 8-15d: ' + r.faixas[1].n + ' · 16-30d: ' + r.faixas[2].n + ' · +30d: ' + r.faixas[3].n + ')' : ''));
+    });
+    L.push('');
+  };
+  const indisp = bkTicketsIndisponivel();
+  if (indisp) L.push('TICKETS DO ERP', '• indisponível agora', ''); else bloco('TICKETS DO ERP (sem fechar, qualquer data)', bkItensTickets());
+  bloco('ATIVIDADES DO PAINEL (não concluídas)', bkItensAtividades());
+  return L.join('\n').trim();
+}
+function bkCopiar() {
+  const t = bkTexto();
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => alert('Resumo do backlog copiado.'), () => promptFallbackCopy(t));
+  else promptFallbackCopy(t);
+}
+</script>
 </body>
 </html>
