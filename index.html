@@ -7309,7 +7309,7 @@ const DESEMP_CORES = ['#0B5CAD', '#0F9D58', '#9333EA', '#EA580C', '#0891B2', '#B
 let desempSemanaIni = null;
 let desempMesIni = null;
 let desempModo = 'semana'; // 'semana' | 'mes'
-let desempTicketsRows = null, desempTicketsBusca = 0, desempTicketsErro = '';
+let desempTkCache = {}, desempTkTentativa = {}, desempTkCarregando = false, desempTicketsErro = '';
 
 // Gilson e Edimilson veem todos os analistas; cada analista (Leandro, Jefferson...) vê só o próprio.
 function desempVerTodos() {
@@ -7380,6 +7380,7 @@ function desempMetricas(nome, ini, fim, modo) {
     if (String(a.resolucao || '').trim().length < 30) curtas++;
     if (a.criadoEm) somaLead += Math.max(0, daysBetween(desempDataLocal(a.criadoEm), a.concluidoEm));
   });
+  const criadas = minhas.filter(a => a.criadoEm && desempDataLocal(a.criadoEm) >= ini && desempDataLocal(a.criadoEm) <= fim).length;
   const abertas = minhas.filter(a => a.coluna !== 'concluida');
   const atrasados = abertas
     .map(a => ({ a, pz: desempPrazoEfetivo(a) }))
@@ -7417,7 +7418,7 @@ function desempMetricas(nome, ini, fim, modo) {
   });
   const m = {
     porPrioridade,
-    entregues, noPrazo, comAtraso, semPrazo, porPadrao, curtas, den,
+    entregues, criadas, noPrazo, comAtraso, semPrazo, porPadrao, curtas, den,
     pct: den ? Math.round((noPrazo / den) * 100) : null,
     lead: entregues.length ? somaLead / entregues.length : null,
     atrasados, impedidos, plano, paradoMin,
@@ -7451,35 +7452,46 @@ function desempMetricas(nome, ini, fim, modo) {
   return m;
 }
 
+// Tickets do ERP por analista (mesmo critério da aba Indicadores, qualquer cliente): "abertos agora" (tudo que está sem fechar,
+// inclusive a fila de desenvolvimento, de qualquer data) e "criados no período" (semana ou mês escolhido, por situação de hoje).
+// O ERP não guarda data de fechamento confiável, então não existe "fechados no período": só a situação atual dos criados nele.
+function desempTkChave() { const p = desempPeriodo(); return p.ini + '|' + p.fim; }
 function desempTickets(nome) {
-  if (!desempTicketsRows || !desempTicketsRows.length) return null;
-  const chaves = Object.keys(desempTicketsRows[0]);
-  const chave = chaves.find(k => k.toLowerCase() === nome.toLowerCase().split(' ')[0]);
-  if (!chave) return null;
-  let total = 0; const porCliente = [];
-  desempTicketsRows.forEach(r => {
-    const v = Number(r[chave]) || 0;
-    if (v > 0) { total += v; porCliente.push({ cliente: String(r[chaves[0]]), n: v }); }
-  });
-  porCliente.sort((a, b) => b.n - a.n);
-  return { total, top: porCliente.slice(0, 3) };
+  const c = desempTkCache[desempTkChave()] || null;
+  const recente = c || Object.values(desempTkCache).sort((x, y) => y.t - x.t)[0] || null;   // "abertos agora" não depende do período
+  if (!recente) return null;
+  const k = String(nome).toLowerCase().split(' ')[0];
+  const meu = l => String(l.pessoa || '').toLowerCase() === k;
+  let abertos = 0, dev = 0; const porCliente = new Map();
+  recente.abertos.filter(meu).forEach(l => { abertos += l.n; if (l.dev) dev += l.n; porCliente.set(l.cliente, (porCliente.get(l.cliente) || 0) + l.n); });
+  let criados = null;
+  if (c) { criados = { total: 0, aberto: 0, fechado: 0, cancelado: 0 }; c.linhas.filter(meu).forEach(l => { criados.total += l.n; criados[l.grupo] = (criados[l.grupo] || 0) + l.n; }); }
+  const top = [...porCliente.entries()].map(([cliente, n]) => ({ cliente, n })).sort((x, y) => y.n - x.n).slice(0, 3);
+  return { total: abertos, abertos, dev, criados, top };
 }
 
 async function desempCarregarTickets() {
-  if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) { desempTicketsRows = grafanaQuadroUltimasLinhas; return; }
-  if (Date.now() - desempTicketsBusca < 120000) return;
-  desempTicketsBusca = Date.now();
+  const p = desempPeriodo(), chave = p.ini + '|' + p.fim;
+  const c = desempTkCache[chave];
+  if (desempTkCarregando || (c && Date.now() - c.t < 120000)) return;
+  if (!c && desempTkTentativa[chave] && Date.now() - desempTkTentativa[chave] < 120000) return;   // não insiste a cada tela
+  desempTkTentativa[chave] = Date.now();
+  desempTkCarregando = true;
   try {
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(TICKETS_ERP_FN_URL, { headers: { Authorization: 'Bearer ' + session.access_token } });
+    const res = await fetch(TICKETS_ERP_FN_URL + '?desde=' + p.ini + '&ate=' + p.fim, { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || ('Erro ' + res.status));
-    if (json.linhas) desempTicketsRows = ticketsLinhasParaDesempenho(tkPrepararLinhas(json.abertos || json.linhas));
-    else desempTicketsRows = json.rows || [];
+    if (json.erro) throw new Error(json.erro);
+    if (!json.linhas) throw new Error('a função tickets-erp publicada no Supabase é antiga: publique a versão atual');
+    const linhas = tkPrepararLinhas(json.linhas);
+    const abertos = json.abertos ? tkPrepararLinhas(json.abertos) : linhas.filter(l => l.grupo === 'aberto');
+    desempTkCache[chave] = { t: Date.now(), linhas, abertos };
     desempTicketsErro = '';
   } catch (e) {
     desempTicketsErro = /max clients reached|too many clients|failed to acquire connection/i.test(e.message) ? 'o banco do ERP está com o limite de conexões cheio agora' : e.message;
   }
+  desempTkCarregando = false;
   if (activeTab === 'desempenho') renderDesempenho();
 }
 
@@ -7651,7 +7663,7 @@ function renderDesempenho() {
   if (!desempSemanaIni) desempSemanaIni = desempSegunda(todayStr());
   if (!desempMesIni) desempMesIni = todayStr().slice(0, 7) + '-01';
   if (desempVerTodos() && !desempObsCarregado) desempObsCarregar();
-  if (!desempTicketsRows) desempCarregarTickets(); else if (typeof grafanaQuadroUltimasLinhas !== 'undefined' && grafanaQuadroUltimasLinhas) desempTicketsRows = grafanaQuadroUltimasLinhas;
+  desempCarregarTickets();
 
   const d = desempDados();
   const ehMes = d.modo === 'mes';
@@ -7672,9 +7684,9 @@ function renderDesempenho() {
     + tile(eq.entregues.length, 'Entregues ' + noPer)
     + tile(eq.pct === null ? '—' : eq.pct + '%', 'Cumprimento de prazo')
     + tile(eq.atrasados.length, 'Atrasados em aberto')
-    + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Lead time médio')
+    + tile(eq.lead === null ? '—' : desempF1(eq.lead) + ' d', 'Tempo médio até concluir')
     + tile(eq.plano.pct === null ? '—' : eq.plano.pct + '%', 'Previsto × entregue')
-    + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets')
+    + tile(d.ticketsTotal === null ? '—' : d.ticketsTotal, 'Tickets abertos agora')
     + '</div>';
 
   const cards = d.analistas.map((a, i) => {
@@ -7702,7 +7714,8 @@ function renderDesempenho() {
         + '<li>Pendências em aberto: <b>' + m.cart.pendIntelipulse + '</b> da Intelipulse · <b>' + m.cart.pendCliente + '</b> do cliente</li></ul>'
       : '<div style="font-size:12.5px;color:#64748B;">Sem clientes atribuídos como analista responsável.</div>';
     const tk = m.tickets
-      ? '<ul class="dm-lista"><li><b>' + m.tickets.total + '</b> ticket(s)' + (m.tickets.top.length ? ' — ' + m.tickets.top.map(t => escapeHtml(desempCortar(t.cliente, 24)) + ' (' + t.n + ')').join(', ') : '') + '</li></ul>'
+      ? '<ul class="dm-lista"><li><b>' + m.tickets.abertos + '</b> aberto(s) agora' + (m.tickets.dev ? ' (<b>' + m.tickets.dev + '</b> na fila de desenvolvimento)' : '') + (m.tickets.top.length ? ' — ' + m.tickets.top.map(t => escapeHtml(desempCortar(t.cliente, 24)) + ' (' + t.n + ')').join(', ') : '') + '</li>'
+        + '<li>' + (m.tickets.criados ? '<b>' + m.tickets.criados.total + '</b> criado(s) ' + noPer + ': ' + m.tickets.criados.aberto + ' aberto(s) · ' + m.tickets.criados.fechado + ' fechado(s) · ' + m.tickets.criados.cancelado + ' cancelado(s)' : 'Carregando os criados ' + noPer + '…') + '</li></ul>'
       : '<div style="font-size:12.5px;color:#64748B;">' + (desempTicketsErro ? 'Indisponível agora (' + escapeHtml(desempTicketsErro) + ').' : 'Carregando…') + '</div>';
     const ul = arr => '<ul>' + arr.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
     const obs = desempLerObs(a.nome);
@@ -7716,11 +7729,17 @@ function renderDesempenho() {
         + '<div class="dm-pct ' + (m.pct === null ? 'sem' : '') + '">' + (m.pct === null ? 'Sem prazo' : m.pct + '%') + '</div>'
         + '<div class="dm-pct-sub">' + (m.pct === null ? 'nenhuma entrega com prazo ' + noPer : 'cumprido · ' + m.noPrazo + ' de ' + den + ' no prazo') + '</div>'
         + '<div class="dm-bar">' + barra + '</div>'
+        + '<div class="dm-sec" style="margin-top:2px;">Atividades ' + noPer + '</div>'
         + '<div class="dm-grid">'
-        + '<div>Entregues<b>' + m.entregues.length + '</b></div><div>Com atraso<b>' + m.comAtraso + '</b></div>'
-        + '<div>Em andamento<b>' + m.emAndamento + '</b></div><div>Atrasados<b>' + m.atrasados.length + '</b></div>'
-        + '<div>Lead time<b>' + (m.lead === null ? '—' : desempF1(m.lead) + 'd') + '</b></div><div>Tickets<b>' + (m.tickets ? m.tickets.total : '—') + '</b></div>'
+        + '<div title="Atividades lançadas ' + noPer + '">Criadas<b>' + m.criadas + '</b></div><div title="Atividades concluídas ' + noPer + '">Concluídas<b>' + m.entregues.length + '</b></div>'
+        + '<div title="Ainda não concluídas, hoje (' + m.emAndamento + ' em andamento)">Em aberto<b>' + m.abertas + '</b></div><div title="Média de dias do dia em que a atividade foi criada até o dia em que foi concluída">Tempo médio<b>' + (m.lead === null ? '—' : desempF1(m.lead) + ' d') + '</b></div>'
+        + '<div>Com atraso<b>' + m.comAtraso + '</b></div><div>Atrasados<b>' + m.atrasados.length + '</b></div>'
         + '<div>Planejado<b>' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + '</b></div><div>Tempo parado<b>' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—') + '</b></div>'
+        + '</div>'
+        + '<div class="dm-sec" style="margin-top:-2px;">Tickets do ERP</div>'
+        + '<div class="dm-grid">'
+        + '<div title="Sem fechar hoje, de qualquer data (inclui a fila de desenvolvimento)">Abertos agora<b>' + (m.tickets ? m.tickets.abertos : '—') + '</b></div>'
+        + '<div title="Criados ' + noPer + ' no ERP">Criados<b>' + (m.tickets && m.tickets.criados ? m.tickets.criados.total : '—') + '</b></div>'
         + '</div>')
       + faixa('<div class="dm-sec">Entregas nos últimos 4 ' + (ehMes ? 'meses' : 'semanas') + '</div><div class="dm-trend">' + trend + '</div>')
       + faixa('<div class="dm-sec">Atrasados agora</div>' + atrasadosHtml + impedidosHtml)
@@ -7763,15 +7782,16 @@ function desempTextoRelatorio() {
   L.push('• Entregues ' + (d.modo === 'mes' ? 'no mês' : 'na semana') + ': ' + eq.entregues.length);
   L.push('• Cumprimento de prazo: ' + (eq.pct === null ? '—' : eq.pct + '% (' + eq.noPrazo + ' de ' + eq.den + ' no prazo)'));
   L.push('• Atrasados em aberto: ' + eq.atrasados.length);
-  L.push('• Lead time médio: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
+  L.push('• Tempo médio da criação até concluir: ' + (eq.lead === null ? '—' : desempF1(eq.lead) + ' dias'));
   L.push('• Previsto × entregue na sprint: ' + (eq.plano.previsto ? eq.plano.entregue + ' de ' + eq.plano.previsto + ' (' + eq.plano.pct + '%)' : '—'));
-  if (d.ticketsTotal !== null) L.push('• Tickets: ' + d.ticketsTotal);
+  if (d.ticketsTotal !== null) L.push('• Tickets abertos agora: ' + d.ticketsTotal);
   }
   d.analistas.forEach(a => {
     const m = a.m, lt = a.leitura;
     L.push(''); L.push('────────────────────────'); L.push(a.nome.toUpperCase());
     L.push('Cumprimento de prazo: ' + (m.pct === null ? 'sem entregas com prazo' : m.pct + '% (' + m.noPrazo + ' de ' + m.den + ' no prazo)'));
-    L.push('Entregues: ' + m.entregues.length + ' · Com atraso: ' + m.comAtraso + ' · Atrasados em aberto: ' + m.atrasados.length + ' · Em andamento: ' + m.emAndamento + ' · Lead time: ' + (m.lead === null ? '—' : desempF1(m.lead) + ' dias') + (m.tickets ? ' · Tickets: ' + m.tickets.total : ''));
+    L.push('Atividades: ' + m.criadas + ' criadas · ' + m.entregues.length + ' concluídas · ' + m.abertas + ' em aberto (' + m.emAndamento + ' em andamento) · tempo médio da criação até concluir: ' + (m.lead === null ? '—' : desempF1(m.lead) + ' dias') + ' · com atraso: ' + m.comAtraso + ' · atrasadas em aberto: ' + m.atrasados.length);
+    if (m.tickets) L.push('Tickets do ERP: ' + m.tickets.abertos + ' abertos agora' + (m.tickets.dev ? ' (' + m.tickets.dev + ' na fila de desenvolvimento)' : '') + (m.tickets.criados ? ' · ' + m.tickets.criados.total + ' criados ' + (d.modo === 'mes' ? 'no mês' : 'na semana') + ' (' + m.tickets.criados.aberto + ' abertos, ' + m.tickets.criados.fechado + ' fechados, ' + m.tickets.criados.cancelado + ' cancelados)' : ''));
     L.push('Planejado na sprint: ' + (m.plano.previsto ? m.plano.entregue + ' de ' + m.plano.previsto : '—') + ' · Tempo parado aguardando cliente: ' + (m.paradoMin > 0 ? formatarDuracaoMin(m.paradoMin) : '—'));
     L.push('Por prioridade (entregues/abertas): ' + (m.porPrioridade.filter(p => p.entregues || p.abertas).map(p => p.nome + ' ' + p.entregues + '/' + p.abertas).join(' · ') || '—'));
     L.push('Perfil: ' + lt.perfil.join(' '));
