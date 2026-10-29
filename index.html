@@ -1299,6 +1299,16 @@
   .tk-linha-dica { margin-left: auto; font-style: italic; }
 
   /* ── Próximo agendamento do cliente no cartão de Pendências ── */
+  .pendencias-cards-grid > .pendencia-card { display: flex; flex-direction: column; }
+  .pend-obs-dia { margin-top: auto; padding-top: 14px; }
+  .pend-obs-dia-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .pend-obs-dia-top label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); }
+  .pend-obs-dia-status { font-size: 11px; color: var(--gray-text); }
+  .pend-obs-dia-reg { font-size: 12.5px; line-height: 1.45; color: var(--text-main); background: var(--light-bg); border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .pend-obs-dia-reg b { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); display: block; margin-bottom: 2px; }
+  .pend-obs-dia-status.erro { color: var(--red); }
+  .pend-obs-dia textarea { width: 100%; min-height: 58px; resize: vertical; padding: 9px 11px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--white); color: var(--text-main); font: inherit; font-size: 13px; line-height: 1.45; box-sizing: border-box; }
+  .pend-obs-dia textarea:focus { outline: none; border-color: var(--green-mid, #00C853); }
   .pend-linha-info { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
   .pend-card-esq { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .pend-card-esq-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -2790,6 +2800,60 @@ async function registrarContato(id, nota, proximo, canal) {
 
 const CANAL_CONTATO_LABEL = { ligacao: 'Ligação', mensagem: 'Mensagem (WhatsApp)', email: 'E-mail', reuniao: 'Reunião/Call' };
 
+// Observação do dia (2026-10-29): uma anotação por cliente por dia, direto no cartão de Pendências. Fica gravada no Histórico do
+// cliente (tabela historico, com o prefixo abaixo), então cada dia vira uma entrada no cadastro; no dia seguinte o campo começa vazio.
+// Grava ~0,7 s depois de parar de digitar; texto vazio apaga a anotação do dia. Não precisa de SQL novo.
+const OBS_DIA_TAG = '[Observação do dia] ';
+const OBS_DIA_AUTOMATICOS = ['[', 'Contato por ', 'Contato realizado.', 'Saúde alterada', 'Cliente movido', 'Cliente reativado'];
+function obsDiaNotasDeContato(c) {
+  const hoje = todayStr();
+  return (c.historico || []).filter(h => h.data === hoje && !OBS_DIA_AUTOMATICOS.some(p => String(h.texto).startsWith(p)));
+}
+function obsDiaRegistroHtml(c) {
+  const notas = obsDiaNotasDeContato(c);
+  return notas.length ? '<div class="pend-obs-dia-reg"><b>Contato registrado hoje</b>' + notas.map(h => escapeHtml(h.texto)).join('\n') + '</div>' : '';
+}
+const obsDiaTimers = {}, obsDiaFila = {};
+function obsDiaDoCliente(c) { const hoje = todayStr(); return (c.historico || []).find(h => h.data === hoje && String(h.texto).startsWith(OBS_DIA_TAG)) || null; }
+function obsDiaStatus(id, txt, erro) { const e = document.getElementById('pgeral-obs-status-' + id); if (e) { e.textContent = txt || ''; e.classList.toggle('erro', !!erro); } }
+function obsDiaDigitou(id, valor) {
+  clearTimeout(obsDiaTimers[id]);
+  obsDiaStatus(id, 'digitando…');
+  obsDiaTimers[id] = setTimeout(() => {
+    obsDiaFila[id] = (obsDiaFila[id] || Promise.resolve()).then(() => salvarObsDia(id, valor));   // uma gravação por vez, para não duplicar a linha
+  }, 700);
+}
+async function salvarObsDia(id, valor) {
+  const c = state.clients.find(x => x.id === id);
+  if (!c) return;
+  const corpo = String(valor || '').trim();
+  const atual = obsDiaDoCliente(c);
+  try {
+    if (!corpo) {
+      if (atual) {
+        const { error } = await sb.from('historico').delete().eq('id', atual.id);
+        if (error) throw error;
+        c.historico = c.historico.filter(h => h.id !== atual.id);
+      }
+      obsDiaStatus(id, '');
+      return;
+    }
+    const texto = OBS_DIA_TAG + corpo;
+    if (atual) {
+      const { error } = await sb.from('historico').update({ texto }).eq('id', atual.id);
+      if (error) throw error;
+      atual.texto = texto;
+    } else {
+      const { data: row, error } = await sb.from('historico').insert({ cliente_id: id, data: todayStr(), texto }).select().single();
+      if (error) throw error;
+      c.historico.unshift({ id: row.id, data: todayStr(), texto });
+    }
+    obsDiaStatus(id, '✓ salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+  } catch (e) {
+    obsDiaStatus(id, '⚠ não salvou: ' + ((e && e.message) || e), true);
+  }
+}
+
 async function marcarContatoHoje(clienteId, canal) {
   const c = state.clients.find(c => c.id === clienteId);
   if (!c) return;
@@ -3692,6 +3756,11 @@ function renderPendencias() {
             <button class="btn btn-sm" onclick="withLock(this, () => addPendenciaGeral('${c.id}','rscrm'))">+</button>
           </div>
         </div>
+      </div>
+      <div class="pend-obs-dia">
+        <div class="pend-obs-dia-top"><label for="pgeral-obs-${c.id}">Observação do dia</label><span class="pend-obs-dia-status" id="pgeral-obs-status-${c.id}"></span></div>
+        ${obsDiaRegistroHtml(c)}
+        <textarea id="pgeral-obs-${c.id}" placeholder="Anote aqui o que aconteceu hoje com este cliente (fica no Histórico do cadastro)..." oninput="obsDiaDigitou('${c.id}', this.value)">${escapeHtml((obsDiaDoCliente(c) || { texto: OBS_DIA_TAG }).texto.slice(OBS_DIA_TAG.length))}</textarea>
       </div>
     </div>
   `).join('');
