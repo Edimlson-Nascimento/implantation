@@ -8477,6 +8477,8 @@ function scrumBaixarPDF() {
   .bk-lista { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: var(--text-main); }
   .bk-lista li { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--border-light, rgba(127,127,127,.2)); }
   .bk-lista li:last-child { border-bottom: 0; }
+  .bk-lista.inline li { justify-content: flex-start; gap: 8px; }
+  .bk-lista.inline li > b { margin-left: 0; }
   .bk-lista li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
   .bk-lista li > b, .bk-lista li > em { flex: none; font-style: normal; font-variant-numeric: tabular-nums; }
   .bk-lista li > em { color: var(--gray-text); }
@@ -8527,6 +8529,9 @@ const BK_FAIXAS = [
   { nome: 'mais de 30 dias', max: Infinity, cor: '#DC2626' }
 ];
 const BK_PALETA_TICKET = ['#16A34A', '#38BDF8', '#F59E0B', '#DC2626'];
+const BK_EQUIPE = ['Gilson', 'Edimilson', 'Jefferson', 'Leandro'];
+// nome do responsável como vem do ERP ("Maria Souza Lima" → "Maria Souza"); a equipe de implantação fica só com o primeiro nome
+const bkNomeCurto = n => String(n || '').trim().split(' ').filter(Boolean).slice(0, 2).join(' ');
 const bkSemNumero = s => String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim();
 const bkCorta = (t, n) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
 const bkDia = ds => formatDate(ds).slice(0, 5);
@@ -8548,7 +8553,7 @@ function bkItensTickets() {
       cliente: id === 1 ? 'Intelipulse' : (cli ? cli.nome : (emp ? emp.empresa : 'Empresa ' + id)),
       rotulo: '#' + (t.numero || t.id), titulo: t.titulo || '', dias: diasDesde(t.criado_em),
       situacao: t.grupo === 'dev' ? 'Fila de desenvolvimento' : (bkSemNumero(t.status) || '—'),
-      pessoa: t.pessoa || 'Sem responsável', impedido: false
+      pessoa: BK_EQUIPE.includes(t.pessoa) ? t.pessoa : (t.responsavel_nome ? bkNomeCurto(t.responsavel_nome) : (t.pessoa || 'Sem responsável')), impedido: false
     };
   });
 }
@@ -8656,7 +8661,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
   if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div>' + evoHtml + '</div>';
   const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
     + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
-  const lista = (arr, max) => '<ul class="bk-lista">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
+  const lista = (arr, max) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
   const antigos = '<ul class="bk-lista">' + r.antigos.map(i => '<li><span>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(bkCorta(i.cliente, 22)) + (i.titulo ? ' — ' + escapeHtml(bkCorta(i.titulo, 60)) : '') + '</span><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></li>').join('') + '</ul>';
   return '<div class="bk-card">' + topo
     + '<div class="bk-total">' + r.total + '<small>em aberto</small></div>'
@@ -8666,7 +8671,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo) {
     + '<div>' + barra + '</div>'
     + evoHtml
     + '<div><div class="bk-sec">Por situação</div>' + lista(r.porSit, 6) + '</div>'
-    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 6) + '</div>'
+    + '<div><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 8) + '</div>'
     + '<div><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
     + '</div>';
 }
