@@ -8809,6 +8809,11 @@ const BK_ESTADOS = [
   { k: 'fechado', nome: 'concluídos', cor: '#16A34A' },
   { k: 'cancelado', nome: 'cancelados', cor: '#9CA3AF' }
 ];
+const BK_ESTADOS_SEM = [
+  { k: 'aberto', nome: 'ainda em aberto', cor: '#8B5CF6' },
+  { k: 'fechado', nome: 'concluídos', cor: '#3B82F6' },
+  { k: 'cancelado', nome: 'cancelados', cor: '#94A3B8' }
+];
 const BK_MESES_NOMES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 // Linha do tempo pela data de CRIAÇÃO: tickets criados em cada mês (todos, abertos e já fechados) e como estão hoje.
 // linhas = [{ mes: 'AAAA-MM', grupo, estado: aberto|fechado|cancelado, n }]
@@ -8818,6 +8823,12 @@ function bkLinhasMesTickets() {
 function bkLinhasMesAtividades() {
   return atividades.filter(a => a.criadoEm).map(a => ({
     mes: desempDataLocal(a.criadoEm).slice(0, 7), grupo: bkGrupoAtividade(a),
+    estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
+  }));
+}
+function bkLinhasSemAtividades() {
+  return atividades.filter(a => a.criadoEm).map(a => ({
+    sem: segundaDe(desempDataLocal(a.criadoEm)), grupo: bkGrupoAtividade(a),
     estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
   }));
 }
@@ -8837,14 +8848,14 @@ function bkSemanasHtml(linhas, gk, rotuloFechado) {
   const barras = chaves.map((k, i) => {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
-    const seg = BK_ESTADOS.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
+    const seg = BK_ESTADOS_SEM.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
     return '<div title="' + t + ' criados na semana de ' + formatDate(k) + ': ' + o.aberto + ' em aberto, ' + o.fechado + ' ' + rotuloFechado + ', ' + o.cancelado + ' cancelados"><em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
   }).join('');
   let t4 = 0, a4 = 0;
   chaves.slice(-4).forEach(k => { const o = por.get(k); if (o) { t4 += tot(o); a4 += o.aberto; } });
   const resumo = t4 ? 'Dos criados nas últimas 4 semanas, <b>' + a4 + '</b> de <b>' + t4 + '</b> (' + Math.round(a4 / t4 * 100) + '%) seguem em aberto.' : 'Nada criado nas últimas 4 semanas.';
   return '<div><div class="bk-sec">Criados por semana e como estão hoje</div><div class="bk-mes-wrap">' + barras + '</div>'
-    + '<div class="bk-mes-leg">' + BK_ESTADOS.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
+    + '<div class="bk-mes-leg">' + BK_ESTADOS_SEM.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
     + '<div class="bk-fluxo">' + resumo + '</div></div>';
 }
 function bkMesesHtml(linhas, gk, rotuloFechado) {
@@ -8940,7 +8951,7 @@ function renderBacklog() {
         : (bkSemanalSemFn ? 'Para ver o gráfico <b>Criados por semana</b>, publique a versão nova da função <b>tickets-erp</b> no Supabase (Edge Functions → tickets-erp → Code → colar o index.ts → Deploy).' : ''));
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
-  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
+  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade', bkLinhasSemAtividades());
   el.innerHTML = tickets + ativ;
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
