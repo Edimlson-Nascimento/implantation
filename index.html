@@ -2704,7 +2704,7 @@ function render() {
   normalizarColunasAtividades();
   document.getElementById('header-date').textContent = 'Hoje é ' + formatDate(todayStr());
   document.getElementById('btn-novo-cliente').style.display = activeTab === 'clientes' ? '' : 'none';
-  document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes' || activeTab === 'pendencias');
+  document.querySelector('main').classList.toggle('main-larga', activeTab === 'clientes' || activeTab === 'pendencias' || activeTab === 'backlog');
   document.querySelector('main').classList.toggle('main-quadro', activeTab === 'atividades');
   renderStats();
   populateStageOptions();
@@ -8667,6 +8667,8 @@ function scrumBaixarPDF() {
   .bk-evo.denso span, .bk-mes-wrap.denso span { white-space: nowrap; }
   .bk-fluxo { font-size: 12.5px; color: var(--gray-text); line-height: 1.5; margin-top: 4px; }
   .bk-fluxo b { color: var(--text-main); }
+  .bk-card > .bk-bloco { container-type: inline-size; }
+  .bk-fluxo.uma { white-space: nowrap; font-size: clamp(10px, 3.5cqw, 12.5px); }
 </style>
 <script>
 // Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento, com a evolução.
@@ -8919,7 +8921,7 @@ function bkSemanasHtml(linhas, gk, rotuloFechado) {
   const resumo = t4 ? 'Dos <b>' + t4 + '</b> criados em 4 semanas, <b>' + a4 + '</b> ' + (a4 === 1 ? 'está aberto' : 'estão abertos') + ' (' + Math.round(a4 / t4 * 100) + '%).' : 'Nada criado nas últimas 4 semanas.';
   return '<div><div class="bk-sec">Criados por semana e como estão hoje</div><div class="bk-mes-wrap sem">' + barras + '</div>'
     + '<div class="bk-mes-leg">' + BK_ESTADOS_SEM.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
-    + '<div class="bk-fluxo">' + resumo + '</div></div>';
+    + '<div class="bk-fluxo uma">' + resumo + '</div></div>';
 }
 function bkMesesHtml(linhas, gk, rotuloFechado) {
   if (!linhas || !linhas.length) return '';
@@ -8957,7 +8959,7 @@ function bkMesesHtml(linhas, gk, rotuloFechado) {
   const resumo = t3 ? 'Dos <b>' + t3 + '</b> criados em 3 meses, <b>' + a3 + '</b> ' + (a3 === 1 ? 'está aberto' : 'estão abertos') + ' (' + Math.round(a3 / t3 * 100) + '%).' : 'Nada criado nos últimos 3 meses.';
   return '<div><div class="bk-sec">Criados por ' + (bkPeriodo === 'ano' ? 'ano' : 'mês') + ' e como estão hoje</div><div class="bk-mes-wrap' + (denso ? ' denso' : '') + '">' + barras + '</div>'
     + '<div class="bk-mes-leg">' + BK_ESTADOS.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
-    + '<div class="bk-fluxo">' + resumo + '</div></div>';
+    + '<div class="bk-fluxo uma">' + resumo + '</div></div>';
 }
 async function bkCarregarMensal() {
   if (bkSemanal || Date.now() - bkMensalBusca < 120000) return;
