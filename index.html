@@ -8664,24 +8664,54 @@ function scrumBaixarPDF() {
   .bk-mes-leg { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--gray-text); margin-top: 8px; padding: 6px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 999px; background: rgba(127,127,127,.06); }
   .bk-mes-leg span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .bk-mes-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .bk-ana-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: stretch; }
-  .bk-ana-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-  .bk-ana-card .bk-card-top .av { width: 26px; height: 26px; font-size: 12px; }
-  .bk-ana-card .bk-total.clic { cursor: pointer; }
-  .bk-ana-card .bk-total.clic:hover small { text-decoration: underline; }
-  .bk-ana-card .bk-sec { margin-top: 0; }
-  .bk-ana-split { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
-  .bk-ana-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.3)); border-radius: 999px; background: rgba(127,127,127,.06); font-size: 12px; color: var(--gray-text); white-space: nowrap; }
-  .bk-ana-chip i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .bk-ana-chip b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-eq { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px; padding: 16px 20px 14px; border-radius: 16px; background: linear-gradient(135deg, #021F33 0%, #063A5E 100%); color: #fff; margin-bottom: 14px; box-shadow: 0 6px 18px rgba(2,31,51,.28); }
+  .bk-eq-kpi b { display: block; font-size: 30px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .bk-eq-kpi span { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #9FC4DD; }
+  .bk-eq-kpi.destaque b { color: #5EEAD4; }
+  .bk-eq-bar { grid-column: 1 / -1; display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.14); margin-top: 4px; }
+  .bk-eq-bar i { display: block; min-width: 4px; }
+  .bk-eq-leg { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: #CFE3F1; }
+  .bk-eq-leg span { display: inline-flex; align-items: center; gap: 6px; }
+  .bk-eq-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .bk-eq-leg b { color: #fff; font-variant-numeric: tabular-nums; }
+  .bk-ana-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
+  .bk-ana-card { --ac: #14B8A6; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); min-width: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
+  .bk-ana-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .bk-ana-banner { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: #fff; background: linear-gradient(135deg, var(--ac), #021F33 135%); background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #021F33)); }
+  .bk-ana-av { width: 46px; height: 46px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 800; background: rgba(255,255,255,.22); border: 2px solid rgba(255,255,255,.7); }
+  .bk-ana-nome { min-width: 0; line-height: 1.2; }
+  .bk-ana-nome b { display: block; font-size: 17px; font-weight: 800; }
+  .bk-ana-nome small { font-size: 11.5px; opacity: .85; }
+  .bk-ana-share { margin-left: auto; flex: none; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .bk-ana-corpo { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .bk-ana-topo { display: flex; align-items: center; gap: 16px; }
+  .bk-ring { width: 108px; height: 108px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; transition: transform .15s; }
+  .bk-ring.clic { cursor: pointer; }
+  .bk-ring.clic:hover { transform: scale(1.05); }
+  .bk-ring-in { width: 76px; height: 76px; border-radius: 50%; background: var(--white); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .bk-ring-in b { font-size: 30px; font-weight: 800; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-ring-in small { font-size: 10.5px; font-weight: 600; color: var(--gray-text); margin-top: 2px; }
+  .bk-ana-leg { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .bk-ana-chip { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; background: rgba(127,127,127,.08); font-size: 12.5px; color: var(--gray-text); transition: background .12s; }
+  .bk-ana-chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .bk-ana-chip b { margin-left: auto; color: var(--text-main); font-size: 14px; font-variant-numeric: tabular-nums; }
   .bk-ana-chip.clic { cursor: pointer; }
-  .bk-ana-chip.clic:hover { background: rgba(127,127,127,.16); }
-  .bk-ana-chip.zero { opacity: .55; }
+  .bk-ana-chip.clic:hover { background: rgba(127,127,127,.2); }
+  .bk-ana-chip.zero { opacity: .5; }
+  .bk-ana-meta { font-size: 12.5px; color: var(--gray-text); line-height: 1.55; }
+  .bk-ana-meta b { color: var(--text-main); }
+  .bk-ana-meta .ruim { display: inline-block; margin-top: 3px; padding: 2px 9px; border-radius: 999px; background: rgba(239,68,68,.14); color: #F87171; font-weight: 700; }
+  .bk-ana-meta .bom { display: inline-block; margin-top: 3px; padding: 2px 9px; border-radius: 999px; background: rgba(34,197,94,.14); color: #22C55E; font-weight: 700; }
+  .bk-ana-sec { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); margin: 0 0 7px; display: flex; align-items: center; gap: 8px; }
+  .bk-ana-sec::after { content: ''; flex: 1; height: 1px; background: var(--border-light, rgba(127,127,127,.25)); }
   .bk-ana-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .bk-ana-tiles.dois { grid-template-columns: repeat(2, 1fr); }
-  .bk-ana-tile { text-align: center; padding: 9px 4px 8px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 10px; background: rgba(127,127,127,.06); min-width: 0; }
-  .bk-ana-tile b { display: block; font-size: 21px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text-main); }
-  .bk-ana-tile span { display: block; margin-top: 3px; font-size: 11px; color: var(--gray-text); }
+  .bk-ana-tile { padding: 10px 6px 9px; border-radius: 12px; background: linear-gradient(160deg, color-mix(in srgb, var(--ac) 16%, transparent), rgba(127,127,127,.06)); text-align: center; min-width: 0; }
+  .bk-ana-tile b { display: block; font-size: 24px; font-weight: 800; line-height: 1.1; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-ana-tile span { display: block; margin: 3px 0 7px; font-size: 11px; color: var(--gray-text); }
+  .bk-ana-bar { height: 5px; border-radius: 999px; background: rgba(127,127,127,.2); overflow: hidden; margin: 0 8px; }
+  .bk-ana-bar i { display: block; height: 100%; border-radius: 999px; background: var(--ac); transition: width .5s; }
+  @media (prefers-reduced-motion: reduce) { .bk-ana-card, .bk-ring, .bk-ana-bar i { transition: none; } .bk-ana-card:hover, .bk-ring.clic:hover { transform: none; } }
   .bk-filtro { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 12px; color: var(--gray-text); }
   .bk-evo.denso, .bk-mes-wrap.denso { gap: 2px; }
   .bk-evo.denso em, .bk-mes-wrap.denso em { display: none; }
@@ -8720,6 +8750,7 @@ const BK_PALETA_TICKET = ['#16A34A', '#38BDF8', '#F59E0B', '#DC2626'];
 const BK_EQUIPE = ['Gilson', 'Edimilson', 'Jefferson', 'Leandro'];
 // nome do responsável como vem do ERP ("Maria Souza Lima" → "Maria Souza"); a equipe de implantação fica só com o primeiro nome
 const bkNomeCurto = n => String(n || '').trim().split(' ').filter(Boolean).slice(0, 2).join(' ');
+const bkEquipePorNome = n => { const p = String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().split(' ')[0].toLowerCase(); return BK_EQUIPE.find(e => e.toLowerCase() === p) || ''; };
 const bkSemNumero = s => String(s || '').replace(/^\s*\d+\s*-\s*/, '').trim();
 const bkCorta = (t, n) => { const x = String(t || '').replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
 const bkDia = ds => formatDate(ds).slice(0, 5);
@@ -8741,7 +8772,7 @@ function bkItensTickets() {
       cliente: id === 1 ? 'Intelipulse' : (cli ? cli.nome : (emp ? emp.empresa : 'Empresa ' + id)),
       rotulo: '#' + (t.numero || t.id), titulo: t.titulo || '', dias: diasDesde(t.criado_em),
       situacao: t.grupo === 'dev' ? 'Fila de desenvolvimento' : (bkSemNumero(t.status) || '—'),
-      pessoa: BK_EQUIPE.includes(t.pessoa) ? t.pessoa : (t.responsavel_nome ? bkNomeCurto(t.responsavel_nome) : (t.pessoa || 'Sem responsável')), impedido: false
+      pessoa: BK_EQUIPE.includes(t.pessoa) ? t.pessoa : (bkEquipePorNome(t.responsavel_nome) || (t.responsavel_nome ? bkNomeCurto(t.responsavel_nome) : (t.pessoa || 'Sem responsável'))), impedido: false
     };
   });
 }
@@ -9052,6 +9083,7 @@ async function bkCarregarAnalistas() {
   } catch (e) { bkAna = null; bkAnaErro = (e && e.message) || String(e); }
   if (activeTab === 'backlog') renderBacklog();
 }
+const BK_ANA_COR = { Edimilson: '#2F80ED', Jefferson: '#8B5CF6', Leandro: '#F59E0B' };
 function bkAnalistasHtml() {
   bkCarregarAnalistas();
   const hoje = todayStr();
@@ -9060,27 +9092,52 @@ function bkAnalistasHtml() {
   const mesesDecorridos = (hm - 1) + hd / new Date(hy, hm, 0).getDate();
   const todos = bkItensTickets();
   const num = n => String(n.toFixed(1)).replace('.', ',');
-  const cards = BK_ANALISTAS.map(nome => {
+  const dados = BK_ANALISTAS.map(nome => {
     const itens = todos.filter(i => i.pessoa === nome);
     bkRegistro['ana:' + nome] = itens;
-    const r = bkResumo(itens);
     const q = p => (bkAna ? ((bkAna[p] || {})[nome] || 0) : null);
-    const tile = (v, rot) => '<div class="bk-ana-tile"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
-    const mediaSem = bkAna ? num(q('ano') / (diasAno / 7)) : '…';
-    const mediaMes = bkAna ? num(q('ano') / Math.max(mesesDecorridos, 0.1)) : '…';
-    return '<div class="bk-ana-card">'
-      + '<div class="bk-card-top">' + avatarHtml(nome) + escapeHtml(nome) + '</div>'
-      + '<div class="bk-total' + (r.total ? ' clic' : '') + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '>' + r.total + '<small>abertos agora</small></div>'
-      + '<div class="bk-ana-split">' + BK_GRUPOS.map(g => { const n = itens.filter(i => i.grupo === g.k).length; return '<span class="bk-ana-chip' + (n ? ' clic' : ' zero') + '"' + (n ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="grupo" data-v="' + g.k + '" onclick="bkAbrirLista(this)"' : '') + '><i style="background:' + g.cor + '"></i>' + BK_GRUPO_CURTO[g.k] + ' <b>' + n + '</b></span>'; }).join('') + '</div>'
-      + '<div class="bk-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias') : 'Nenhum ticket em aberto.') + '</div>'
-      + '<div><div class="bk-sec">Criados no ERP</div><div class="bk-ana-tiles">' + tile(q('semana'), 'esta semana') + tile(q('mes'), 'este mês') + tile(q('ano'), 'este ano') + '</div></div>'
-      + '<div><div class="bk-sec">Média de criados (este ano)</div><div class="bk-ana-tiles dois">' + tile(mediaSem, 'por semana') + tile(mediaMes, 'por mês') + '</div></div>'
-      + '</div>';
+    return { nome, itens, r: bkResumo(itens), semana: q('semana'), mes: q('mes'), ano: q('ano') };
+  });
+  const soma = f => dados.reduce((t, d) => t + (d[f] || 0), 0);
+  const totAb = dados.reduce((t, d) => t + d.r.total, 0);
+  const max = f => Math.max(1, ...dados.map(d => d[f] || 0));
+  const kpi = (v, rot, cls) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
+  const equipe = '<div class="bk-eq">'
+    + kpi(totAb, 'abertos da equipe', 'destaque')
+    + kpi(bkAna ? soma('semana') : null, 'criados na semana')
+    + kpi(bkAna ? soma('mes') : null, 'criados no mês')
+    + kpi(bkAna ? soma('ano') : null, 'criados no ano')
+    + '<div class="bk-eq-bar">' + (totAb ? dados.filter(d => d.r.total).map(d => '<i style="flex:' + d.r.total + ';background:' + BK_ANA_COR[d.nome] + '" title="' + d.nome + ' · ' + d.r.total + ' abertos"></i>').join('') : '') + '</div>'
+    + '<div class="bk-eq-leg">' + dados.map(d => '<span><i style="background:' + BK_ANA_COR[d.nome] + '"></i>' + d.nome + ' <b>' + d.r.total + '</b></span>').join('') + '</div>'
+    + '</div>';
+  const cards = dados.map(d => {
+    const { nome, itens, r } = d;
+    const cor = BK_ANA_COR[nome] || '#14B8A6';
+    const pct = totAb ? Math.round(r.total / totAb * 100) : 0;
+    let acc = 0; const stops = [];
+    BK_GRUPOS.forEach(g => { const n = itens.filter(i => i.grupo === g.k).length; if (!n) return; stops.push(g.cor + ' ' + (acc / r.total * 360) + 'deg ' + ((acc + n) / r.total * 360) + 'deg'); acc += n; });
+    const fundo = r.total ? 'conic-gradient(' + stops.join(',') + ')' : 'rgba(127,127,127,.22)';
+    const tile = (v, rot, ref, f) => '<div class="bk-ana-tile"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span><div class="bk-ana-bar"><i style="width:' + (v === null ? 0 : Math.round(parseFloat(String(v).replace(',', '.')) / ref * 100)) + '%"></i></div></div>';
+    const mediaSem = bkAna ? d.ano / (diasAno / 7) : null;
+    const mediaMes = bkAna ? d.ano / Math.max(mesesDecorridos, 0.1) : null;
+    const refMedSem = Math.max(0.1, ...dados.map(x => x.ano / (diasAno / 7)));
+    const refMedMes = Math.max(0.1, ...dados.map(x => x.ano / Math.max(mesesDecorridos, 0.1)));
+    return '<div class="bk-ana-card" style="--ac:' + cor + '">'
+      + '<div class="bk-ana-banner"><span class="bk-ana-av">' + inicialDe(nome) + '</span><div class="bk-ana-nome"><b>' + escapeHtml(nome) + '</b><small>Analista de implantação</small></div><span class="bk-ana-share" title="Parte dos tickets em aberto da equipe">' + pct + '% dos abertos</span></div>'
+      + '<div class="bk-ana-corpo">'
+      + '<div class="bk-ana-topo">'
+      + '<div class="bk-ring' + (r.total ? ' clic' : '') + '" style="background:' + fundo + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '><div class="bk-ring-in"><b>' + r.total + '</b><small>abertos</small></div></div>'
+      + '<div class="bk-ana-leg">' + BK_GRUPOS.map(g => { const n = itens.filter(i => i.grupo === g.k).length; return '<span class="bk-ana-chip' + (n ? ' clic' : ' zero') + '"' + (n ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="grupo" data-v="' + g.k + '" onclick="bkAbrirLista(this)"' : '') + '><i style="background:' + g.cor + '"></i>' + BK_GRUPO_CURTO[g.k] + '<b>' + n + '</b></span>'; }).join('') + '</div>'
+      + '</div>'
+      + '<div class="bk-ana-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim">⚠ ' + r.velhos15 + ' há mais de 15 dias</span>' : '<span class="bom">✓ nenhum há mais de 15 dias</span>') : '<span class="bom">✓ nenhum ticket em aberto</span>') + '</div>'
+      + '<div><div class="bk-ana-sec">Criados no ERP</div><div class="bk-ana-tiles">' + tile(d.semana, 'esta semana', max('semana')) + tile(d.mes, 'este mês', max('mes')) + tile(d.ano, 'este ano', max('ano')) + '</div></div>'
+      + '<div><div class="bk-ana-sec">Média este ano</div><div class="bk-ana-tiles dois">' + tile(mediaSem === null ? null : num(mediaSem), 'por semana', refMedSem) + tile(mediaMes === null ? null : num(mediaMes), 'por mês', refMedMes) + '</div></div>'
+      + '</div></div>';
   }).join('');
   return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets do ERP por responsável</small></h3>'
-    + '<p class="bk-fonte">Tickets do ERP em que a pessoa é a responsável, de qualquer cliente. <b>Abertos agora</b> = sem fechar (inclui a fila de desenvolvimento); clique no número para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados (semana de segunda a hoje, mês e ano corrente). A média divide o total do ano pelas semanas e pelos meses já decorridos.</p>'
+    + '<p class="bk-fonte">Tickets do ERP em que a pessoa é a responsável, de qualquer cliente. <b>Abertos</b> = sem fechar (inclui a fila de desenvolvimento): clique no anel ou na linha para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados. As barras comparam um analista com o outro.</p>'
     + (bkAnaErro ? '<div class="bk-aviso">Não consegui ler os tickets criados por período (' + escapeHtml(bkAnaErro) + ').</div>' : '')
-    + '<div class="bk-ana-grid">' + cards + '</div></div>';
+    + equipe + '<div class="bk-ana-grid">' + cards + '</div></div>';
 }
 
 function renderBacklog() {
@@ -9102,7 +9159,7 @@ function renderBacklog() {
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
-  el.innerHTML = tickets + (indisp ? '' : bkAnalistasHtml()) + ativ;
+  el.innerHTML = (indisp ? '' : bkAnalistasHtml()) + tickets + ativ;
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
   const st = document.getElementById('bk-status'), bt = document.getElementById('bk-btn-atualizar');
