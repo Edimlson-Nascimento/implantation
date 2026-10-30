@@ -8624,6 +8624,15 @@ function scrumBaixarPDF() {
   .bk-mes-wrap em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
   .bk-mes-barra { width: 100%; max-width: 26px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; }
   .bk-mes-barra i { display: block; width: 100%; }
+  .bk-mes-wrap > .bk-col { position: relative; }
+  .bk-tip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 30; min-width: 160px; padding: 10px 12px; border-radius: 10px; background: #0F172A; color: #F1F5F9; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 28px rgba(0,0,0,.4); font-size: 11.5px; font-weight: 500; text-align: left; pointer-events: none; }
+  .bk-col:hover .bk-tip { display: block; }
+  .bk-col:first-child .bk-tip { left: 0; transform: none; }
+  .bk-col:last-child .bk-tip { left: auto; right: 0; transform: none; }
+  .bk-tip b { display: block; white-space: nowrap; font-size: 11.5px; font-weight: 700; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .bk-tip span { display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 2px 0; }
+  .bk-tip span i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .bk-tip span strong { margin-left: auto; padding-left: 16px; font-variant-numeric: tabular-nums; }
   .bk-mes-leg { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--gray-text); margin-top: 8px; padding: 6px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 999px; background: rgba(127,127,127,.06); }
   .bk-mes-leg span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .bk-mes-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -8832,6 +8841,11 @@ function bkLinhasSemAtividades() {
     estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
   }));
 }
+function bkTip(titulo, o, estados, rotuloFechado) {
+  if (!o || !(o.aberto + o.fechado + o.cancelado)) return '';
+  return '<div class="bk-tip"><b>' + titulo + '</b>'
+    + estados.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '<strong>' + (o[e.k] || 0) + '</strong></span>').join('') + '</div>';
+}
 function bkLinhasSemTickets() {
   return (bkSemanal || []).map(r => ({ sem: r.sem, grupo: r.classe === 'base' ? 'atendimento' : r.classe, estado: r.grupo, n: Number(r.n) || 0 }));
 }
@@ -8849,7 +8863,7 @@ function bkSemanasHtml(linhas, gk, rotuloFechado) {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
     const seg = BK_ESTADOS_SEM.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
-    return '<div title="' + t + ' criados na semana de ' + formatDate(k) + ': ' + o.aberto + ' em aberto, ' + o.fechado + ' ' + rotuloFechado + ', ' + o.cancelado + ' cancelados"><em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
+    return '<div class="bk-col">' + bkTip('Semana de ' + formatDate(k) + ' · ' + t + ' criados', o, BK_ESTADOS_SEM, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
   }).join('');
   let t4 = 0, a4 = 0;
   chaves.slice(-4).forEach(k => { const o = por.get(k); if (o) { t4 += tot(o); a4 += o.aberto; } });
@@ -8885,7 +8899,7 @@ function bkMesesHtml(linhas, gk, rotuloFechado) {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
     const seg = BK_ESTADOS.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
-    return '<div title="' + t + ' criados em ' + rotulo(k) + ': ' + o.aberto + ' em aberto, ' + o.fechado + ' ' + rotuloFechado + ', ' + o.cancelado + ' cancelados"><em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + (denso && i % 6 !== 0 && i !== chaves.length - 1 ? '' : rotulo(k)) + '</span></div>';
+    return '<div class="bk-col">' + bkTip(rotulo(k) + ' · ' + t + ' criados', o, BK_ESTADOS, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + (denso && i % 6 !== 0 && i !== chaves.length - 1 ? '' : rotulo(k)) + '</span></div>';
   }).join('');
   let t3 = 0, a3 = 0;
   linhas.filter(l => l.grupo === gk && l.mes >= addDays(hoje, -90).slice(0, 7)).forEach(l => { t3 += l.n; if (l.estado === 'aberto') a3 += l.n; });
