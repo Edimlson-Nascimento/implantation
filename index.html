@@ -3774,14 +3774,16 @@ function pnAnelHtml(c) {
     + '<div class="bk-ana-leg">' + chip('#F59E0B', 'Do cliente', nc) + chip('#2F80ED', 'Da Intelipulse', nr) + chip('#22C55E', 'Concluídas', feitas) + '</div>';
 }
 function pnTilesHtml(c) {
-  if ((c.fase || 'implantacao') !== 'implantacao' || (!c.inicio && !c.previsaoPosImplantacao)) return '';
-  const p = prazoImplantacaoInfo(c);
-  let h = '<div class="bk-ana-tile"><b>' + p.diasEmImplantacao + '</b><span>dias em implantação</span></div>';
-  if (p.diasRestantes !== null) {
-    const atr = p.diasRestantes < 0;
-    h += '<div class="bk-ana-tile"><b class="' + (atr ? 'al' : (p.diasRestantes <= 7 ? 'am' : 'ok')) + '">' + (atr ? 'há ' + (-p.diasRestantes) : p.diasRestantes) + '</b><span>' + (atr ? 'dias de atraso' : 'dias para o término') + '</span></div>';
+  const impl = (c.fase || 'implantacao') === 'implantacao';
+  const p = impl && (c.inicio || c.previsaoPosImplantacao) ? prazoImplantacaoInfo(c) : null;
+  const dias = p && c.inicio ? p.diasEmImplantacao : 0;
+  let valor = '0', rot = 'dias para o término', cls = '';
+  if (p && p.diasRestantes !== null) {
+    if (p.diasRestantes < 0) { valor = 'há ' + (-p.diasRestantes); rot = 'dias de atraso'; cls = 'al'; }
+    else { valor = String(p.diasRestantes); cls = p.diasRestantes <= 7 ? 'am' : 'ok'; }
   }
-  return '<div class="pn-mini" style="--ac:' + pnSaudeInfo(c)[0] + '">' + h + '</div>';
+  return '<div class="pn-mini" style="--ac:' + pnSaudeInfo(c)[0] + '"><div class="bk-ana-tile"><b>' + dias + '</b><span>dias em implantação</span></div>'
+    + '<div class="bk-ana-tile"><b class="' + cls + '">' + valor + '</b><span>' + rot + '</span></div></div>';
 }
 function pnFaixaHtml(kpis, list) {
   const cont = { verde: 0, amarelo: 0, vermelho: 0 };
@@ -3870,8 +3872,7 @@ function renderPendencias() {
     <div class="pendencia-card pn-card" style="--ac:${pnSaudeInfo(c)[0]}">
       ${pnBannerHtml(c)}
       <div class="pn-corpo">
-      <div class="bk-ana-topo" id="pn-anel-${c.id}">${pnAnelHtml(c)}</div>
-      ${pnTilesHtml(c)}
+      <div class="pn-topo"><div class="bk-ana-topo" id="pn-anel-${c.id}">${pnAnelHtml(c)}</div>${pnTilesHtml(c)}</div>
         <div class="pendencia-card-analista pn-info">
           ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : ((licencasErp && licencasErp.length) || licencasErpErro || licencasErroAtivas ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${licencasErpErro ? 'Erro ao ler o ERP: ' + escapeHtml(licencasErpErro) : 'Sem vínculo com o ERP: clique para ver como ligar'}">—</button></div>` : ''))(licencasInfo(c))}
         </div>
@@ -8791,11 +8792,20 @@ function scrumBaixarPDF() {
   .pn-copiar { flex: none; border: 0; border-radius: 8px; background: rgba(255,255,255,.2); color: #fff; padding: 5px 8px; font-size: 14px; cursor: pointer; }
   .pn-copiar:hover { background: rgba(255,255,255,.34); }
   .pn-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 18px 16px; }
-  .pn-ring { width: 92px; height: 92px; }
-  .pn-ring .bk-ring-in { width: 64px; height: 64px; }
-  .pn-ring .bk-ring-in b { font-size: 26px; }
-  .pn-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
-  .pn-mini .bk-ana-tile b { font-size: 22px; }
+  .pn-topo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+  .pn-topo .bk-ana-topo { gap: 10px; min-width: 0; }
+  .pn-topo .pn-ring { width: 76px; height: 76px; flex: none; }
+  .pn-topo .pn-ring .bk-ring-in { width: 52px; height: 52px; }
+  .pn-topo .pn-ring .bk-ring-in b { font-size: 21px; }
+  .pn-topo .pn-ring .bk-ring-in small { font-size: 9px; }
+  .pn-topo .bk-ana-leg { gap: 4px; }
+  .pn-topo .bk-ana-chip { padding: 3px 8px; font-size: 11px; gap: 6px; border-radius: 7px; }
+  .pn-topo .bk-ana-chip i { width: 7px; height: 7px; }
+  .pn-topo .bk-ana-chip b { font-size: 12px; }
+  .pn-mini { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .pn-mini .bk-ana-tile { flex: 1; display: flex; align-items: center; justify-content: flex-start; gap: 12px; text-align: left; padding: 6px 14px; }
+  .pn-mini .bk-ana-tile span { margin: 0; font-size: 11.5px; line-height: 1.25; }
+  .pn-mini .bk-ana-tile b { font-size: 22px; min-width: 52px; text-align: center; }
   .pn-mini .bk-ana-tile b.al { color: #F87171; }
   .pn-mini .bk-ana-tile b.am { color: #F59E0B; }
   .pn-mini .bk-ana-tile b.ok { color: #22C55E; }
