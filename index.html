@@ -2097,11 +2097,11 @@
   <div class="modal-box">
     <h2 id="modal-title">Novo Cliente</h2>
     <div class="form-grid">
-      <div class="form-field"><label>Código</label><input type="text" id="f-codigo" oninput="atualizarDicaLicencasErp()" placeholder="Ex: 21"></div>
-      <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome" oninput="atualizarDicaLicencasErp()"></div>
+      <div class="form-field"><label>Código</label><input type="text" id="f-codigo" oninput="atualizarDicaLicencasErp(); atualizarBannerCliente()" placeholder="Ex: 21"></div>
+      <div class="form-field"><label>Nome do Cliente</label><input type="text" id="f-nome" oninput="atualizarDicaLicencasErp(); atualizarBannerCliente()"></div>
       <div class="form-field"><label>Responsável Projeto</label><input type="text" id="f-responsavel" list="lista-responsaveis"><datalist id="lista-responsaveis"></datalist></div>
       <div class="form-field"><label>Analista Responsável (Intelipulse)</label><select id="f-analista-responsavel"></select></div>
-      <div class="form-field"><label>Etapa Atual</label><select id="f-etapa"></select></div>
+      <div class="form-field"><label>Etapa Atual</label><select id="f-etapa" onchange="atualizarBannerCliente()"></select></div>
       <div class="form-field">
         <label>Fase</label>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -2121,7 +2121,7 @@
       <div id="f-lic-erp-hint" style="grid-column:1/-1;font-size:12px;color:var(--gray-text);margin-top:-4px;"></div>
       <div class="form-field"><label>Próximo Contato</label><input type="date" id="f-proximo"></div>
       <div class="form-field"><label>Saúde</label>
-        <select id="f-saude">
+        <select id="f-saude" onchange="atualizarBannerCliente()">
           <option value="verde">🟢 Verde — em dia</option>
           <option value="amarelo">🟡 Amarelo — atenção</option>
           <option value="vermelho">🔴 Vermelho — em risco</option>
@@ -3107,6 +3107,22 @@ function renderClientesCards(list) {
 }
 
 /* ── MODAL ── */
+// Banner do topo do cadastro do cliente: cor pela saúde, nome, código e etapa (acompanha o que se digita/escolhe)
+function atualizarBannerCliente() {
+  const h = document.getElementById('modal-title');
+  const box = document.querySelector('#modal-overlay .modal-box');
+  if (!h || !box) return;
+  const saude = document.getElementById('f-saude').value || 'verde';
+  const info = PN_SAUDE[saude] || PN_SAUDE.verde;
+  const nome = document.getElementById('f-nome').value.trim();
+  const cod = document.getElementById('f-codigo').value.trim();
+  const selEtapa = document.getElementById('f-etapa');
+  const etapa = selEtapa.options[selEtapa.selectedIndex] ? selEtapa.options[selEtapa.selectedIndex].text : '';
+  box.style.setProperty('--ac', info[0]);
+  h.innerHTML = '<span class="mt-av">' + (nome ? inicialDe(nome) : '+') + '</span><span class="mt-nome">' + (nome ? escapeHtml(nome) : 'Novo cliente')
+    + '<small>' + (editingClientId ? 'Editar cadastro' : 'Novo cadastro') + (cod ? ' · #' + escapeHtml(cod) : '') + (etapa ? ' · ' + escapeHtml(etapa) : '') + '</small></span>'
+    + '<span class="mt-saude">● ' + info[1] + '</span>';
+}
 function openModal(id) {
   editingClientId = id;
   const overlay = document.getElementById('modal-overlay');
@@ -3130,6 +3146,7 @@ function openModal(id) {
   document.getElementById('f-fase').value = c.fase || 'implantacao';
   document.getElementById('f-saude').value = c.saude || 'verde';
   document.getElementById('f-saude-motivo').value = c.saudeMotivo || '';
+  atualizarBannerCliente();
   document.getElementById('f-observacao').value = c.observacao || '';
   document.getElementById('f-observacao-busca').value = '';
   limparFichaBusca();
@@ -7728,6 +7745,17 @@ function etApagarMeu(i) { const meus = temasMeus(); meus.splice(i, 1); try { loc
   .dm-obs { margin-top:12px; padding:10px 12px; border-radius:10px; background:#F1F5F9; font-size:12.5px; color:#334155; white-space:pre-wrap; }
   .dm-obs b { display:block; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:#64748B; margin-bottom:3px; }
   .desemp-nota { margin:20px 0 0; font-size:11.5px; line-height:1.5; color:#64748B; }
+
+  /* Visual v7: banner na cor de cada analista e faixa colorida nos números do topo (cores sólidas: o PDF usa html2canvas) */
+  .dm-card { --ac:#64748B; overflow:hidden; }
+  .dm-card .dm-top { margin:-18px -18px 12px; padding:14px 18px; color:#fff; background-color:var(--ac); background-image:linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(2,31,51,.45) 100%); }
+  .dm-card .dm-top b { color:#fff; font-size:16px; }
+  .dm-card .dm-av { background:rgba(255,255,255,.25) !important; border:2px solid rgba(255,255,255,.75); }
+  .dm-card .dm-pct { color:var(--ac); }
+  .dm-card .dm-pct.sem { color:#94A3B8; }
+  .desemp-resumo > .dm-tile { border-left:5px solid var(--kc, #2F80ED); }
+  .desemp-resumo > .dm-tile:nth-child(1) { --kc:#22C55E; } .desemp-resumo > .dm-tile:nth-child(2) { --kc:#F59E0B; } .desemp-resumo > .dm-tile:nth-child(3) { --kc:#DC2626; }
+  .desemp-resumo > .dm-tile:nth-child(4) { --kc:#8B5CF6; } .desemp-resumo > .dm-tile:nth-child(5) { --kc:#14B8A6; } .desemp-resumo > .dm-tile:nth-child(6) { --kc:#3B82F6; }
 </style>
 <script>
 /* ── DESEMPENHO: módulo isolado (só lê os dados que o painel já carregou; não grava nada no banco) ── */
@@ -8154,7 +8182,7 @@ function renderDesempenho() {
       ? '<table class="dm-prio"><thead><tr><th></th><th>Entreg.</th><th>Lead</th><th>Abertas</th></tr></thead><tbody>' + prioLinhas.map(p => '<tr><td><i style="background:' + p.cor + '"></i>' + escapeHtml(p.nome) + '</td><td>' + p.entregues + '</td><td>' + (p.lead === null ? '—' : desempF1(p.lead) + 'd') + '</td><td>' + p.abertas + '</td></tr>').join('') + '</tbody></table>'
       : '<div style="font-size:12.5px;color:#64748B;">Sem atividades.</div>';
     const faixa = h => '<div class="dm-faixa">' + h + '</div>';
-    return '<div class="dm-card">'
+    return '<div class="dm-card" style="--ac:' + a.cor + '">'
       + faixa('<div class="dm-top"><span class="dm-av" style="background:' + a.cor + '">' + inicialDe(a.nome) + '</span><b>' + escapeHtml(a.nome) + '</b></div>'
         + '<div class="dm-pct ' + (m.pct === null ? 'sem' : '') + '">' + (m.pct === null ? 'Sem prazo' : m.pct + '%') + '</div>'
         + '<div class="dm-pct-sub">' + (m.pct === null ? 'nenhuma entrega com prazo ' + noPer : 'cumprido · ' + m.noPrazo + ' de ' + den + ' no prazo') + '</div>'
@@ -8936,6 +8964,22 @@ function scrumBaixarPDF() {
   .topbar .stat-card { position: relative; overflow: hidden; padding-left: 14px !important; }
   .topbar .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--sc, #64748B); }
   .topbar .stat-card .num { color: var(--sc, var(--text-main)); }
+</style>
+<style id="visual-v7e-css">
+  /* Visual v7 — cadastro do cliente: banner pela saúde e blocos em quadros */
+  #modal-overlay .modal-box { padding: 0; overflow: hidden; --ac: #16A34A; }
+  #modal-overlay .modal-box > h2#modal-title { margin: 0; padding: 18px 24px; color: #fff; display: flex; align-items: center; gap: 14px; font-size: 20px; background: linear-gradient(135deg, var(--ac), #021F33 135%); background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #021F33)); }
+  #modal-title .mt-av { width: 46px; height: 46px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 800; background: rgba(255,255,255,.22); border: 2px solid rgba(255,255,255,.7); }
+  #modal-title .mt-nome { flex: 1; min-width: 0; line-height: 1.2; overflow-wrap: anywhere; }
+  #modal-title .mt-nome small { display: block; font-size: 12px; font-weight: 500; opacity: .88; }
+  #modal-title .mt-saude { flex: none; padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  #modal-overlay .modal-box > :not(h2#modal-title) { margin-left: 24px; margin-right: 24px; }
+  #modal-overlay .modal-box > h2#modal-title + * { margin-top: 18px; }
+  #modal-overlay .modal-section { padding: 14px 16px 16px; border-radius: 16px; background: rgba(127,127,127,.06); border: 1px solid var(--border-light, rgba(127,127,127,.25)); margin-top: 16px; }
+  #modal-overlay .modal-section > h3 { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); margin: 0 0 10px; }
+  #modal-overlay .modal-section > h3::before { content: ''; width: 4px; height: 14px; border-radius: 2px; background: var(--ac, #16A34A); flex: none; }
+  #modal-overlay .modal-footer { margin: 18px 0 0; padding: 14px 24px 18px; border-top: 1px solid var(--border-light, rgba(127,127,127,.25)); background: rgba(127,127,127,.05); }
+  #modal-overlay #f-lic-erp-hint { margin-left: 0; margin-right: 0; }
 </style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
