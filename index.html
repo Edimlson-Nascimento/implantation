@@ -8673,7 +8673,7 @@ function scrumBaixarPDF() {
   .bk-fluxo b { color: var(--text-main); }
   .bk-card > div { container-type: inline-size; }
   .bk-meta { position: relative; cursor: help; }
-  .bk-como { display: none; position: absolute; left: 0; top: calc(100% + 2px); z-index: 30; padding: 8px 12px; border-radius: 10px; background: #0F172A; color: #F1F5F9; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 28px rgba(0,0,0,.4); font-size: 11.5px; font-weight: 500; white-space: nowrap; pointer-events: none; }
+  .bk-como { display: none; position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 30; text-align: left; line-height: 1.5; padding: 8px 12px; border-radius: 10px; background: #0F172A; color: #F1F5F9; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 10px 28px rgba(0,0,0,.4); font-size: 11.5px; font-weight: 500; white-space: nowrap; pointer-events: none; }
   .bk-meta:hover .bk-como { display: block; }
   .bk-como b { color: #fff; }
   .bk-fluxo.uma { white-space: nowrap; font-size: clamp(10px, 3.5cqw, 12.5px); }
@@ -8839,7 +8839,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
     + '<div class="bk-meta">Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>'
     + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
     + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '')
-    + '<div class="bk-como">Soma dos dias (<b>' + r.soma + ' d</b>) ÷ ' + r.total + ' ' + (tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades')) + ' = <b>' + bkMedio(r.medio) + '</b></div></div>'
+    + '<div class="bk-como">Soma dos dias (<b>' + r.soma + ' d</b>)<br>÷ ' + r.total + ' ' + (tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades')) + ' = <b>' + bkMedio(r.medio) + '</b></div></div>'
     + '<div>' + barra + '</div>'
     + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
     + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div>'
