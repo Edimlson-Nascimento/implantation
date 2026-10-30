@@ -8667,7 +8667,9 @@ function scrumBaixarPDF() {
   .bk-evo.denso span, .bk-mes-wrap.denso span { white-space: nowrap; }
   .bk-fluxo { font-size: 12.5px; color: var(--gray-text); line-height: 1.5; margin-top: 4px; }
   .bk-fluxo b { color: var(--text-main); }
-  .bk-card > .bk-bloco { container-type: inline-size; }
+  .bk-card > div { container-type: inline-size; }
+  .bk-como { white-space: nowrap; font-size: clamp(9px, 4.2cqw, 12px); color: var(--gray-text); margin-top: 3px; }
+  .bk-como b { color: var(--text-main); }
   .bk-fluxo.uma { white-space: nowrap; font-size: clamp(10px, 3.5cqw, 12.5px); }
 </style>
 <script>
@@ -8797,7 +8799,7 @@ function bkResumo(itens) {
   });
   const ord = m => [...m.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
   return {
-    total: itens.length, faixas, impedidos, medio: itens.length ? soma / itens.length : null,
+    total: itens.length, faixas, impedidos, soma, medio: itens.length ? soma / itens.length : null,
     velhos15: itens.filter(i => i.dias > 15).length, maisAntigo: itens.length ? Math.max(...itens.map(i => i.dias)) : 0,
     porSit: ord(porSit), porPessoa: ord(porPessoa), antigos: [...itens].sort((a, b) => b.dias - a.dias).slice(0, 5)
   };
@@ -8830,7 +8832,8 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
     + '<div class="bk-total">' + r.total + '<small>em aberto</small></div>'
     + '<div class="bk-meta">Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>'
     + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
-    + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '') + '</div>'
+    + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '')
+    + '<div class="bk-como">Soma dos dias (<b>' + r.soma + ' d</b>) ÷ ' + r.total + ' ' + (tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades')) + ' = <b>' + bkMedio(r.medio) + '</b></div></div>'
     + '<div>' + barra + '</div>'
     + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
     + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div>'
