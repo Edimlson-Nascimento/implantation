@@ -8624,13 +8624,25 @@ function scrumBaixarPDF() {
   .bk-mes-wrap em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
   .bk-mes-barra { width: 100%; max-width: 26px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; }
   .bk-mes-barra i { display: block; width: 100%; }
-  .bk-mes-wrap > .bk-col { position: relative; cursor: pointer; }
+  .bk-mes-wrap > .bk-col { position: relative; }
   .bk-modal-fundo { position: fixed; inset: 0; z-index: 9000; background: rgba(2,12,24,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .bk-modal { min-width: 230px; max-width: 320px; padding: 16px 18px 14px; border-radius: 14px; background: #0F172A; color: #F1F5F9; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 18px 48px rgba(0,0,0,.5); font-size: 13px; }
   .bk-modal-topo { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.15); }
   .bk-modal-topo b { font-size: 13.5px; }
   .bk-modal-topo button { border: 0; background: none; color: #94A3B8; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
   .bk-modal-topo button:hover { color: #fff; }
+  .bk-modal.larga { width: 100%; max-width: 680px; max-height: 80vh; display: flex; flex-direction: column; }
+  .bk-modal-topo small { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: #94A3B8; }
+  .bk-modal-lista { overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+  .bk-it { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px dashed rgba(255,255,255,.14); line-height: 1.4; }
+  .bk-it:last-child { border-bottom: 0; }
+  .bk-it > div { min-width: 0; overflow-wrap: anywhere; }
+  .bk-it small { display: block; margin-top: 2px; font-size: 11.5px; color: #94A3B8; }
+  .bk-it em { flex: none; font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; color: #CBD5E1; }
+  .bk-it em.velho { color: #F87171; }
+  .bk-lista li.bk-clic { cursor: pointer; border-radius: 6px; transition: background .12s; }
+  .bk-lista li.bk-clic:hover { background: rgba(127,127,127,.12); }
+  .bk-lista li.bk-clic:hover > span:first-child { text-decoration: underline; }
   .bk-modal span { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
   .bk-modal span i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .bk-modal span strong { margin-left: auto; padding-left: 20px; font-variant-numeric: tabular-nums; }
@@ -8800,13 +8812,14 @@ function bkEvoHtml(e, verbo) {
 }
 function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
   const r = bkResumo(itens);
+  bkRegistro[(tipo || 'x') + ':' + g.k] = itens;
   if (tipo === 'ticket') r.faixas.forEach((f, k) => { f.cor = BK_PALETA_TICKET[k]; });
   const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
   const evoHtml = (mesesHtml || '') + (evo ? bkEvoHtml(evo, verbo) : '');
   if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div><div></div><div>' + (mesesHtml || '') + '</div><div>' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div><div></div><div></div><div></div></div>';
   const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
     + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
-  const lista = (arr, max) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
+  const lista = (arr, max, campo) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li class="bk-clic" title="Ver a lista" data-t="' + (tipo || 'x') + '" data-g="' + g.k + '" data-c="' + campo + '" data-v="' + escapeHtml(k) + '" onclick="bkAbrirLista(this)"><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
   const antigos = '<ul class="bk-lista">' + r.antigos.map(i => '<li><span>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(bkCorta(i.cliente, 22)) + (i.titulo ? ' — ' + escapeHtml(bkCorta(i.titulo, 60)) : '') + '</span><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></li>').join('') + '</ul>';
   return '<div class="bk-card">' + topo
     + '<div class="bk-total">' + r.total + '<small>em aberto</small></div>'
@@ -8816,8 +8829,8 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
     + '<div>' + barra + '</div>'
     + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
     + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div>'
-    + '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999) + '</div>'
-    + '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999) + '</div>'
+    + '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999, 'sit') + '</div>'
+    + '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999, 'pessoa') + '</div>'
     + '<div class="bk-bloco"><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
     + '</div>';
 }
@@ -8855,17 +8868,22 @@ function bkTip(titulo, o, estados, rotuloFechado) {
   return '<div class="bk-tip"><b>' + titulo + '</b>'
     + estados.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '<strong>' + (o[e.k] || 0) + '</strong></span>').join('') + '</div>';
 }
-function bkMostrarTip(col) {
-  const tip = col && col.querySelector('.bk-tip');
-  if (!tip) return;
+const bkRegistro = {};                                        // itens de cada cartão, para abrir a lista ao clicar numa linha
+function bkAbrirLista(li) {
+  const d = li.dataset;
+  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => (d.c === 'sit' ? i.situacao : i.pessoa) === d.v).sort((a, b) => b.dias - a.dias);
+  const g = BK_GRUPOS.find(x => x.k === d.g);
   bkFecharTip();
-  const titulo = tip.querySelector('b').textContent;
   const fundo = document.createElement('div');
   fundo.className = 'bk-modal-fundo';
   fundo.id = 'bk-modal-fundo';
   fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
-  fundo.innerHTML = '<div class="bk-modal"><div class="bk-modal-topo"><b>' + escapeHtml(titulo) + '</b><button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
-    + [...tip.querySelectorAll('span')].map(x => x.outerHTML).join('') + '</div>';
+  const unidade = d.t === 'ticket' ? 'ticket' : 'atividade';
+  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'sit' ? 'Situação: ' : 'Responsável: ') + escapeHtml(d.v) + '</b>'
+    + '<small>' + (g ? escapeHtml(g.nome) + ' · ' : '') + itens.length + ' ' + unidade + (itens.length === 1 ? '' : 's') + '</small></div>'
+    + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
+    + '<div class="bk-modal-lista">' + itens.map(i => '<div class="bk-it"><div>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(i.cliente) + (i.titulo ? ' — ' + escapeHtml(i.titulo) : '')
+      + '<small>' + escapeHtml(d.c === 'sit' ? i.pessoa : i.situacao) + '</small></div><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></div>').join('') + '</div></div>';
   document.body.appendChild(fundo);
 }
 function bkFecharTip() { const f = document.getElementById('bk-modal-fundo'); if (f) f.remove(); }
@@ -8887,7 +8905,7 @@ function bkSemanasHtml(linhas, gk, rotuloFechado) {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
     const seg = BK_ESTADOS_SEM.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
-    return '<div class="bk-col" onclick="bkMostrarTip(this)">' + bkTip('Semana de ' + formatDate(k) + ' · ' + t + ' criados', o, BK_ESTADOS_SEM, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
+    return '<div class="bk-col">' + bkTip('Semana de ' + formatDate(k) + ' · ' + t + ' criados', o, BK_ESTADOS_SEM, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
   }).join('');
   let t4 = 0, a4 = 0;
   chaves.slice(-4).forEach(k => { const o = por.get(k); if (o) { t4 += tot(o); a4 += o.aberto; } });
@@ -8923,7 +8941,7 @@ function bkMesesHtml(linhas, gk, rotuloFechado) {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
     const seg = BK_ESTADOS.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
-    return '<div class="bk-col" onclick="bkMostrarTip(this)">' + bkTip(rotulo(k) + ' · ' + t + ' criados', o, BK_ESTADOS, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + (denso && i % 6 !== 0 && i !== chaves.length - 1 ? '' : rotulo(k)) + '</span></div>';
+    return '<div class="bk-col">' + bkTip(rotulo(k) + ' · ' + t + ' criados', o, BK_ESTADOS, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + (denso && i % 6 !== 0 && i !== chaves.length - 1 ? '' : rotulo(k)) + '</span></div>';
   }).join('');
   let t3 = 0, a3 = 0;
   linhas.filter(l => l.grupo === gk && l.mes >= addDays(hoje, -90).slice(0, 7)).forEach(l => { t3 += l.n; if (l.estado === 'aberto') a3 += l.n; });
