@@ -1467,6 +1467,7 @@
       <div class="header-tag">Gestão de Implantação</div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
+    <div class="sidebar-user" id="sidebar-user"></div>
     <nav class="sidebar-nav">
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1a4 4 0 0 0-3-3.8"/></svg>Clientes</button>
@@ -1876,14 +1877,15 @@
   </section>
   <section id="view-buscar" style="display:none">
     <div class="resumo-box">
-      <h2>Buscar</h2>
-      <p style="font-size:12px;color:var(--gray-text);margin-top:6px;">Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Pode digitar uma pergunta normal ("quero saber sobre..."). Uma IA (Claude) escreve a resposta direta com base no que foi encontrado — se ela não responder por algum motivo, os resultados brutos continuam aparecendo embaixo.</p>
+      <div class="v9-hero"><h2>O que você quer saber?</h2>
+      <p>Pesquisa em tudo que já foi anotado na Ficha (Particularidade do Cliente) de cada cliente — estrutura, regras de negócio, o que foi implantado — e também nas Atividades já concluídas (título e resolução). Pode digitar uma pergunta normal ("quero saber sobre..."). Uma IA (Claude) escreve a resposta direta com base no que foi encontrado — se ela não responder por algum motivo, os resultados brutos continuam aparecendo embaixo.</p>
       <div class="busca-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input type="text" id="busca-global-input" class="busca-input" placeholder="Digite um assunto, sistema, regra de negócio..." oninput="buscarFichaGlobal()"></div>
       <div class="busca-sugestoes">Experimente:
         <button type="button" onclick="buscarSugestao('quando foi feito o treinamento de configuração')">treinamento de configuração</button>
         <button type="button" onclick="buscarSugestao('número oficial')">número oficial</button>
         <button type="button" onclick="buscarSugestao('o que falta para o go-live')">o que falta para o go-live</button>
+      </div>
       </div>
       <div id="busca-global-resultados" style="margin-top:20px;"></div>
     </div>
@@ -2757,14 +2759,14 @@ function renderStats() {
   const emImplantacao = state.clients.filter(c => (c.fase || 'implantacao') === 'implantacao');
   const emRisco = state.clients.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho');
   const contatadosHoje = emImplantacao.filter(c => c.ultimoContato === today);
-  const raiasStats = raiasAbertasAtivas().map(r => ({ nome: raiaNomeCurto(r.id), n: atividades.filter(a => a.coluna === r.id && !a.cancelado).length }));
+  const raiasStats = raiasAbertasAtivas().map(r => ({ nome: raiaNomeCurto(r.id), cor: KC_CORES[r.id] || '#94A3B8', n: atividades.filter(a => a.coluna === r.id && !a.cancelado).length }));
   const concluidosHoje = atividades.filter(a => a.coluna === 'concluida' && !a.cancelado && a.concluidoEm === today);
   document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
-    <div class="stat-card"><div class="num" style="color:${emRisco.length ? '#B45309' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco</div></div>
-    <div class="stat-card"><div class="num">${contatadosHoje.length}/${emImplantacao.length}</div><div class="lbl">Contatados hoje</div></div>
-    ${raiasStats.map(r => `<div class="stat-card"><div class="num">${r.n}</div><div class="lbl">${escapeHtml(r.nome)}</div></div>`).join('')}
-    <div class="stat-card"><div class="num">${concluidosHoje.length}</div><div class="lbl">Concluídos hoje</div></div>
+    <div class="stat-card" style="--sc:#14B8A6"><div class="num">${emImplantacao.length}</div><div class="lbl">Em implantação</div></div>
+    <div class="stat-card" style="--sc:#F59E0B"><div class="num" style="color:${emRisco.length ? '#F59E0B' : 'var(--text-main)'}">${emRisco.length}</div><div class="lbl">Em risco</div></div>
+    <div class="stat-card" style="--sc:#3B82F6"><div class="num">${contatadosHoje.length}/${emImplantacao.length}</div><div class="lbl">Contatados hoje</div></div>
+    ${raiasStats.map(r => `<div class="stat-card" style="--sc:${r.cor}"><div class="num">${r.n}</div><div class="lbl">${escapeHtml(r.nome)}</div></div>`).join('')}
+    <div class="stat-card" style="--sc:#22C55E"><div class="num">${concluidosHoje.length}</div><div class="lbl">Concluídos hoje</div></div>
   `;
 }
 
@@ -3489,6 +3491,7 @@ function buscarFichaGlobal() {
   }, 300);
 }
 
+const BUSCA_CORES = ['#14B8A6', '#8B5CF6', '#3B82F6', '#F59E0B', '#EC4899', '#22C55E'];
 function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
   const el = document.getElementById('busca-global-resultados');
   if (!rows.length) {
@@ -3500,7 +3503,7 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
   if (ia === 'carregando') {
     blocoIA = `<div class="busca-ia-resposta busca-ia-carregando">🤖 Pensando na resposta...</div>`;
   } else if (ia && ia.resposta) {
-    blocoIA = `<div class="busca-ia-resposta"><div class="busca-ia-label">🤖 Resposta</div><div class="busca-ia-texto">${escapeHtml(ia.resposta)}</div></div>`;
+    blocoIA = `<div class="busca-ia-resposta v9-ia"><div class="bk-ana-banner" style="--ac:#EC4899"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">🤖</span><div class="bk-ana-nome"><b>Resposta</b><small>escrita com base nos resultados abaixo</small></div><span class="bk-ana-share">IA</span></div><div class="v9-ia-corpo">${escapeHtml(ia.resposta)}</div></div>`;
   } else if (ia && ia.erro) {
     blocoIA = `<div class="busca-ia-resposta busca-ia-erro">🤖 Não consegui gerar uma resposta com IA agora (${escapeHtml(ia.erro)}) — veja os resultados encontrados abaixo.</div>`;
   }
@@ -3527,9 +3530,14 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
   el.innerHTML = `
     ${blocoIA}
     <p style="font-size:12px;color:var(--gray-text);margin-bottom:10px;">${porCliente.size} cliente${porCliente.size === 1 ? '' : 's'} com esse assunto${avisos ? ' (' + avisos + ')' : ''}:</p>
-    ${[...porCliente.values()].map(c => `
-      <div class="busca-resultado-card">
-        <div class="busca-resultado-nome" onclick="openModal('${c.id}')" style="cursor:pointer;">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
+    ${[...porCliente.values()].map((c, i) => { const cor = BUSCA_CORES[i % BUSCA_CORES.length]; const n = c.atividades.length + c.ficha.length; return `
+      <div class="busca-resultado-card v9-linha" style="--ac:${cor}">
+        <div class="v9-lado" onclick="openModal('${c.id}')" title="Abrir o cadastro do cliente">
+          <span class="v9-av">${inicialDe(c.nome)}</span>
+          <div class="v9-lado-txt"><b>${escapeHtml(c.nome)}</b><small>${c.codigo ? '#' + escapeHtml(c.codigo) + ' · ' : ''}${n} resultado${n === 1 ? '' : 's'}</small></div>
+          <span class="v9-rank">${i + 1}º</span>
+        </div>
+        <div class="v9-conteudo">
         ${c.atividades.length ? `
           <div class="busca-secao-label">📌 Atividades concluídas</div>
           ${c.atividades.map(a => `
@@ -3544,8 +3552,9 @@ function renderResultadosBuscaGlobal(rows, aproximado, clienteFiltrado, ia) {
           <div class="busca-secao-label">📋 Ficha do Cliente</div>
           ${c.ficha.map(f => `<div class="busca-resultado-trecho">${escapeExcetoMarks(f.trecho || '')}</div>`).join('')}
         ` : ''}
+        </div>
       </div>
-    `).join('')}
+    `; }).join('')}
   `;
 }
 
@@ -7424,6 +7433,7 @@ async function showApp(session) {
 
   currentPessoaNome = pessoaRow.nome;
   document.getElementById('auth-user-saudacao').textContent = currentPessoaNome ? `Olá, ${currentPessoaNome}` : '';
+  document.getElementById('sidebar-user').innerHTML = currentPessoaNome ? `<span class="su-av">${inicialDe(currentPessoaNome)}</span><div><b>${escapeHtml(currentPessoaNome)}</b><small>Equipe de Implantação</small></div>` : '';
 
   await loadState();
   if (window.innerWidth < 720) setClientsView('cards');
@@ -8880,6 +8890,52 @@ function scrumBaixarPDF() {
   .v8-barra { display: grid; grid-template-columns: 110px 1fr 24px; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text-main); }
   .v8-barra .tr { height: 9px; border-radius: 999px; background: rgba(127,127,127,.2); overflow: hidden; }
   .v8-barra .tr i { display: block; height: 100%; border-radius: 999px; }
+</style>
+<style id="visual-v7d-css">
+  /* Visual v7 — Buscar, menu lateral e cartões do topo */
+  .v9-hero { overflow: hidden; border-radius: 18px; padding: 24px 28px 22px; color: #fff; background: linear-gradient(135deg, #021F33 0%, #063A5E 55%, #0B6B6B 130%); box-shadow: 0 6px 18px rgba(2,31,51,.28); margin-bottom: 16px; }
+  .v9-hero h2 { margin: 0 0 4px !important; font-size: 24px; color: #fff; }
+  .v9-hero p { margin: 0 0 14px; font-size: 13px; color: #BFD9EA; max-width: 820px; line-height: 1.5; }
+  .v9-hero .busca-box { max-width: none; margin-top: 0; }
+  .v9-hero .busca-box .busca-input { background: rgba(255,255,255,.97); color: #1E293B; border: 0; font-size: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.25); max-width: none; }
+  .v9-hero .busca-box .busca-input::placeholder { color: #64748B; }
+  .v9-hero .busca-box svg { color: #475569; }
+  .v9-hero .busca-sugestoes { max-width: none; color: #BFD9EA; }
+  .v9-hero .busca-sugestoes button { background: rgba(255,255,255,.14); color: #fff; border-color: transparent; font-weight: 600; }
+  .v9-hero .busca-sugestoes button:hover { background: rgba(255,255,255,.26); border-color: transparent; }
+  #busca-global-resultados { margin-top: 0 !important; max-width: none; }
+  .busca-ia-resposta.v9-ia { padding: 0; overflow: hidden; border-radius: 16px; background: var(--white); border: 1px solid var(--border-light, rgba(127,127,127,.28)); box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-bottom: 16px; }
+  .v9-ia-corpo { padding: 16px 20px 18px; font-size: 14.5px; line-height: 1.6; color: var(--text-main); white-space: pre-wrap; }
+  .busca-resultado-card.v9-linha { --ac: #14B8A6; max-width: none; padding: 0; margin-bottom: 12px; display: grid; grid-template-columns: 240px minmax(0, 1fr); overflow: hidden; border-radius: 16px; cursor: default; background: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .busca-resultado-card.v9-linha:hover { transform: none; }
+  .v9-lado { display: flex; align-items: center; gap: 12px; padding: 16px 16px; color: #fff; cursor: pointer; background: linear-gradient(135deg, var(--ac), #021F33 135%); background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #021F33)); }
+  .v9-av { width: 42px; height: 42px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; background: rgba(255,255,255,.22); border: 2px solid rgba(255,255,255,.7); }
+  .v9-lado-txt { min-width: 0; flex: 1; line-height: 1.25; }
+  .v9-lado-txt b { display: block; font-size: 15px; overflow-wrap: anywhere; }
+  .v9-lado-txt small { font-size: 11.5px; opacity: .88; }
+  .v9-rank { flex: none; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 12px; font-weight: 800; }
+  .v9-conteudo { min-width: 0; padding: 14px 18px 8px; }
+  .v9-conteudo .busca-atividade-item { border-radius: 12px; background: rgba(127,127,127,.07); border: 0; box-shadow: inset 5px 0 0 #22C55E; padding: 10px 14px 10px 18px; }
+  .v9-conteudo .busca-resultado-trecho { padding: 10px 14px; border-radius: 12px; background: rgba(127,127,127,.07); border-left: 4px solid #8B5CF6; margin-bottom: 8px; }
+  .v9-conteudo mark { background: #FDE047; color: #1E293B; border-radius: 3px; padding: 0 2px; }
+  @media (max-width: 800px) { .busca-resultado-card.v9-linha { grid-template-columns: minmax(0, 1fr); } }
+
+  /* menu lateral */
+  .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); margin: -8px 0 0; }
+  .sidebar-user:empty { display: none; }
+  .sidebar-user .su-av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; background: linear-gradient(135deg, #2F80ED, #8B5CF6); color: #fff; border: 2px solid rgba(255,255,255,.5); }
+  .sidebar-user b { display: block; font-size: 13.5px; color: #fff; }
+  .sidebar-user small { font-size: 11.5px; color: #9FC4DD; }
+  #auth-user-saudacao { display: none; }
+  .sidebar .nav-item { border-radius: 12px; padding: 6px 12px; gap: 12px; }
+  .sidebar .nav-item .nav-ico { width: 30px; height: 30px; padding: 6px; border-radius: 9px; background: rgba(255,255,255,.08); box-sizing: border-box; }
+  .sidebar .nav-item:hover .nav-ico { background: rgba(255,255,255,.16); }
+  .sidebar .nav-item.active { background: linear-gradient(90deg, rgba(0,200,83,.28), rgba(0,200,83,.06)); box-shadow: inset 3px 0 0 #00E676; }
+  .sidebar .nav-item.active .nav-ico { background: #00C853; color: #021F33; }
+  /* cartões de contagem do topo */
+  .topbar .stat-card { position: relative; overflow: hidden; padding-left: 14px !important; }
+  .topbar .stat-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--sc, #64748B); }
+  .topbar .stat-card .num { color: var(--sc, var(--text-main)); }
 </style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
