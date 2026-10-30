@@ -8624,9 +8624,9 @@ function scrumBaixarPDF() {
   .bk-mes-wrap em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
   .bk-mes-barra { width: 100%; max-width: 26px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; }
   .bk-mes-barra i { display: block; width: 100%; }
-  .bk-mes-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--gray-text); margin-top: 6px; }
-  .bk-mes-leg span { display: flex; align-items: center; gap: 5px; }
-  .bk-mes-leg i { width: 8px; height: 8px; border-radius: 2px; }
+  .bk-mes-leg { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--gray-text); margin-top: 8px; padding: 6px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 999px; background: rgba(127,127,127,.06); }
+  .bk-mes-leg span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .bk-mes-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .bk-filtro { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 12px; color: var(--gray-text); }
   .bk-evo.denso, .bk-mes-wrap.denso { gap: 2px; }
   .bk-evo.denso em, .bk-mes-wrap.denso em { display: none; }
@@ -8805,12 +8805,12 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
 }
 
 const BK_ESTADOS = [
-  { k: 'aberto', nome: 'ainda em aberto', cor: '#DC2626' },
+  { k: 'aberto', nome: 'em aberto', cor: '#DC2626' },
   { k: 'fechado', nome: 'concluídos', cor: '#16A34A' },
   { k: 'cancelado', nome: 'cancelados', cor: '#9CA3AF' }
 ];
 const BK_ESTADOS_SEM = [
-  { k: 'aberto', nome: 'ainda em aberto', cor: '#8B5CF6' },
+  { k: 'aberto', nome: 'em aberto', cor: '#8B5CF6' },
   { k: 'fechado', nome: 'concluídos', cor: '#3B82F6' },
   { k: 'cancelado', nome: 'cancelados', cor: '#94A3B8' }
 ];
