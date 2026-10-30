@@ -8670,6 +8670,13 @@ function scrumBaixarPDF() {
   .bk-ana-card .bk-total.clic { cursor: pointer; }
   .bk-ana-card .bk-total.clic:hover small { text-decoration: underline; }
   .bk-ana-card .bk-sec { margin-top: 0; }
+  .bk-ana-split { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+  .bk-ana-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.3)); border-radius: 999px; background: rgba(127,127,127,.06); font-size: 12px; color: var(--gray-text); white-space: nowrap; }
+  .bk-ana-chip i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .bk-ana-chip b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-ana-chip.clic { cursor: pointer; }
+  .bk-ana-chip.clic:hover { background: rgba(127,127,127,.16); }
+  .bk-ana-chip.zero { opacity: .55; }
   .bk-ana-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .bk-ana-tiles.dois { grid-template-columns: repeat(2, 1fr); }
   .bk-ana-tile { text-align: center; padding: 9px 4px 8px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 10px; background: rgba(127,127,127,.06); min-width: 0; }
@@ -8896,7 +8903,7 @@ function bkTip(titulo, o, estados, rotuloFechado) {
 const bkRegistro = {};                                        // itens de cada cartão, para abrir a lista ao clicar numa linha
 function bkAbrirLista(li) {
   const d = li.dataset;
-  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => d.c === 'todos' || (d.c === 'sit' ? i.situacao : i.pessoa) === d.v).sort((a, b) => b.dias - a.dias);
+  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => d.c === 'todos' || (d.c === 'grupo' ? i.grupo === d.v : (d.c === 'sit' ? i.situacao : i.pessoa) === d.v)).sort((a, b) => b.dias - a.dias);
   const g = BK_GRUPOS.find(x => x.k === d.g);
   bkFecharTip();
   const fundo = document.createElement('div');
@@ -8904,7 +8911,7 @@ function bkAbrirLista(li) {
   fundo.id = 'bk-modal-fundo';
   fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
   const unidade = d.t === 'atividade' ? 'atividade' : 'ticket';
-  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'todos' ? 'Tickets em aberto de ' : (d.c === 'sit' ? 'Situação: ' : 'Responsável: ')) + escapeHtml(d.v) + '</b>'
+  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'grupo' ? 'Tickets de ' + escapeHtml(d.g) + ' · ' + escapeHtml(BK_GRUPO_CURTO[d.v] || d.v) : (d.c === 'todos' ? 'Tickets em aberto de ' : (d.c === 'sit' ? 'Situação: ' : 'Responsável: ')) + escapeHtml(d.v)) + '</b>'
     + '<small>' + (g ? escapeHtml(g.nome) + ' · ' : '') + itens.length + ' ' + unidade + (itens.length === 1 ? '' : 's') + '</small></div>'
     + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
     + '<div class="bk-modal-lista">' + itens.map(i => '<div class="bk-it"><div>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(i.cliente) + (i.titulo ? ' — ' + escapeHtml(i.titulo) : '')
@@ -9022,6 +9029,7 @@ function bkTicketsIndisponivel() {
 
 // ── Analistas da Implantação: tickets do ERP por responsável (abertos agora, criados na semana/mês/ano e médias)
 const BK_ANALISTAS = ['Edimilson', 'Jefferson', 'Leandro'];
+const BK_GRUPO_CURTO = { implantacao: 'Implantação', atendimento: 'Base', interno: 'Intelipulse' };
 let bkAna = null, bkAnaBusca = 0, bkAnaErro = '';
 async function bkCarregarAnalistas() {
   if (Date.now() - bkAnaBusca < 120000) return;
@@ -9063,6 +9071,7 @@ function bkAnalistasHtml() {
     return '<div class="bk-ana-card">'
       + '<div class="bk-card-top">' + avatarHtml(nome) + escapeHtml(nome) + '</div>'
       + '<div class="bk-total' + (r.total ? ' clic' : '') + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '>' + r.total + '<small>abertos agora</small></div>'
+      + '<div class="bk-ana-split">' + BK_GRUPOS.map(g => { const n = itens.filter(i => i.grupo === g.k).length; return '<span class="bk-ana-chip' + (n ? ' clic' : ' zero') + '"' + (n ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="grupo" data-v="' + g.k + '" onclick="bkAbrirLista(this)"' : '') + '><i style="background:' + g.cor + '"></i>' + BK_GRUPO_CURTO[g.k] + ' <b>' + n + '</b></span>'; }).join('') + '</div>'
       + '<div class="bk-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias') : 'Nenhum ticket em aberto.') + '</div>'
       + '<div><div class="bk-sec">Criados no ERP</div><div class="bk-ana-tiles">' + tile(q('semana'), 'esta semana') + tile(q('mes'), 'este mês') + tile(q('ano'), 'este ano') + '</div></div>'
       + '<div><div class="bk-sec">Média de criados (este ano)</div><div class="bk-ana-tiles dois">' + tile(mediaSem, 'por semana') + tile(mediaMes, 'por mês') + '</div></div>'
