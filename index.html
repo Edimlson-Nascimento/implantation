@@ -8622,6 +8622,9 @@ function scrumBaixarPDF() {
   .bk-mes-wrap { display: flex; align-items: flex-end; gap: 5px; height: 84px; }
   .bk-mes-wrap > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; color: var(--gray-text); }
   .bk-mes-wrap em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .bk-mes-wrap.sem { height: 98px; }
+  .bk-mes-wrap small { display: block; font-size: 9px; line-height: 11px; min-height: 11px; opacity: .8; text-align: center; }
+  .bk-mes-wrap > div > span { text-align: center; line-height: 11px; }
   .bk-mes-barra { width: 100%; max-width: 26px; display: flex; flex-direction: column; border-radius: 4px 4px 0 0; overflow: hidden; }
   .bk-mes-barra i { display: block; width: 100%; }
   .bk-mes-wrap > .bk-col { position: relative; }
@@ -8888,6 +8891,10 @@ function bkAbrirLista(li) {
 }
 function bkFecharTip() { const f = document.getElementById('bk-modal-fundo'); if (f) f.remove(); }
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') bkFecharTip(); });
+function bkRotSemana(k, anterior) {
+  const mes = k.slice(5, 7);
+  return k.slice(8) + '<small>' + (mes !== (anterior || '').slice(5, 7) ? BK_MESES_NOMES[Number(mes) - 1] : '&nbsp;') + '</small>';
+}
 function bkLinhasSemTickets() {
   return (bkSemanal || []).map(r => ({ sem: r.sem, grupo: r.classe === 'base' ? 'atendimento' : r.classe, estado: r.grupo, n: Number(r.n) || 0 }));
 }
@@ -8905,12 +8912,12 @@ function bkSemanasHtml(linhas, gk, rotuloFechado) {
     const o = por.get(k) || { aberto: 0, fechado: 0, cancelado: 0 }, t = tot(o);
     const h = t ? Math.max(4, Math.round(t / max * 46)) : 2;
     const seg = BK_ESTADOS_SEM.map(e => o[e.k] ? '<i style="flex:' + o[e.k] + ';background:' + e.cor + '"></i>' : '').join('');
-    return '<div class="bk-col">' + bkTip('Semana de ' + formatDate(k) + ' · ' + t + ' criados', o, BK_ESTADOS_SEM, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + ((chaves.length - 1 - i) % 3 ? '' : bkDia(k)) + '</span></div>';
+    return '<div class="bk-col">' + bkTip('Semana de ' + formatDate(k) + ' · ' + t + ' criados', o, BK_ESTADOS_SEM, rotuloFechado) + '<em>' + (t || '') + '</em><div class="bk-mes-barra" style="height:' + h + 'px">' + seg + '</div><span>' + bkRotSemana(k, i === 0 ? '' : chaves[i - 1]) + '</span></div>';
   }).join('');
   let t4 = 0, a4 = 0;
   chaves.slice(-4).forEach(k => { const o = por.get(k); if (o) { t4 += tot(o); a4 += o.aberto; } });
   const resumo = t4 ? 'Dos <b>' + t4 + '</b> criados em 4 semanas, <b>' + a4 + '</b> ' + (a4 === 1 ? 'está aberto' : 'estão abertos') + ' (' + Math.round(a4 / t4 * 100) + '%).' : 'Nada criado nas últimas 4 semanas.';
-  return '<div><div class="bk-sec">Criados por semana e como estão hoje</div><div class="bk-mes-wrap">' + barras + '</div>'
+  return '<div><div class="bk-sec">Criados por semana e como estão hoje</div><div class="bk-mes-wrap sem">' + barras + '</div>'
     + '<div class="bk-mes-leg">' + BK_ESTADOS_SEM.map(e => '<span><i style="background:' + e.cor + '"></i>' + (e.k === 'fechado' ? rotuloFechado : e.nome) + '</span>').join('') + '</div>'
     + '<div class="bk-fluxo">' + resumo + '</div></div>';
 }
