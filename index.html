@@ -8664,6 +8664,17 @@ function scrumBaixarPDF() {
   .bk-mes-leg { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--gray-text); margin-top: 8px; padding: 6px 10px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 999px; background: rgba(127,127,127,.06); }
   .bk-mes-leg span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   .bk-mes-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .bk-ana-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; align-items: stretch; }
+  .bk-ana-card { border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 14px; padding: 16px 18px; background: var(--white); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .bk-ana-card .bk-card-top .av { width: 26px; height: 26px; font-size: 12px; }
+  .bk-ana-card .bk-total.clic { cursor: pointer; }
+  .bk-ana-card .bk-total.clic:hover small { text-decoration: underline; }
+  .bk-ana-card .bk-sec { margin-top: 0; }
+  .bk-ana-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .bk-ana-tiles.dois { grid-template-columns: repeat(2, 1fr); }
+  .bk-ana-tile { text-align: center; padding: 9px 4px 8px; border: 1px solid var(--border-light, rgba(127,127,127,.25)); border-radius: 10px; background: rgba(127,127,127,.06); min-width: 0; }
+  .bk-ana-tile b { display: block; font-size: 21px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text-main); }
+  .bk-ana-tile span { display: block; margin-top: 3px; font-size: 11px; color: var(--gray-text); }
   .bk-filtro { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 12px; color: var(--gray-text); }
   .bk-evo.denso, .bk-mes-wrap.denso { gap: 2px; }
   .bk-evo.denso em, .bk-mes-wrap.denso em { display: none; }
@@ -8885,15 +8896,15 @@ function bkTip(titulo, o, estados, rotuloFechado) {
 const bkRegistro = {};                                        // itens de cada cartão, para abrir a lista ao clicar numa linha
 function bkAbrirLista(li) {
   const d = li.dataset;
-  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => (d.c === 'sit' ? i.situacao : i.pessoa) === d.v).sort((a, b) => b.dias - a.dias);
+  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => d.c === 'todos' || (d.c === 'sit' ? i.situacao : i.pessoa) === d.v).sort((a, b) => b.dias - a.dias);
   const g = BK_GRUPOS.find(x => x.k === d.g);
   bkFecharTip();
   const fundo = document.createElement('div');
   fundo.className = 'bk-modal-fundo';
   fundo.id = 'bk-modal-fundo';
   fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
-  const unidade = d.t === 'ticket' ? 'ticket' : 'atividade';
-  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'sit' ? 'Situação: ' : 'Responsável: ') + escapeHtml(d.v) + '</b>'
+  const unidade = d.t === 'atividade' ? 'atividade' : 'ticket';
+  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'todos' ? 'Tickets em aberto de ' : (d.c === 'sit' ? 'Situação: ' : 'Responsável: ')) + escapeHtml(d.v) + '</b>'
     + '<small>' + (g ? escapeHtml(g.nome) + ' · ' : '') + itens.length + ' ' + unidade + (itens.length === 1 ? '' : 's') + '</small></div>'
     + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
     + '<div class="bk-modal-lista">' + itens.map(i => '<div class="bk-it"><div>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(i.cliente) + (i.titulo ? ' — ' + escapeHtml(i.titulo) : '')
@@ -9009,6 +9020,60 @@ function bkTicketsIndisponivel() {
   return null;
 }
 
+// ── Analistas da Implantação: tickets do ERP por responsável (abertos agora, criados na semana/mês/ano e médias)
+const BK_ANALISTAS = ['Edimilson', 'Jefferson', 'Leandro'];
+let bkAna = null, bkAnaBusca = 0, bkAnaErro = '';
+async function bkCarregarAnalistas() {
+  if (Date.now() - bkAnaBusca < 120000) return;
+  bkAnaBusca = Date.now();
+  const hoje = todayStr();
+  const desdes = { semana: segundaDe(hoje), mes: hoje.slice(0, 8) + '01', ano: hoje.slice(0, 5) + '01-01' };
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const buscar = async desde => {
+      const res = await fetch(TICKETS_ERP_FN_URL + '?desde=' + desde + '&ate=' + hoje, { headers: { Authorization: 'Bearer ' + session.access_token } });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
+      if (!Array.isArray(json.linhas) || !json.periodo) throw new Error('a função tickets-erp publicada é antiga (não filtra por período): publique a versão atual');
+      const por = {};
+      json.linhas.forEach(l => { por[l.pessoa] = (por[l.pessoa] || 0) + (Number(l.n) || 0); });
+      return por;
+    };
+    const [semana, mes, ano] = await Promise.all([buscar(desdes.semana), buscar(desdes.mes), buscar(desdes.ano)]);
+    bkAna = { semana, mes, ano }; bkAnaErro = '';
+  } catch (e) { bkAna = null; bkAnaErro = (e && e.message) || String(e); }
+  if (activeTab === 'backlog') renderBacklog();
+}
+function bkAnalistasHtml() {
+  bkCarregarAnalistas();
+  const hoje = todayStr();
+  const [hy, hm, hd] = hoje.split('-').map(Number);
+  const diasAno = daysBetween(hy + '-01-01', hoje) + 1;
+  const mesesDecorridos = (hm - 1) + hd / new Date(hy, hm, 0).getDate();
+  const todos = bkItensTickets();
+  const num = n => String(n.toFixed(1)).replace('.', ',');
+  const cards = BK_ANALISTAS.map(nome => {
+    const itens = todos.filter(i => i.pessoa === nome);
+    bkRegistro['ana:' + nome] = itens;
+    const r = bkResumo(itens);
+    const q = p => (bkAna ? ((bkAna[p] || {})[nome] || 0) : null);
+    const tile = (v, rot) => '<div class="bk-ana-tile"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
+    const mediaSem = bkAna ? num(q('ano') / (diasAno / 7)) : '…';
+    const mediaMes = bkAna ? num(q('ano') / Math.max(mesesDecorridos, 0.1)) : '…';
+    return '<div class="bk-ana-card">'
+      + '<div class="bk-card-top">' + avatarHtml(nome) + escapeHtml(nome) + '</div>'
+      + '<div class="bk-total' + (r.total ? ' clic' : '') + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '>' + r.total + '<small>abertos agora</small></div>'
+      + '<div class="bk-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias') : 'Nenhum ticket em aberto.') + '</div>'
+      + '<div><div class="bk-sec">Criados no ERP</div><div class="bk-ana-tiles">' + tile(q('semana'), 'esta semana') + tile(q('mes'), 'este mês') + tile(q('ano'), 'este ano') + '</div></div>'
+      + '<div><div class="bk-sec">Média de criados (este ano)</div><div class="bk-ana-tiles dois">' + tile(mediaSem, 'por semana') + tile(mediaMes, 'por mês') + '</div></div>'
+      + '</div>';
+  }).join('');
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets do ERP por responsável</small></h3>'
+    + '<p class="bk-fonte">Tickets do ERP em que a pessoa é a responsável, de qualquer cliente. <b>Abertos agora</b> = sem fechar (inclui a fila de desenvolvimento); clique no número para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados (semana de segunda a hoje, mês e ano corrente). A média divide o total do ano pelas semanas e pelos meses já decorridos.</p>'
+    + (bkAnaErro ? '<div class="bk-aviso">Não consegui ler os tickets criados por período (' + escapeHtml(bkAnaErro) + ').</div>' : '')
+    + '<div class="bk-ana-grid">' + cards + '</div></div>';
+}
+
 function renderBacklog() {
   const el = document.getElementById('backlog-conteudo');
   if (!el) return;
@@ -9028,7 +9093,7 @@ function renderBacklog() {
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
-  el.innerHTML = tickets + ativ;
+  el.innerHTML = tickets + (indisp ? '' : bkAnalistasHtml()) + ativ;
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
   const st = document.getElementById('bk-status'), bt = document.getElementById('bk-btn-atualizar');
