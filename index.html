@@ -139,6 +139,8 @@
     flex-wrap: wrap;
   }
   .topbar .header-sub { flex-shrink: 0; }
+  .btn-tema-topo { position: absolute; top: 14px; right: 24px; flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-light, rgba(127,127,127,.3)); background: var(--white); color: var(--text-main); font-size: 17px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.12); transition: transform .15s, background .15s; }
+  .btn-tema-topo:hover { transform: rotate(18deg) scale(1.06); }
 
   .stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
   .stat-card {
@@ -1342,7 +1344,7 @@
   .pend-ag-mais { font-size: 11px; font-weight: 700; color: var(--gray-text); white-space: nowrap; }
 
   /* ── Quadro de Atividades mais enxuto: topo compacto, cabeçalho em uma linha, colunas um pouco mais largas, cartões menores (out/2026) ── */
-  .topbar { padding: 12px 32px; gap: 12px; max-width: 1560px; margin: 0 auto; box-sizing: border-box; }   /* mesma largura máxima do quadro, para não esticar até a borda em telas grandes */
+  .topbar { position: relative; padding: 12px 76px 12px 32px; gap: 12px; max-width: 1560px; margin: 0 auto; box-sizing: border-box; }   /* mesma largura máxima do quadro, para não esticar até a borda em telas grandes */
   .topbar .stats-row { flex: 1 1 780px; min-width: 0; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
   .topbar .stat-card { min-width: 0; min-height: 62px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-radius: 12px; }
   .topbar .stat-card .num { font-size: 24px; line-height: 1; flex: none; }
@@ -1481,8 +1483,8 @@
       <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
       <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
       <a class="btn-sidebar" href="https://edimlson-nascimento.github.io/implantation/cronograma.html" target="_blank" rel="noopener" style="text-decoration:none;display:block;">🗂 Cronogramas de Clientes</a>
-      <button class="btn-sidebar" id="btn-ativar-lembretes" onclick="ativarLembretes()">🔔 Ativar lembretes</button>
-      <button class="btn-sidebar" id="theme-toggle-btn" onclick="toggleTheme()">🌙 Escuro</button>
+      
+      
       <button type="button" class="btn-sidebar" onclick="abrirEstudioTemas()" style="width:100%;text-align:left;">🎨 Temas e cores</button>
 <button class="btn-sidebar" onclick="withLock(this, doLogout)">🚪 Sair</button>
     </div>
@@ -1494,6 +1496,7 @@
       <button class="btn btn-sm" onclick="withLock(this, refreshDados)" title="Recarrega os dados do servidor (útil pra ver o que outras pessoas lançaram)">🔄 Atualizar</button>
       <div class="stats-row" id="stats-row"></div>
       <button class="btn btn-green" id="btn-novo-cliente" onclick="openModal(null)" style="display:none;">+ Novo Cliente</button>
+      <button type="button" class="btn-tema-topo" id="theme-toggle-btn" onclick="toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">🌙</button>
     </div>
 
     <main>
@@ -1689,6 +1692,7 @@
           </div>
           <span class="outlook-status" id="outlook-status"></span>
           <button class="btn btn-sm" id="btn-sync-outlook" onclick="sincronizarOutlook(true)" title="Importar agora os compromissos da agenda do Outlook">🔄 Outlook</button>
+          <button class="btn btn-sm" id="btn-ativar-lembretes" onclick="ativarLembretes()" title="Avisa na tela (e no computador, se você permitir) quando um agendamento estiver chegando">🔔 Ativar lembretes</button>
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
@@ -2256,7 +2260,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem(THEME_KEY, theme);
   const btn = document.getElementById('theme-toggle-btn');
-  if (btn) btn.textContent = theme === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+  if (btn) { btn.textContent = theme === 'dark' ? '☀️' : '🌙'; btn.title = theme === 'dark' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'; }
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme')
@@ -2269,7 +2273,7 @@ function toggleTheme() {
   const effective = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('theme-toggle-btn');
-    if (btn) btn.textContent = effective === 'dark' ? '☀️ Claro' : '🌙 Escuro';
+    if (btn) { btn.textContent = effective === 'dark' ? '☀️' : '🌙'; btn.title = effective === 'dark' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'; }
   });
 })();
 
