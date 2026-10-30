@@ -1729,6 +1729,7 @@
         <button class="btn btn-green" onclick="novaAtividade()">+ Nova Atividade</button>
       </div>
     </div>
+    <div id="ativ-resumo"></div>
     <div class="atividades-toolbar toolbar">
       <div class="pessoa-filter" id="pessoa-filter-atividades"></div>
       <div id="ativ-filtro-especial"></div>
@@ -1759,15 +1760,16 @@
   <section id="view-indicadores" style="display:none">
     <div class="resumo-box">
       <h2>Indicadores</h2>
+      <div id="ind-resumo"></div>
       <div class="pessoa-filter" id="pessoa-filter-indicadores"></div>
 
       <div class="ind-bloco" id="ind-b-fila" style="--ind-cor:#64748B;">
-        <h3 class="ind-bloco-titulo">Fila agora</h3>
+        <h3 class="ind-bloco-titulo ind-banner">Fila agora</h3>
         <div id="indicadores-stats-row" class="ind-cards-row"></div>
       </div>
 
       <div class="ind-bloco bloco-tendencia" id="ind-b-criadas">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div class="ind-banner" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
           <h3 class="ind-bloco-titulo" style="margin:0;">Criadas × Concluídas</h3>
           <div class="view-toggle">
             <button class="view-toggle-btn" id="ind-periodo-btn-dia" onclick="setIndicadoresPeriodo('dia')">Dia</button>
@@ -1784,33 +1786,33 @@
 
       <div class="pizza-row">
         <div class="ind-bloco bloco-distribuicao">
-          <h3 class="ind-bloco-titulo" style="margin:0;">Distribuição da Fila Atual</h3>
+          <h3 class="ind-bloco-titulo ind-banner" style="margin:0;">Distribuição da Fila Atual</h3>
           <p class="pizza-explicacao">Como os cards em aberto (não concluídos) se dividem entre as 3 colunas do Kanban agora — mostra onde o trabalho pendente está concentrado.</p>
           <div id="pizza-fila"></div>
         </div>
         <div class="ind-bloco bloco-distribuicao" id="pizza-pessoa-wrap">
-          <h3 class="ind-bloco-titulo" style="margin:0;">Atividades em Aberto por Pessoa</h3>
+          <h3 class="ind-bloco-titulo ind-banner" style="margin:0;">Atividades em Aberto por Pessoa</h3>
           <p class="pizza-explicacao">De tudo que ainda está em aberto (qualquer coluna, menos Concluído), quanto é de cada pessoa da equipe — só aparece com o filtro em "Todos".</p>
           <div id="pizza-pessoa"></div>
         </div>
       </div>
 
       <div class="ind-bloco bloco-prazo" id="ind-prazos-wrap">
-        <h3 class="ind-bloco-titulo" style="margin:0;">⏳ Tempo de Implantação</h3>
+        <h3 class="ind-bloco-titulo ind-banner" style="margin:0;">⏳ Tempo de Implantação</h3>
         <p class="pizza-explicacao">Há quanto tempo cada cliente em implantação está no processo, comparado com a Previsão Pós-Implantação (quando definida) — vermelho já passou do prazo, âmbar falta pouco, verde ainda tem folga, cinza sem previsão definida.</p>
         <div id="prazo-implantacao-lista" style="margin-top:14px;"></div>
       </div>
 
       <div class="ind-bloco bloco-ia" id="ind-ia-wrap">
-        <h3 class="ind-bloco-titulo" style="margin:0;">🤖 Uso da Busca com IA</h3>
+        <h3 class="ind-bloco-titulo ind-banner" style="margin:0;">🤖 Uso da Busca com IA</h3>
         <p class="pizza-explicacao">Quantas perguntas a aba "Buscar" já mandou pra Claude e o custo estimado — pra acompanhar o gasto sem precisar abrir o Console da Anthropic toda vez.</p>
         <div class="stats-row" id="uso-busca-ia-cards" style="margin-top:12px;"></div>
       </div>
 
       <div class="ind-bloco bloco-grafana" id="ind-grafana-wrap">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div class="ind-banner" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
           <div>
-            <h3 style="margin:0;font-size:14px;color:var(--text-main);">🎫 Tickets do ERP</h3>
+            <h3 class="ind-bloco-titulo" style="margin:0;">🎫 Tickets do ERP</h3>
             <p class="pizza-explicacao" style="margin-top:4px;">Todos os tickets, lidos direto do banco do ERP — por cliente de implantação, pela equipe (Gilson, Edimilson, Jefferson e Leandro, em qualquer cliente) e o comparativo entre implantação, base e total.</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -2349,7 +2351,7 @@ const RAIAS_PADRAO = [
   { id: 'andamento', nome: 'Em Andamento',              ordem: 3, ativa: true },
   { id: 'concluida', nome: 'Concluído',                 ordem: 4, ativa: true }
 ];
-const RAIA_CORES = { urgencias: '#DC2626', afazer: '#F59E0B', andamento: '#8B5CF6' };
+const RAIA_CORES = { urgencias: '#DC2626', afazer: '#3B82F6', andamento: '#F59E0B' };
 let RAIAS = RAIAS_PADRAO.map(r => ({ ...r })), raiasDoBanco = false;
 function raiasOrdenadas() { return [...RAIAS].sort((a, b) => (a.id === 'concluida') - (b.id === 'concluida') || a.ordem - b.ordem); }
 function raiasAbertasAtivas() { return raiasOrdenadas().filter(r => r.id !== 'concluida' && r.ativa !== false); }
@@ -5162,6 +5164,34 @@ async function obterCotacaoDolar() {
   return cotacaoDolarCache;
 }
 
+function indCardHtml(cor, ico, nome, n, sub) {
+  return '<div class="ind-card v7-ind" style="--ac:' + cor + '"><div class="bk-ana-banner"><span class="bk-ana-av">' + ico + '</span><div class="bk-ana-nome"><b>' + escapeHtml(nome) + '</b></div></div>'
+    + '<div class="v7-ind-corpo"><div class="num">' + n + '</div><div class="sub">' + sub + '</div></div></div>';
+}
+function indResumoTopo(base) {
+  const el = document.getElementById('ind-resumo');
+  if (!el) return;
+  const hoje = todayStr(), desde = addDays(hoje, -6);
+  const abertas = base.filter(a => a.coluna !== 'concluida');
+  const criadas7 = base.filter(a => (a.criadoEm || '').slice(0, 10) >= desde).length;
+  const conc7 = base.filter(a => a.coluna === 'concluida' && a.concluidoEm && a.concluidoEm >= desde);
+  const tempos = conc7.filter(a => a.criadoEm).map(a => Math.max(0, daysBetween((a.criadoEm || '').slice(0, 10), a.concluidoEm)));
+  const medio = tempos.length ? String((tempos.reduce((s, x) => s + x, 0) / tempos.length).toFixed(1)).replace('.', ',') + ' d' : '—';
+  const atrasadas = base.filter(a => ativCorresponde('atrasadas', a)).length;
+  let partes, leg;
+  if (pessoaFiltro === 'Todos') {
+    const CORES_PESSOA = ['#14B8A6', '#F97316', '#6366F1', '#EC4899', '#84CC16', '#0EA5E9'];
+    const por = PESSOAS.map((nome, i) => ({ nome, cor: CORES_PESSOA[i % CORES_PESSOA.length], n: abertas.filter(a => a.responsavel === nome || (a.participantes || []).includes(nome)).length }));
+    partes = por.filter(x => x.n).map(x => [x.n, x.cor, x.nome]);
+    leg = por.map(x => [x.cor, x.nome, x.n]);
+  } else {
+    const raias = raiasAbertasAtivas().map(r => ({ r, n: abertas.filter(a => a.coluna === r.id).length }));
+    partes = raias.filter(x => x.n).map(x => [x.n, KC_CORES[x.r.id] || '#94A3B8', raiaNomeCurto(x.r.id)]);
+    leg = raias.map(x => [KC_CORES[x.r.id] || '#94A3B8', raiaNomeCurto(x.r.id), x.n]);
+  }
+  el.innerHTML = v7FaixaHtml([[abertas.length, 'atividades em aberto', 'destaque'], [criadas7, 'criadas em 7 dias'], [conc7.length, 'concluídas em 7 dias'], [medio, 'tempo médio até concluir (7 dias)'], [atrasadas, 'atrasadas']], partes, leg, 'v7-faixa');
+}
+
 function renderIndicadores() {
   renderPrazoImplantacaoLista();
   renderUsoBuscaIA();
@@ -5174,10 +5204,9 @@ function renderIndicadores() {
   const raiasInd = raiasAbertasAtivas().map(r => ({ r, lista: atividadesFiltradas.filter(a => a.coluna === r.id) }));
   const concluidas = atividadesFiltradas.filter(a => a.coluna === 'concluida');
 
-  document.getElementById('indicadores-stats-row').innerHTML = `
-    ${raiasInd.map(({ r, lista }) => `<div class="ind-card"><div class="num">${lista.length}</div><div class="lbl">${escapeHtml(raiaNomeCurto(r.id))}</div><div class="sub">${lista.length ? `média ${mediaIdadeAbertos(lista)} dia(s) em aberto` : '—'}</div></div>`).join('')}
-    <div class="ind-card"><div class="num">${concluidas.length}</div><div class="lbl">Concluídas</div><div class="sub">total (todo o período)</div></div>
-  `;
+  document.getElementById('indicadores-stats-row').innerHTML = raiasInd.map(({ r, lista }) => indCardHtml(KC_CORES[r.id] || '#94A3B8', KC_ICO[r.id] || '•', raiaNomeCurto(r.id), lista.length, lista.length ? `média de ${mediaIdadeAbertos(lista)} dia(s) em aberto` : 'nada em aberto')).join('')
+    + indCardHtml('#22C55E', '✅', 'Concluídas', concluidas.length, 'total (todo o período)');
+  indResumoTopo(atividadesFiltradas);
 
   ['dia', 'semana', 'mes'].forEach(p => {
     document.getElementById(`ind-periodo-btn-${p}`).classList.toggle('active', indicadoresPeriodo === p);
@@ -6407,9 +6436,34 @@ function limparFiltroConcluido() {
   render();
 }
 
+// ── Visual v7 em Atividades e Indicadores: faixa de resumo e cartões com banner (2026-10-30)
+const KC_CORES = { urgencias: '#DC2626', afazer: '#3B82F6', andamento: '#F59E0B', concluida: '#22C55E' };
+const KC_ICO = { urgencias: '🔥', afazer: '📋', andamento: '⚙️', concluida: '✅' };
+function v7FaixaHtml(kpis, partes, leg, classe) {
+  return '<div class="bk-eq ' + (classe || '') + '">' + kpis.map(([v, l, c]) => '<div class="bk-eq-kpi ' + (c || '') + '"><b>' + v + '</b><span>' + l + '</span></div>').join('')
+    + '<div class="bk-eq-bar">' + partes.map(([n, cor, tit]) => '<i style="flex:' + n + ';background:' + cor + '" title="' + escapeHtml(tit) + ' · ' + n + '"></i>').join('') + '</div>'
+    + '<div class="bk-eq-leg">' + leg.map(([cor, tit, n]) => '<span><i style="background:' + cor + '"></i>' + escapeHtml(tit) + ' <b>' + n + '</b></span>').join('') + '</div></div>';
+}
+function ativResumoTopo() {
+  const el = document.getElementById('ativ-resumo');
+  if (!el) return;
+  const hoje = todayStr();
+  const base = atividades.filter(a => !a.cancelado && (pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes || []).includes(pessoaFiltro)));
+  const abertas = base.filter(a => a.coluna !== 'concluida');
+  const raias = raiasAbertasAtivas().map(r => ({ r, n: abertas.filter(a => a.coluna === r.id).length }));
+  const concHoje = base.filter(a => a.coluna === 'concluida' && a.concluidoEm === hoje).length;
+  const cor = id => KC_CORES[id] || '#94A3B8';
+  el.innerHTML = v7FaixaHtml(
+    [[abertas.length, 'em aberto', 'destaque'], [concHoje, 'concluídas hoje'], [base.filter(a => ativCorresponde('atrasadas', a)).length, 'atrasadas'], [base.filter(a => ativCorresponde('impedidas', a)).length, 'impedidas'], [base.filter(a => ativCorresponde('sprint', a)).length, 'planejadas na sprint']],
+    raias.filter(x => x.n).map(x => [x.n, cor(x.r.id), raiaNomeCurto(x.r.id)]),
+    raias.map(x => [cor(x.r.id), raiaNomeCurto(x.r.id), x.n]).concat([['#22C55E', 'Concluído hoje', concHoje]]),
+    'v7-compacta');
+}
+
 function renderAtividades() {
   renderPessoaFilterInto('pessoa-filter-atividades');
   renderFiltroEspecialAtividades();
+  ativResumoTopo();
   const leg = document.getElementById('ativ-legenda');
   if (leg) leg.innerHTML = [['red', 'var(--red)'], ['orange', 'var(--amber)'], ['yellow', '#F2C94C'], ['blue', '#4A90D9']].map(([k, c]) => `<span><i style="background:${c}"></i>${escapeHtml(ATIV_LABEL_NAMES[k])}</span>`).join('');
   const board = document.getElementById('kanban-board');
@@ -6447,7 +6501,7 @@ function renderAtividades() {
     colEl.dataset.coluna = col.id;
     colEl.innerHTML = `
       <div class="kanban-column-header">
-        <h3>${col.nome}</h3>
+        <h3><span class="kc-col-ico">${KC_ICO[col.id] || '•'}</span><span class="kc-col-tit">${col.nome}<small>${col.id === 'concluida' ? (concluidoFiltroData ? formatDate(concluidoFiltroData) : 'todos os dias') : (cards.length ? 'idade média ' + mediaIdadeAbertos(cards) + ' dia(s)' : 'nada aqui')}</small></span></h3>
         <span class="kanban-wip">${cards.length}${col.limite ? ' / ' + col.limite : ''}</span>
       </div>
       ${filtrosHtml}
@@ -8648,7 +8702,8 @@ function scrumBaixarPDF() {
 <style id="visual-v7-css">
   /* Visual v7 — Pendências e Clientes no estilo do Backlog (faixa de resumo, banner pela saúde, anel, quadrinhos) */
   .pn-faixa { margin: 0 0 14px; }
-  .pendencias-cards-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 16px; align-items: start; }
+  .pendencias-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .pendencias-cards-grid { grid-template-columns: minmax(0, 1fr); } }
   .pendencia-card.pn-card { --ac: #14B8A6; padding: 0; overflow: hidden; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
   .pendencia-card.pn-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
   .pn-banner { background: linear-gradient(135deg, var(--ac), #021F33 135%); background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #021F33)); }
@@ -8693,6 +8748,57 @@ function scrumBaixarPDF() {
   .client-card.entidade-card { border-top: 4px solid var(--ac, var(--border-light)); transition: transform .18s, box-shadow .18s; }
   .client-card.entidade-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
   .client-card .cc-ini { border-radius: 50%; background: color-mix(in srgb, var(--ac, #14B8A6) 22%, transparent); border: 2px solid var(--ac, #14B8A6); color: var(--text-main); }
+</style>
+<style id="visual-v7b-css">
+  /* Visual v7 — Atividades e Indicadores no estilo do Backlog */
+  #ativ-resumo { margin: 0 0 12px; }
+  .bk-eq.v7-compacta { padding: 10px 18px 10px; gap: 6px 18px; }
+  .bk-eq.v7-compacta .bk-eq-kpi b { font-size: 22px; }
+  .bk-eq.v7-compacta .bk-eq-kpi span { font-size: 10.5px; margin-top: 0; }
+  .bk-eq.v7-compacta .bk-eq-bar { height: 7px; margin-top: 0; }
+  .bk-eq.v7-compacta .bk-eq-leg { font-size: 11px; }
+  #view-atividades .kanban-column { padding: 0; overflow: hidden; border-radius: 16px; background: rgba(127,127,127,.05); }
+  #view-atividades .kanban-column-header { padding: 11px 14px; margin: 0; background: linear-gradient(135deg, var(--col-cor), #021F33 135%); background: linear-gradient(135deg, var(--col-cor), color-mix(in srgb, var(--col-cor) 45%, #021F33)); }
+  #view-atividades .kanban-column-header h3 { color: #fff; font-size: 14.5px; gap: 10px; }
+  #view-atividades .kanban-column-header h3::before { display: none; }
+  .kc-col-ico { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; background: rgba(255,255,255,.22); border: 2px solid rgba(255,255,255,.6); }
+  .kc-col-tit { display: flex; flex-direction: column; line-height: 1.2; }
+  .kc-col-tit small { font-size: 11px; font-weight: 500; opacity: .88; }
+  #view-atividades .kanban-wip { background: rgba(255,255,255,.22); color: #fff; border: 0; font-size: 13px; font-weight: 800; padding: 3px 11px; }
+  #view-atividades .kanban-concluido-filtros { padding: 12px 12px 0; margin: 0; }
+  #view-atividades .kanban-cards-scroll { padding: 12px 8px 12px 12px; }
+  #view-atividades .kanban-card { border-top: 1px solid var(--border-light); border-radius: 12px; padding: 13px 14px 12px 18px; box-shadow: inset 5px 0 0 var(--card-cor, var(--col-cor, #94A3B8)), 0 1px 4px rgba(0,0,0,.1); }
+  #view-atividades .kanban-card:hover { box-shadow: inset 5px 0 0 var(--card-cor, var(--col-cor, #94A3B8)), 0 8px 18px rgba(0,0,0,.2); }
+  #view-atividades .kanban-column.drop-hover { box-shadow: 0 0 0 2px var(--col-cor) inset; }
+
+  /* Indicadores */
+  #view-indicadores .resumo-box > #ind-resumo { grid-column: 1 / -1; }
+  #view-indicadores .v7-faixa { margin: 0; }
+  .ind-bloco { padding: 0 !important; border-radius: 16px; border-top-width: 1px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .ind-bloco::before { display: none; }
+  #ind-b-fila { background: none; border: 0; box-shadow: none; }
+  #ind-b-fila > .ind-banner { display: none; }
+  #ind-b-fila > #indicadores-stats-row { margin: 0; }
+  .ind-bloco > :not(.ind-banner) { margin-left: 18px; margin-right: 18px; }
+  .ind-bloco > .ind-banner + * { margin-top: 14px; }
+  .ind-bloco > :last-child { margin-bottom: 18px; }
+  .ind-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 !important; padding: 12px 18px !important; border-radius: 15px 15px 0 0; color: #fff; background: linear-gradient(135deg, var(--ind-cor, #64748B), #021F33 135%); background: linear-gradient(135deg, var(--ind-cor, #64748B), color-mix(in srgb, var(--ind-cor, #64748B) 45%, #021F33)); }
+  .ind-banner.ind-banner { justify-content: space-between; }
+  h3.ind-banner { font-size: 16px; }
+  .ind-banner .ind-bloco-titulo, .ind-banner h3 { color: #fff; margin: 0; font-size: 16px; }
+  .ind-banner .pizza-explicacao { color: rgba(255,255,255,.85); margin: 2px 0 0; }
+  .ind-banner #quadro-grafana-status { color: rgba(255,255,255,.85) !important; }
+  .ind-banner .view-toggle { background: rgba(255,255,255,.2); }
+  .ind-banner .view-toggle-btn { color: rgba(255,255,255,.9); }
+  .ind-banner .view-toggle-btn.active { background: #fff; color: #021F33; }
+  .ind-card.v7-ind { padding: 0; overflow: hidden; border-radius: 16px; background: var(--white); border: 1px solid var(--border-light, rgba(127,127,127,.28)); box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
+  .ind-card.v7-ind:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .ind-card.v7-ind .bk-ana-banner { padding: 10px 14px; }
+  .ind-card.v7-ind .bk-ana-av { width: 34px; height: 34px; font-size: 16px; }
+  .v7-ind-corpo { padding: 14px 16px 16px; }
+  .v7-ind-corpo .num { font-size: 40px; line-height: 1; }
+  .v7-ind-corpo .sub { margin-top: 8px; }
+  @media (prefers-reduced-motion: reduce) { .ind-card.v7-ind { transition: none; } .ind-card.v7-ind:hover { transform: none; } }
 </style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
