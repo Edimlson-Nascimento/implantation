@@ -1864,6 +1864,7 @@
           <button class="btn btn-sm" onclick="bkCopiar()" title="Copiar o resumo como texto">📋 Copiar texto</button>
         </div>
       </div>
+      <div id="bk-abas-box"></div>
       <div class="bk-filtro"><span>Linha do tempo por:</span><div class="view-toggle" id="bk-periodos"></div></div>
       <div id="backlog-conteudo"></div>
     </div>
@@ -8674,6 +8675,12 @@ function scrumBaixarPDF() {
   .bk-eq-leg span { display: inline-flex; align-items: center; gap: 6px; }
   .bk-eq-leg i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .bk-eq-leg b { color: #fff; font-variant-numeric: tabular-nums; }
+  .bk-abas { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; padding-bottom: 12px; border-bottom: 2px solid var(--border-light, rgba(127,127,127,.25)); }
+  .bk-aba { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; border: 1px solid var(--border-light, rgba(127,127,127,.3)); background: transparent; color: var(--gray-text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .12s, color .12s; }
+  .bk-aba:hover { background: rgba(127,127,127,.12); color: var(--text-main); }
+  .bk-aba.ativa { background: var(--navy, #021F33); border-color: var(--navy, #021F33); color: var(--on-navy, #fff); }
+  .bk-aba em { font-style: normal; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(127,127,127,.22); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .bk-aba.ativa em { background: rgba(255,255,255,.22); }
   .bk-ana-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: stretch; }
   .bk-ana-card { --ac: #14B8A6; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); min-width: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
   .bk-ana-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
@@ -8798,11 +8805,13 @@ function bkInicioRegistro() {
   const hoje = todayStr();
   return (bkHist || []).reduce((m, r) => (r.visto_primeiro && r.visto_primeiro < m ? r.visto_primeiro : m), hoje);
 }
+let bkAba = 'analistas';                                             // analistas | tickets | atividades
 let bkPeriodo = 'semana';                                          // semana | mes | ano | todos (filtro da linha do tempo)
 const BK_PERIODOS = [['semana', 'Semana'], ['mes', 'Mês'], ['ano', 'Ano'], ['todos', 'Todos']];
 const bkPad = n => String(n).padStart(2, '0');
 const bkUltimoDia = (y, m) => y + '-' + bkPad(m) + '-' + bkPad(new Date(y, m, 0).getDate());
 function bkSetPeriodo(p) { bkPeriodo = p; renderBacklog(); }
+function bkSetAba(a) { bkAba = a; renderBacklog(); }
 // pontos do eixo do tempo: Semana = últimas 8 semanas; Mês = últimos 12 meses; Ano = cada ano (até 8); Todos = todos os meses
 // desde o primeiro dado (no máximo 48). "primeiro" = primeiro dia (AAAA-MM-DD) que tem dado, para Ano e Todos.
 function bkPontos(primeiro) {
@@ -9159,7 +9168,13 @@ function renderBacklog() {
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
-  el.innerHTML = (indisp ? '' : bkAnalistasHtml()) + tickets + ativ;
+  const nTk = indisp ? null : bkItensTickets().length, nAt = bkItensAtividades().length;
+  const abas = [['analistas', '👥 Analistas', null], ['tickets', '🎫 Tickets do ERP', nTk], ['atividades', '✅ Atividades', nAt]];
+  const corpo = bkAba === 'tickets' ? tickets : (bkAba === 'atividades' ? ativ : (indisp ? tickets : bkAnalistasHtml()));
+  const bx = document.getElementById('bk-abas-box');
+  if (bx) bx.innerHTML = '<div class="bk-abas" role="tablist">' + abas.map(([k, n, q]) => '<button type="button" role="tab" class="bk-aba' + (bkAba === k ? ' ativa' : '') + '" onclick="bkSetAba(\'' + k + '\')">' + n + (q === null ? '' : ' <em>' + q + '</em>') + '</button>').join('') + '</div>';
+  el.innerHTML = corpo;
+  const fl = document.querySelector('.bk-filtro'); if (fl) fl.style.display = bkAba === 'analistas' ? 'none' : '';
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
   const st = document.getElementById('bk-status'), bt = document.getElementById('bk-btn-atualizar');
