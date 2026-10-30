@@ -1501,6 +1501,7 @@
 
     <main>
   <section id="view-clientes" style="display:none">
+    <div id="cli-resumo"></div>
     <div class="toolbar">
       <input type="text" id="search-input" placeholder="Buscar cliente ou contato..." oninput="renderClientes()">
       <select id="filter-stage" onchange="renderClientes()">
@@ -1548,6 +1549,7 @@
   </section>
 
   <section id="view-pendencias" style="display:none">
+    <div id="pend-resumo"></div>
     <div class="toolbar">
       <input type="text" id="pend-search-input" placeholder="Buscar cliente..." oninput="renderPendencias()">
       <select id="pend-filter-fase" onchange="renderPendencias()">
@@ -2744,6 +2746,7 @@ function updatePendenciasCount() {
   const el = document.getElementById('pendencias-count');
   el.textContent = naoContatados;
   el.classList.toggle('alerta', naoContatados > 0);
+  pnResumoTopo();
 }
 
 function renderStats() {
@@ -2982,6 +2985,7 @@ function renderClientes() {
     list.sort((a,b) => a.nome.localeCompare(b.nome));
   }
 
+  cliResumoTopo(list);
   if (clientsView === 'cards') renderClientesCards(list);
   else renderClientesTable(list);
 }
@@ -3043,7 +3047,7 @@ function renderClientesTable(list) {
     const pendAbertas = c.pendencias.filter(p => !p.feito).length;
     const prazo = fase === 'implantacao' ? prazoImplantacaoInfo(c) : null;
     return `
-      <tr onclick="openModal('${c.id}')">
+      <tr style="--ac:${stage.cor}" onclick="openModal('${c.id}')">
         <td>${escapeHtml(c.codigo || '—')}</td>
         <td><span class="cc-quem"><span class="cc-ini">${inicialDe(c.nome)}</span>${escapeHtml(c.nome)}</span></td>
         <td><span class="fase-pill ${fase}">${fase === 'base' ? 'Base' : 'Implantação'}</span></td>
@@ -3051,8 +3055,8 @@ function renderClientesTable(list) {
         <td><span class="saude-badge ${saude}"><span class="dot"></span>${saudeLabel}</span></td>
         <td>${escapeHtml(c.responsavel || '—')}</td>
         <td>${escapeHtml(c.analistaResponsavel || '—')}</td>
-        <td>${prazo ? `<div class="prazo-badge prazo-badge-empilhado ${prazo.classe}"><div>${prazo.linha1}</div>${prazo.linha2 ? `<div>${prazo.linha2}</div>` : ''}</div>` : '—'}</td>
-        <td>${pendAbertas > 0 ? pendAbertas + ' aberta(s)' : '—'}</td>
+        <td>${prazo ? `<div class="prazo-badge prazo-badge-empilhado ${prazo.classe}"><div>${prazo.linha1}</div>${prazo.linha2 ? `<div>${prazo.linha2}</div>` : ''}</div>${prazo.diasTotais ? `<div class="bk-ana-bar cl-barra"><i style="width:${Math.max(0, Math.min(100, Math.round(prazo.diasEmImplantacao / prazo.diasTotais * 100)))}%;background:${{ ok: '#16A34A', atencao: '#F59E0B', atrasado: '#DC2626', neutro: '#94A3B8' }[prazo.classe]}"></i></div>` : ''}` : '—'}</td>
+        <td>${(() => { const ab = c.pendencias.filter(p => !p.feito); const a = ab.filter(p => p.responsavel === 'cliente').length, b = ab.filter(p => p.responsavel === 'rscrm').length; return a || b ? `<span class="cl-pend"><span class="c ${a ? '' : 'z'}" title="Do cliente">${a}</span><span class="r ${b ? '' : 'z'}" title="Da Intelipulse">${b}</span></span>` : '—'; })()}</td>
       </tr>
     `;
   }).join('');
@@ -3078,7 +3082,7 @@ function renderClientesCards(list) {
     const prazo = fase === 'implantacao' ? prazoImplantacaoInfo(c) : null;
 
     return `
-      <div class="client-card entidade-card" onclick="openModal('${c.id}')">
+      <div class="client-card entidade-card" style="--ac:${stage.cor}" onclick="openModal('${c.id}')">
         <div class="cc-top">
           <div class="cc-quem"><span class="cc-ini">${inicialDe(c.nome)}</span><div>
             <div class="cc-name">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
@@ -3715,6 +3719,79 @@ function agendamentoPendenciaHtml(c, today) {
   return `<div class="pend-ags">${abertos.slice(0, LIMITE).map(selo).join('')}${resto > 0 ? `<span class="pend-ag-mais" title="Veja os demais na aba Agenda">+${resto} na Agenda</span>` : ''}</div>`;
 }
 
+// ── Visual novo de Pendências e Clientes (2026-10-30): banner pela saúde, anel de pendências e faixa de resumo
+const PN_SAUDE = { verde: ['#16A34A', 'Saudável'], amarelo: ['#F59E0B', 'Atenção'], vermelho: ['#DC2626', 'Em risco'] };
+let pendListaAtual = [], pnResumoPend = false;
+function pnSaudeInfo(c) { return PN_SAUDE[c.saude || 'verde'] || PN_SAUDE.verde; }
+function pnBannerHtml(c) {
+  const rot = pnSaudeInfo(c)[1];
+  const ct = (c.contatos || []).find(x => x.principal);
+  const contato = ct ? escapeHtml(ct.nome) + (ct.cargo ? ' (' + escapeHtml(ct.cargo) + ')' : '') : '—';
+  const dica = ct ? 'Contato principal do cliente: é com quem falamos e cobramos' + (ct.telefone ? ' · ' + ct.telefone : '') : 'Sem contato principal: abra o cadastro do cliente e marque a ★ em um contato';
+  return '<div class="bk-ana-banner pn-banner"><span class="bk-ana-av">' + inicialDe(c.nome) + '</span>'
+    + '<div class="bk-ana-nome"><b>' + escapeHtml(c.nome) + (c.codigo ? ' <small class="pn-cod">#' + escapeHtml(c.codigo) + '</small>' : '') + '</b>'
+    + '<small>Analista ' + (c.analistaResponsavel ? escapeHtml(c.analistaResponsavel) : '—') + ' · <span title="' + escapeHtml(dica) + '">Contato ' + contato + '</span></small></div>'
+    + '<span class="pn-saude"><i></i>' + rot + '</span>'
+    + '<button type="button" class="pn-copiar" onclick="copiarPendenciasCliente(\'' + c.id + '\')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button></div>';
+}
+function pnAnelHtml(c) {
+  const ab = c.pendencias.filter(p => !p.feito);
+  const nc = ab.filter(p => p.responsavel === 'cliente').length, nr = ab.filter(p => p.responsavel === 'rscrm').length, tot = nc + nr;
+  const feitas = c.pendencias.length - ab.length;
+  const ang = tot ? nc / tot * 360 : 0;
+  const fundo = tot ? 'conic-gradient(#F59E0B 0deg ' + ang + 'deg, #2F80ED ' + ang + 'deg 360deg)' : 'rgba(34,197,94,.55)';
+  const chip = (cor, rot, n) => '<span class="bk-ana-chip' + (n ? '' : ' zero') + '"><i style="background:' + cor + '"></i>' + rot + '<b>' + n + '</b></span>';
+  return '<div class="bk-ring pn-ring" style="background:' + fundo + '"><div class="bk-ring-in"><b>' + tot + '</b><small>' + (tot === 1 ? 'aberta' : 'abertas') + '</small></div></div>'
+    + '<div class="bk-ana-leg">' + chip('#F59E0B', 'Do cliente', nc) + chip('#2F80ED', 'Da Intelipulse', nr) + chip('#22C55E', 'Concluídas', feitas) + '</div>';
+}
+function pnTilesHtml(c) {
+  if ((c.fase || 'implantacao') !== 'implantacao' || (!c.inicio && !c.previsaoPosImplantacao)) return '';
+  const p = prazoImplantacaoInfo(c);
+  let h = '<div class="bk-ana-tile"><b>' + p.diasEmImplantacao + '</b><span>dias em implantação</span></div>';
+  if (p.diasRestantes !== null) {
+    const atr = p.diasRestantes < 0;
+    h += '<div class="bk-ana-tile"><b class="' + (atr ? 'al' : (p.diasRestantes <= 7 ? 'am' : 'ok')) + '">' + (atr ? 'há ' + (-p.diasRestantes) : p.diasRestantes) + '</b><span>' + (atr ? 'dias de atraso' : 'dias para o término') + '</span></div>';
+  }
+  return '<div class="pn-mini" style="--ac:' + pnSaudeInfo(c)[0] + '">' + h + '</div>';
+}
+function pnFaixaHtml(kpis, list) {
+  const cont = { verde: 0, amarelo: 0, vermelho: 0 };
+  list.forEach(c => { cont[c.saude || 'verde']++; });
+  const ks = ['verde', 'amarelo', 'vermelho'];
+  return '<div class="bk-eq pn-faixa">' + kpis.map(([v, l, cls]) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + v + '</b><span>' + l + '</span></div>').join('')
+    + '<div class="bk-eq-bar">' + ks.filter(k => cont[k]).map(k => '<i style="flex:' + cont[k] + ';background:' + PN_SAUDE[k][0] + '" title="' + PN_SAUDE[k][1] + ' · ' + cont[k] + '"></i>').join('') + '</div>'
+    + '<div class="bk-eq-leg">' + ks.map(k => '<span><i style="background:' + PN_SAUDE[k][0] + '"></i>' + PN_SAUDE[k][1] + ' <b>' + cont[k] + '</b></span>').join('') + '</div></div>';
+}
+function pnResumoTopo() {
+  if (pnResumoPend) return;
+  pnResumoPend = true;
+  setTimeout(() => {
+    pnResumoPend = false;
+    const el = document.getElementById('pend-resumo');
+    if (!el) return;
+    const l = pendListaAtual || [], hoje = todayStr();
+    if (!l.length) { el.innerHTML = ''; return; }
+    let nc = 0, nr = 0;
+    l.forEach(c => c.pendencias.forEach(p => { if (!p.feito) { if (p.responsavel === 'cliente') nc++; else if (p.responsavel === 'rscrm') nr++; } }));
+    const semContato = l.filter(c => (c.fase || 'implantacao') === 'implantacao' && c.ultimoContato !== hoje).length;
+    el.innerHTML = pnFaixaHtml([[l.length, l.length === 1 ? 'cliente' : 'clientes', 'destaque'], [nc + nr, 'pendências abertas'], [nc, 'do cliente'], [nr, 'da Intelipulse'], [semContato, 'sem contato hoje']], l);
+  }, 0);
+}
+function pnAtualizarCard(c) {
+  const el = document.getElementById('pn-anel-' + c.id);
+  if (el) el.innerHTML = pnAnelHtml(c);
+  pnResumoTopo();
+}
+function cliResumoTopo(list) {
+  const el = document.getElementById('cli-resumo');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = ''; return; }
+  const emRisco = list.filter(c => c.saude === 'amarelo' || c.saude === 'vermelho').length;
+  const vencidos = list.filter(c => (c.fase || 'implantacao') === 'implantacao' && c.previsaoPosImplantacao && diasAte(c.previsaoPosImplantacao) < 0).length;
+  const pend = list.reduce((t, c) => t + c.pendencias.filter(p => !p.feito).length, 0);
+  el.innerHTML = pnFaixaHtml([[list.length, list.length === 1 ? 'cliente' : 'clientes', 'destaque'], [emRisco, 'em atenção ou risco'], [vencidos, 'prazo vencido'], [pend, 'pendências abertas']], list);
+}
+
 function renderPendencias() {
   const container = document.getElementById('pendencias-cards-wrap');
   const search = document.getElementById('pend-search-input').value.toLowerCase();
@@ -3759,28 +3836,16 @@ function renderPendencias() {
 
   garantirLicencasErp();
   const today = todayStr();
+  pendListaAtual = clientesOrdenados;
   container.innerHTML = clientesOrdenados.map(c => `
-    <div class="pendencia-card">
-      <div class="pendencia-card-header">
-        <div class="pend-card-esq">
-          <span class="cc-ini">${inicialDe(c.nome)}</span>
-          <div class="pend-card-esq-txt">
-            <div class="pendencia-card-nome">${c.codigo ? `<span class="codigo-tag">${escapeHtml(c.codigo)}</span>` : ''}${escapeHtml(c.nome)}</div>
-            <div class="pca-sub">
-              ${(ct => ct ? `<div class="pca-linha pca-cobrar" title="Contato principal do cliente: é com quem falamos e cobramos${ct.telefone ? ' · ' + escapeHtml(ct.telefone) : ''}"><span class="pca-rot">Contato</span><b>${escapeHtml(ct.nome)}</b>${ct.cargo ? `<span class="pca-cargo">${escapeHtml(ct.cargo)}</span>` : ''}</div>` : '<div class="pca-linha pca-cobrar" title="Sem contato principal: abra o cadastro do cliente e marque a ★ em um contato"><span class="pca-rot">Contato</span><b>—</b></div>')((c.contatos || []).find(x => x.principal))}
-              <div class="pca-linha"><span class="pca-rot">Analista</span><b>${c.analistaResponsavel ? escapeHtml(c.analistaResponsavel) : '—'}</b></div>
-              ${prazoLinhaHtml(c)}
-            </div>
-          </div>
-        </div>
-        <div class="pendencia-card-analista">
+    <div class="pendencia-card pn-card" style="--ac:${pnSaudeInfo(c)[0]}">
+      ${pnBannerHtml(c)}
+      <div class="pn-corpo">
+      <div class="bk-ana-topo" id="pn-anel-${c.id}">${pnAnelHtml(c)}</div>
+      ${pnTilesHtml(c)}
+        <div class="pendencia-card-analista pn-info">
           ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : ((licencasErp && licencasErp.length) || licencasErpErro || licencasErroAtivas ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${licencasErpErro ? 'Erro ao ler o ERP: ' + escapeHtml(licencasErpErro) : 'Sem vínculo com o ERP: clique para ver como ligar'}">—</button></div>` : ''))(licencasInfo(c))}
         </div>
-        <div style="display:flex;align-items:center;gap:4px;">
-          <span class="pendencia-card-count" id="pgeral-count-${c.id}" style="display:none;"></span>
-          <button class="icon-btn" onclick="copiarPendenciasCliente('${c.id}')" title="Copiar pendências pra colar no WhatsApp ou e-mail">📋</button>
-        </div>
-      </div>
       ${(() => {
         const prazoHtml = '';  // os dias de implantação agora ficam sob o nome do cliente (prazoLinhaHtml)
         const agHtml = agendamentoPendenciaHtml(c, today);
@@ -3822,9 +3887,11 @@ function renderPendencias() {
         <textarea id="pgeral-obs-${c.id}" rows="2" placeholder="Digite e aperte Enter para registrar (Shift+Enter pula linha). Fica no Histórico do cadastro." onkeydown="obsDiaTecla(event, '${c.id}')"></textarea>
       </div>
     </div>
+      </div>
   `).join('');
 
   clientesOrdenados.forEach(c => renderPendListGeral(c));
+  pnResumoTopo();
 }
 
 function renderPendListGeral(c) {
@@ -3852,6 +3919,7 @@ function renderPendListGeral(c) {
     countEl.textContent = `${abertos} aberta${abertos === 1 ? '' : 's'}`;
     countEl.style.display = abertos ? '' : 'none';
   }
+  pnAtualizarCard(c);
 }
 
 async function addPendenciaGeral(clienteId, tipo) {
@@ -8577,6 +8645,55 @@ function scrumBaixarPDF() {
 }
 </script>
 
+<style id="visual-v7-css">
+  /* Visual v7 — Pendências e Clientes no estilo do Backlog (faixa de resumo, banner pela saúde, anel, quadrinhos) */
+  .pn-faixa { margin: 0 0 14px; }
+  .pendencias-cards-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr)); gap: 16px; align-items: start; }
+  .pendencia-card.pn-card { --ac: #14B8A6; padding: 0; overflow: hidden; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
+  .pendencia-card.pn-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .pn-banner { background: linear-gradient(135deg, var(--ac), #021F33 135%); background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 45%, #021F33)); }
+  .pn-banner .bk-ana-nome { flex: 1; }
+  .pn-banner .bk-ana-nome b { font-size: 16px; }
+  .pn-cod { font-size: 11px; font-weight: 600; opacity: .75; }
+  .pn-saude { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .pn-saude i { width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+  .pn-copiar { flex: none; border: 0; border-radius: 8px; background: rgba(255,255,255,.2); color: #fff; padding: 5px 8px; font-size: 14px; cursor: pointer; }
+  .pn-copiar:hover { background: rgba(255,255,255,.34); }
+  .pn-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 18px 16px; }
+  .pn-ring { width: 92px; height: 92px; }
+  .pn-ring .bk-ring-in { width: 64px; height: 64px; }
+  .pn-ring .bk-ring-in b { font-size: 26px; }
+  .pn-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .pn-mini .bk-ana-tile b { font-size: 22px; }
+  .pn-mini .bk-ana-tile b.al { color: #F87171; }
+  .pn-mini .bk-ana-tile b.am { color: #F59E0B; }
+  .pn-mini .bk-ana-tile b.ok { color: #22C55E; }
+  .pn-info.pendencia-card-analista { max-width: none; margin: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 18px; white-space: normal; padding: 8px 12px; border-radius: 12px; background: rgba(127,127,127,.08); }
+  .pn-info.pendencia-card-analista:not(:has(*)) { display: none; }
+  .pn-corpo .pend-linha-info { margin-bottom: 0; }
+  .pn-corpo .pend-obs-dia { margin-top: auto; border-top: 2px solid var(--border-light, rgba(127,127,127,.25)); padding-top: 12px; }
+  .pn-corpo .pend-cols .pend-col h4 { display: flex; align-items: center; gap: 6px; }
+  .pn-corpo .pend-item { border-left: 3px solid #F59E0B; border-radius: 10px; background: rgba(127,127,127,.08); }
+  .pn-corpo .pend-col.rscrm .pend-item { border-left-color: #2F80ED; }
+  @media (prefers-reduced-motion: reduce) { .pendencia-card.pn-card, .client-card { transition: none; } .pendencia-card.pn-card:hover, .client-card:hover { transform: none; } }
+
+  /* Clientes: linhas em forma de cartão, cor da etapa, saúde, prazo com barra e pendências em selos */
+  .clients-table tbody tr td { background: var(--white); transition: background .12s; }
+  .clients-table tbody tr:hover { outline: none; }
+  .clients-table tbody tr:hover td { background: rgba(127,127,127,.14); }
+  .clients-table tbody tr td:first-child { box-shadow: inset 4px 0 0 var(--ac, transparent); }
+  .clients-table .cc-ini { border-radius: 50%; background: color-mix(in srgb, var(--ac, #14B8A6) 22%, transparent); border: 2px solid var(--ac, #14B8A6); color: var(--text-main); }
+  .clients-table .saude-badge .dot { box-shadow: 0 0 0 3px rgba(127,127,127,.25); }
+  .cl-barra { margin: 6px 0 0; width: 120px; }
+  .cl-pend { display: inline-flex; gap: 5px; }
+  .cl-pend span { min-width: 26px; text-align: center; padding: 2px 8px; border-radius: 8px; font-weight: 800; font-size: 12.5px; }
+  .cl-pend .c { background: rgba(245,158,11,.16); color: #D97706; }
+  .cl-pend .r { background: rgba(47,128,237,.16); color: #2563EB; }
+  .cl-pend .z { opacity: .4; }
+  .client-card.entidade-card { border-top: 4px solid var(--ac, var(--border-light)); transition: transform .18s, box-shadow .18s; }
+  .client-card.entidade-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .client-card .cc-ini { border-radius: 50%; background: color-mix(in srgb, var(--ac, #14B8A6) 22%, transparent); border: 2px solid var(--ac, #14B8A6); color: var(--text-main); }
+</style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
   .bk-sub { margin: 0; font-size: 12.5px; color: var(--gray-text); line-height: 1.5; max-width: 760px; }
