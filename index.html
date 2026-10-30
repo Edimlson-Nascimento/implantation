@@ -8732,6 +8732,21 @@ function scrumBaixarPDF() {
   .bk-meta:hover .bk-como { display: block; }
   .bk-como b { color: #fff; }
   .bk-fluxo.uma { white-space: nowrap; font-size: clamp(10px, 3.5cqw, 12.5px); }
+  /* cartões de Tickets / Atividades no visual dos analistas */
+  .bk-card { --ac: #14B8A6; padding: 0 0 16px; overflow: hidden; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .18s, box-shadow .18s; }
+  .bk-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .bk-card > div { margin-left: 18px; margin-right: 18px; }
+  .bk-card > .bk-ana-banner { margin: 0; }
+  .bk-card .bk-ana-av { font-size: 22px; }
+  .bk-ana-tile.bk-meta { margin-top: 0; font-size: inherit; line-height: 1.1; cursor: help; }
+  .bk-ana-tile.bk-meta .bk-como { text-align: left; }
+  .bk-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bk-pills span { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .bk-pills .ruim { background: rgba(239,68,68,.14); color: #F87171; }
+  .bk-pills .bom { background: rgba(34,197,94,.14); color: #22C55E; }
+  .bk-pills .am { background: rgba(245,158,11,.16); color: #F59E0B; }
+  .bk-secao > .bk-eq { margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .bk-card { transition: none; } .bk-card:hover { transform: none; } }
 </style>
 <script>
 // Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento, com a evolução.
@@ -8881,29 +8896,37 @@ function bkEvoHtml(e, verbo) {
     + (e.tempo !== null ? ' · levaram em média <b>' + bkMedio(e.tempo) + '</b> para sair' : '') + '</div>';
   return '<div><div class="bk-sec">Em aberto no fim de cada ' + unidade + '</div>' + barras + fluxo + '</div>';
 }
-function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml) {
+const BK_ICO = { implantacao: '🛠️', atendimento: '🎧', interno: '🏢' };
+function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml, totalSecao) {
   const r = bkResumo(itens);
   bkRegistro[(tipo || 'x') + ':' + g.k] = itens;
   if (tipo === 'ticket') r.faixas.forEach((f, k) => { f.cor = BK_PALETA_TICKET[k]; });
-  const topo = '<div class="bk-card-top"><i style="background:' + g.cor + '"></i>' + escapeHtml(g.nome) + '</div>';
-  const evoHtml = (mesesHtml || '') + (evo ? bkEvoHtml(evo, verbo) : '');
-  if (!r.total) return '<div class="bk-card">' + topo + '<div class="bk-total">0</div><div class="bk-vazio">Nada em aberto.</div><div></div><div>' + (mesesHtml || '') + '</div><div>' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div><div></div><div></div><div></div></div>';
-  const barra = '<div class="bk-bar">' + r.faixas.filter(f => f.n).map(f => '<i title="' + f.nome + ': ' + f.n + '" style="flex:' + f.n + ';background:' + f.cor + '"></i>').join('') + '</div>'
-    + '<div class="bk-leg">' + r.faixas.map(f => '<span><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div>';
-  const lista = (arr, max, campo) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li class="bk-clic" title="Ver a lista" data-t="' + (tipo || 'x') + '" data-g="' + g.k + '" data-c="' + campo + '" data-v="' + escapeHtml(k) + '" onclick="bkAbrirLista(this)"><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + (arr.length > max ? '<li><span>… e mais ' + (arr.length - max) + '</span></li>' : '') + '</ul>';
+  const cor = g.k === 'interno' ? '#64748B' : g.cor;
+  const unid = tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades');
+  const pct = totalSecao ? Math.round(r.total / totalSecao * 100) : 0;
+  const topo = '<div class="bk-ana-banner" style="--ac:' + cor + '"><span class="bk-ana-av">' + (BK_ICO[g.k] || '•') + '</span><div class="bk-ana-nome"><b>' + escapeHtml(g.nome) + '</b><small>' + (tipo === 'ticket' ? 'tickets do ERP' : 'atividades do painel') + '</small></div><span class="bk-ana-share" title="Parte do total em aberto">' + pct + '% do total</span></div>';
+  let acc = 0; const st = [];
+  r.faixas.forEach(f => { if (!f.n) return; st.push(f.cor + ' ' + (acc / r.total * 360) + 'deg ' + ((acc + f.n) / r.total * 360) + 'deg'); acc += f.n; });
+  const fundo = r.total ? 'conic-gradient(' + st.join(',') + ')' : 'rgba(127,127,127,.22)';
+  const anel = '<div class="bk-ana-topo"><div class="bk-ring" style="background:' + fundo + '" title="Idade dos itens em aberto"><div class="bk-ring-in"><b>' + r.total + '</b><small>em aberto</small></div></div>'
+    + '<div class="bk-ana-leg">' + r.faixas.map(f => '<span class="bk-ana-chip' + (f.n ? '' : ' zero') + '"><i style="background:' + f.cor + '"></i>' + f.nome + '<b>' + f.n + '</b></span>').join('') + '</div></div>';
+  const tiles = '<div class="bk-ana-tiles" style="--ac:' + cor + '">'
+    + '<div class="bk-ana-tile bk-meta"><b>' + bkMedio(r.medio) + '</b><span>idade média</span>' + (r.total ? '<div class="bk-como">Soma dos dias (<b>' + r.soma + ' d</b>)<br>÷ ' + r.total + ' ' + unid + ' = <b>' + bkMedio(r.medio) + '</b></div>' : '') + '</div>'
+    + '<div class="bk-ana-tile"><b>' + (r.total ? r.maisAntigo + ' d' : '—') + '</b><span>mais antigo</span></div>'
+    + '<div class="bk-ana-tile"><b' + (r.velhos15 ? ' style="color:#F87171"' : '') + '>' + r.velhos15 + '</b><span>há +15 dias</span></div></div>';
+  const pills = '<div class="bk-pills">' + (r.total ? (r.velhos15 ? '<span class="ruim">⚠ ' + r.velhos15 + ' há mais de 15 dias</span>' : '<span class="bom">✓ nenhum há mais de 15 dias</span>') : '<span class="bom">✓ nada em aberto</span>')
+    + (r.impedidos ? '<span class="am">⏸ ' + r.impedidos + ' aguardando cliente</span>' : '') + '</div>';
+  const lista = (arr, max, campo) => '<ul class="bk-lista' + (tipo === 'ticket' ? ' inline' : '') + '">' + arr.slice(0, max).map(([k, n]) => '<li class="bk-clic" title="Ver a lista" data-t="' + (tipo || 'x') + '" data-g="' + g.k + '" data-c="' + campo + '" data-v="' + escapeHtml(k) + '" onclick="bkAbrirLista(this)"><span>' + escapeHtml(k) + '</span><b>' + n + '</b></li>').join('') + '</ul>';
   const antigos = '<ul class="bk-lista">' + r.antigos.map(i => '<li><span>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(bkCorta(i.cliente, 22)) + (i.titulo ? ' — ' + escapeHtml(bkCorta(i.titulo, 60)) : '') + '</span><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></li>').join('') + '</ul>';
-  return '<div class="bk-card">' + topo
-    + '<div class="bk-total">' + r.total + '<small>em aberto</small></div>'
-    + '<div class="bk-meta">Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>'
-    + (r.velhos15 ? '<span class="ruim">' + r.velhos15 + ' há mais de 15 dias</span>' : 'Nenhum há mais de 15 dias')
-    + (r.impedidos ? ' · ' + r.impedidos + ' aguardando cliente' : '')
-    + '<div class="bk-como">Soma dos dias (<b>' + r.soma + ' d</b>)<br>÷ ' + r.total + ' ' + (tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades')) + ' = <b>' + bkMedio(r.medio) + '</b></div></div>'
-    + '<div>' + barra + '</div>'
+  return '<div class="bk-card" style="--ac:' + cor + '">' + topo
+    + '<div>' + anel + '</div>'
+    + tiles
+    + '<div>' + pills + '</div>'
     + '<div class="bk-bloco">' + (mesesHtml || '') + '</div>'
     + '<div class="bk-bloco">' + (evo ? bkEvoHtml(evo, verbo) : '') + (semanasHtml || '') + '</div>'
-    + '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999, 'sit') + '</div>'
-    + '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999, 'pessoa') + '</div>'
-    + '<div class="bk-bloco"><div class="bk-sec">Mais antigos</div>' + antigos + '</div>'
+    + (r.total ? '<div class="bk-bloco"><div class="bk-sec">Por situação</div>' + lista(r.porSit, 999, 'sit') + '</div>' : '<div></div>')
+    + (r.total ? '<div class="bk-bloco"><div class="bk-sec">Por responsável</div>' + lista(r.porPessoa, 999, 'pessoa') + '</div>' : '<div></div>')
+    + (r.total ? '<div class="bk-bloco"><div class="bk-sec">Mais antigos</div>' + antigos + '</div>' : '<div></div>')
     + '</div>';
 }
 
@@ -9044,6 +9067,14 @@ async function bkCarregarMensal() {
 }
 
 // itens = em aberto agora; hist = todos (abertos e já saídos) com criado/fechado, ou null se não há histórico
+function bkFaixaResumo(itens) {
+  const rr = bkResumo(itens);
+  const kp = (v, l, c) => '<div class="bk-eq-kpi ' + (c || '') + '"><b>' + v + '</b><span>' + l + '</span></div>';
+  const porG = BK_GRUPOS.map(g => ({ g, n: itens.filter(i => i.grupo === g.k).length }));
+  return '<div class="bk-eq">' + kp(itens.length, 'em aberto no total', 'destaque') + kp(bkMedio(rr.medio), 'idade média') + kp(itens.length ? bkDias(rr.maisAntigo) : '—', 'mais antigo') + kp(rr.velhos15, 'há mais de 15 dias')
+    + '<div class="bk-eq-bar">' + porG.filter(x => x.n).map(x => '<i style="flex:' + x.n + ';background:' + x.g.cor + '" title="' + x.g.nome + ' · ' + x.n + '"></i>').join('') + '</div>'
+    + '<div class="bk-eq-leg">' + porG.map(x => '<span><i style="background:' + x.g.cor + '"></i>' + x.g.nome + ' <b>' + x.n + '</b></span>').join('') + '</div></div>';
+}
 function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, rotuloFechado, tipo, linhasSem) {
   const pm = (linhasMes || []).reduce((m, l) => (!m || l.mes < m ? l.mes : m), null);
   const primeiro = bkPrimeiroDia(hist || [], pm ? pm + '-01' : null);
@@ -9051,11 +9082,11 @@ function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, ro
   const cards = BK_GRUPOS.map(g => {
     const doGrupo = itens.filter(i => i.grupo === g.k);
     const evo = hist && mostrarEvo ? bkEvoCalc(hist.filter(i => i.grupo === g.k), inicio, doGrupo.length, primeiro) : null;
-    return bkCard(g, doGrupo, evo, verbo, bkMesesHtml(linhasMes, g.k, rotuloFechado), tipo, linhasSem ? bkSemanasHtml(linhasSem, g.k, rotuloFechado) : '');
+    return bkCard(g, doGrupo, evo, verbo, bkMesesHtml(linhasMes, g.k, rotuloFechado), tipo, linhasSem ? bkSemanasHtml(linhasSem, g.k, rotuloFechado) : '', itens.length);
   }).join('');
   return '<div class="bk-secao"><h3 class="bk-secao-tit">' + titulo + '<small>' + itens.length + ' em aberto no total</small></h3>'
     + '<p class="bk-fonte">' + fonte + '</p>' + (aviso ? '<div class="bk-aviso">' + aviso + '</div>' : '')
-    + '<div class="bk-grid">' + cards + '</div></div>';
+    + bkFaixaResumo(itens) + '<div class="bk-grid">' + cards + '</div></div>';
 }
 
 // null = os tickets já podem ser mostrados; senão, o texto explicando o motivo
