@@ -8951,7 +8951,7 @@ function renderBacklog() {
         : (bkSemanalSemFn ? 'Para ver o gráfico <b>Criados por semana</b>, publique a versão nova da função <b>tickets-erp</b> no Supabase (Edge Functions → tickets-erp → Code → colar o index.ts → Deploy).' : ''));
     tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
-  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade', bkLinhasSemAtividades());
+  const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
   el.innerHTML = tickets + ativ;
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
