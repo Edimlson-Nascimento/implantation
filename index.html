@@ -1587,8 +1587,8 @@
         </select>
         <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
       </div>
-      <div class="rp-grid" id="resumo-painel"></div>
-      <div class="resumo-pre" id="resumo-texto"></div>
+      <div id="resumo-painel" class="v8-resumo"></div>
+      <div class="v8-bloco v8-texto" style="--ac:#64748B"><div class="bk-ana-banner"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">📝</span><div class="bk-ana-nome"><b>Texto para copiar</b><small>pronto para colar no WhatsApp ou e-mail</small></div></div><div class="v8-corpo"><div class="resumo-pre" id="resumo-texto"></div></div></div>
     </div>
   </section>
 
@@ -1698,6 +1698,7 @@
           <button class="btn btn-green btn-sm" onclick="openAgendamentoModal(null)">+ Novo Agendamento</button>
         </div>
       </div>
+      <div id="ag-resumo" style="margin-top:14px;"></div>
       <div class="pessoa-filter" id="pessoa-filter-agenda" style="margin-top:14px;"></div>
       <div class="ag-filtro-data" id="ag-filtro-data">
         <span style="font-size:12px;color:var(--gray-text);font-weight:600;">Período</span>
@@ -4487,23 +4488,34 @@ function renderResumoPainel(dia, concluidosHoje, ehHoje) {
     n: concluidosHoje.filter(a => new Set([a.responsavel, ...(a.participantes || [])]).has(nome)).length
   }));
 
-  el.innerHTML = `
-    <div class="rp-tile rp-hero">
-      <h3>Concluídas ${ehHoje ? 'hoje' : 'no dia'} <span>de ${total} entre em andamento e prontas</span></h3>
-      <div class="rp-linha"><div class="rp-big">${concluidosHoje.length}<small>/ ${total}</small></div><div class="rp-ring" style="--p:${pct}"><b>${pct}%</b></div></div>
-    </div>
-    <div class="rp-tile rp-agenda">
-      <h3>Agenda do dia <span>${ags.length} compromisso${ags.length === 1 ? '' : 's'}</span></h3>
-      ${agHtml}
-    </div>
-    <div class="rp-tile rp-fila">
-      <h3>Fila atual <span>abertas agora</span></h3>
-      ${raiasAbertasAtivas().map(r => `<div class="rp-num"><span>${escapeHtml(raiaNomeCurto(r.id))}</span><b>${abertas(r.id).length}</b></div>`).join('')}
-    </div>
-    <div class="rp-tile rp-pessoa">
-      <h3>Entregas por pessoa <span>concluídas ${ehHoje ? 'hoje' : 'no dia'}</span></h3>
-      ${porPessoa.map(p => `<div class="rp-num"><span style="display:flex;align-items:center;gap:8px;">${avatarHtml(p.nome)}${escapeHtml(p.nome)}</span><b>${p.n}</b></div>`).join('')}
-    </div>`;
+  const CORES_PESSOA = ['#2F80ED', '#8B5CF6', '#F59E0B', '#EC4899', '#84CC16', '#0EA5E9'];
+  const nConc = concluidosHoje.length;
+  const quando = ehHoje ? 'hoje' : 'no dia';
+  const ang = pct * 3.6;
+  const fundo = total ? 'conic-gradient(#22C55E 0deg ' + ang + 'deg, #F59E0B ' + ang + 'deg 360deg)' : 'rgba(127,127,127,.22)';
+  const porEmpresa = new Map();
+  concluidosHoje.forEach(a => { const e = a.clienteNome || 'Sem empresa'; if (!porEmpresa.has(e)) porEmpresa.set(e, []); porEmpresa.get(e).push(a); });
+  const empresasHtml = [...porEmpresa.entries()].sort((x, y) => x[0].localeCompare(y[0])).map(([emp, lista]) =>
+    '<div class="v8-emp"><b>🏢 ' + escapeHtml(emp) + '</b>' + lista.map(a => '<div><i>' + escapeHtml(((a.participantes && a.participantes.length) ? a.participantes : [a.responsavel]).join(', ')) + '</i> — ' + escapeHtml(a.titulo) + (a.resolucao ? '<br>✔ ' + escapeHtml(a.resolucao) : '') + '</div>').join('') + '</div>').join('');
+  const agItens = ags.length ? ags.map(a => '<div class="v8-item' + (a.feito ? ' feito' : '') + '" style="--tc:' + corDoTipo(a.tipo) + '"><div class="v8-hora">' + (a.hora || '—') + '</div><div><h5>' + escapeHtml(a.titulo) + '</h5><div class="v8-chips">' + ((a.clienteNome || (a.clienteId && (state.clients.find(c => c.id === a.clienteId) || {}).nome)) ? '<span class="v8-chip lead">' + escapeHtml(a.clienteNome || (state.clients.find(c => c.id === a.clienteId) || {}).nome) + '</span>' : '') + '</div></div><div class="v8-quem">' + (a.responsavel ? avatarHtml(a.responsavel) : '') + '</div></div>').join('') : '<div class="v8-vazio">Nenhum compromisso nesse dia.</div>';
+  const filaTotal = raiasAbertasAtivas().reduce((s, r) => s + abertas(r.id).length, 0);
+  const maxP = Math.max(1, ...porPessoa.map(p => p.n));
+  const bloco = (cor, ico, titulo, sub, dir, corpo) => '<div class="v8-bloco" style="--ac:' + cor + '"><div class="bk-ana-banner"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">' + ico + '</span><div class="bk-ana-nome"><b>' + titulo + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' + (dir ? '<span class="bk-ana-share">' + dir + '</span>' : '') + '</div><div class="v8-corpo">' + corpo + '</div></div>';
+  el.innerHTML = v7FaixaHtml(
+    [[nConc + '/' + total, 'concluídas ' + quando, 'destaque'], [ags.length, 'compromissos na agenda'], [filaTotal, 'atividades em fila'], [porEmpresa.size, 'empresas atendidas']],
+    porPessoa.filter(p => p.n).map((p, i) => [p.n, CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length], p.nome]),
+    porPessoa.map(p => [CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length], p.nome, p.n]),
+    'v7-compacta') +
+    '<div class="v8-cols">'
+    + bloco('#22C55E', '✅', 'Concluídas ' + quando, 'de ' + total + ' entre em andamento e prontas', pct + '%',
+      '<div class="bk-ana-topo"><div class="bk-ring" style="background:' + fundo + '"><div class="bk-ring-in"><b>' + nConc + '</b><small>de ' + total + '</small></div></div>'
+      + '<div class="bk-ana-leg"><span class="bk-ana-chip"><i style="background:#22C55E"></i>Concluídas<b>' + nConc + '</b></span><span class="bk-ana-chip' + (nAndamento ? '' : ' zero') + '"><i style="background:#F59E0B"></i>Em andamento<b>' + nAndamento + '</b></span></div></div>'
+      + empresasHtml)
+    + bloco('#3B82F6', '📅', 'Agenda do dia', '', ags.length + ' compromisso' + (ags.length === 1 ? '' : 's'), agItens)
+    + '</div><div class="v8-cols">'
+    + bloco('#F59E0B', '📋', 'Fila atual', 'abertas agora', '', '<div class="v8-raias">' + raiasAbertasAtivas().map(r => '<div class="v8-raia" style="--rc:' + (KC_CORES[r.id] || '#94A3B8') + '"><b>' + abertas(r.id).length + '</b><span>' + escapeHtml(raiaNomeCurto(r.id)) + '</span></div>').join('') + '</div>')
+    + bloco('#8B5CF6', '👥', 'Entregas por pessoa', 'concluídas ' + quando, '', porPessoa.map(p => '<div class="v8-barra"><span style="display:flex;align-items:center;gap:8px">' + avatarHtml(p.nome) + escapeHtml(p.nome) + '</span><div class="tr"><i style="width:' + Math.round(p.n / maxP * 100) + '%;background:' + CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length] + '"></i></div><b>' + p.n + '</b></div>').join(''))
+    + '</div>';
 }
 
 function copyResumo() {
@@ -5824,9 +5836,35 @@ function atualizarFiltroDataAg() {
     : formatDate(r.ini).slice(0, 5) + ' a ' + formatDate(r.fim).slice(0, 5) + '/' + r.fim.slice(0, 4);
 }
 
+// ── Visual v7 na Agenda: faixa de resumo e cada dia como cartão com banner (2026-10-30)
+function agDiaBannerHtml(dia, n, hoje) {
+  let nome = new Date(dia + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' });
+  nome = nome.charAt(0).toUpperCase() + nome.slice(1);
+  const data = new Date(dia + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  return '<div class="bk-ana-banner ag-banner"><span class="bk-ana-av">📅</span><div class="bk-ana-nome"><b>' + (hoje ? 'Hoje · ' : '') + escapeHtml(nome) + '</b><small>' + escapeHtml(data) + '</small></div>'
+    + '<span class="bk-ana-share">' + n + ' ' + (n === 1 ? 'compromisso' : 'compromissos') + '</span></div>';
+}
+function agResumoTopo() {
+  const el = document.getElementById('ag-resumo');
+  if (!el) return;
+  const hoje = todayStr(), fim = addDays(hoje, 6);
+  const base = agendamentos.filter(a => pessoaFiltro === 'Todos' || a.responsavel === pessoaFiltro || (a.participantes && a.participantes.includes(pessoaFiltro)));
+  const abertos = base.filter(a => !a.feito && a.data >= hoje);
+  const prox7 = abertos.filter(a => a.data <= fim);
+  const porTipo = new Map();
+  prox7.forEach(a => porTipo.set(a.tipo, (porTipo.get(a.tipo) || 0) + 1));
+  const tipos = [...porTipo.entries()].sort((x, y) => y[1] - x[1]);
+  el.innerHTML = v7FaixaHtml(
+    [[base.filter(a => a.data === hoje).length, 'compromissos hoje', 'destaque'], [prox7.length, 'nos próximos 7 dias'], [abertos.filter(a => a.outlookUid).length, 'vindos do Outlook'], [abertos.filter(a => a.reagendadoDe).length, 'reagendados'], [abertos.filter(a => !a.clienteId && a.clienteNome).length, 'com leads']],
+    tipos.map(([id, n]) => [n, corDoTipo(id), TIPO_LABEL[id] || 'Outro']),
+    tipos.map(([id, n]) => [corDoTipo(id), TIPO_LABEL[id] || 'Outro', n]),
+    'v7-compacta');
+}
+
 function renderCalendario() {
   renderPessoaFilterInto('pessoa-filter-agenda');
   atualizarFiltroDataAg();
+  agResumoTopo();
   const showConcluidos = document.getElementById('show-concluidos-agenda').checked;
   const containerId = calendarioView === 'cards' ? 'calendario-cards-wrap' : calendarioView === 'mensal' ? 'calendario-mensal-wrap' : 'calendario-list';
   const container = document.getElementById(containerId);
@@ -5883,7 +5921,7 @@ function renderCalendario() {
           </div>
         `;
       }).join('');
-      return `<div class="agenda-cards-group">${rotuloDiaAgenda(data, grupos[data].length, isHoje)}<div class="agenda-cards-grid">${cards}</div></div>`;
+      return `<div class="agenda-cards-group ag-dia ${isHoje ? 'hoje' : ''}">${agDiaBannerHtml(data, grupos[data].length, isHoje)}<div class="agenda-cards-grid">${cards}</div></div>`;
     }).join('');
   } else if (calendarioView === 'lista') {
     container.innerHTML = datasOrdenadas.map(data => {
@@ -5906,7 +5944,7 @@ function renderCalendario() {
           </div>
         `;
       }).join('');
-      return `<div class="agenda-dia-grupo" style="margin-bottom:18px;">${rotuloDiaAgenda(data, grupos[data].length, isHoje)}<div class="calendario-items" style="display:grid;gap:8px;margin-top:8px;">${itens}</div></div>`;
+      return `<div class="agenda-dia-grupo ag-dia ${isHoje ? 'hoje' : ''}">${agDiaBannerHtml(data, grupos[data].length, isHoje)}<div class="calendario-items">${itens}</div></div>`;
     }).join('');
   } else if (calendarioView === 'mensal') {
     const [y, m] = calendarioMesRef.split('-').map(Number);
@@ -8799,6 +8837,49 @@ function scrumBaixarPDF() {
   .v7-ind-corpo .num { font-size: 40px; line-height: 1; }
   .v7-ind-corpo .sub { margin-top: 8px; }
   @media (prefers-reduced-motion: reduce) { .ind-card.v7-ind { transition: none; } .ind-card.v7-ind:hover { transform: none; } }
+</style>
+<style id="visual-v7c-css">
+  /* Visual v7 — Agenda e Resumo do Dia */
+  #calendario-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  #calendario-list > .empty-state { grid-column: 1 / -1; }
+  @media (max-width: 1100px) { #calendario-list { grid-template-columns: minmax(0, 1fr); } }
+  .ag-dia { --ac: #64748B; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin: 0 !important; }
+  .ag-dia.hoje { --ac: #16A34A; }
+  .ag-dia > .calendario-items { display: flex !important; flex-direction: column; gap: 8px !important; margin: 0 !important; padding: 12px; }
+  .ag-dia > .agenda-cards-grid { padding: 12px; }
+  .ag-dia .ag-item { background: rgba(127,127,127,.07); box-shadow: inset 5px 0 0 var(--c, #64748B); border: 0; border-left: 0; padding: 9px 12px 9px 16px; }
+  .ag-dia .ag-item:hover { background: rgba(127,127,127,.14); }
+  .ag-dia .ag-item .ag-hora { text-align: center; padding: 6px 0; border-radius: 10px; background: color-mix(in srgb, var(--c, #64748B) 20%, transparent); font-size: 16px; }
+  .ag-dia .ag-item .ag-hora { min-width: 0; }
+  #calendario-cards-wrap { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+
+  .v8-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+  @media (max-width: 1000px) { .v8-cols { grid-template-columns: minmax(0, 1fr); } }
+  .v8-resumo { margin-top: 14px; }
+  .v8-bloco { --ac: #3B82F6; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); min-width: 0; }
+  .v8-corpo { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .v8-corpo .resumo-pre { margin: 0; }
+  .v8-bloco.v8-texto { margin-top: 0; }
+  .v8-emp { padding: 10px 12px; border-radius: 12px; background: rgba(127,127,127,.07); border-left: 4px solid #22C55E; }
+  .v8-emp b { display: block; font-size: 13.5px; color: var(--text-main); margin-bottom: 4px; }
+  .v8-emp div { font-size: 12.5px; color: var(--gray-text); line-height: 1.45; margin-top: 3px; }
+  .v8-emp div i { font-style: normal; color: var(--text-main); font-weight: 700; }
+  .v8-item { --tc: #3B82F6; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 12px 9px 16px; border-radius: 12px; background: rgba(127,127,127,.07); box-shadow: inset 5px 0 0 var(--tc); }
+  .v8-hora { text-align: center; padding: 6px 0; border-radius: 10px; background: color-mix(in srgb, var(--tc) 20%, transparent); font-weight: 800; font-size: 16px; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .v8-item.feito { opacity: .55; } .v8-item.feito h5 { text-decoration: line-through; }
+  .v8-item h5 { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; color: var(--text-main); }
+  .v8-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .v8-chip { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: rgba(127,127,127,.16); color: var(--text-main); }
+  .v8-chip.lead { background: rgba(245,158,11,.16); color: #F59E0B; }
+  .v8-quem { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--gray-text); }
+  .v8-vazio { font-size: 13px; color: var(--gray-text); padding: 6px 2px; }
+  .v8-raias { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .v8-raia { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--rc) 16%, transparent); border-left: 4px solid var(--rc); }
+  .v8-raia b { display: block; font-size: 26px; line-height: 1.1; color: var(--text-main); }
+  .v8-raia span { font-size: 12px; color: var(--gray-text); }
+  .v8-barra { display: grid; grid-template-columns: 110px 1fr 24px; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text-main); }
+  .v8-barra .tr { height: 9px; border-radius: 999px; background: rgba(127,127,127,.2); overflow: hidden; }
+  .v8-barra .tr i { display: block; height: 100%; border-radius: 999px; }
 </style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
