@@ -1705,6 +1705,7 @@
         <span style="font-size:12px;color:var(--gray-text);font-weight:600;">Período</span>
         <div class="view-toggle">
           <button class="view-toggle-btn active" id="ag-fd-tudo" onclick="setAgFiltroData('tudo')">Tudo</button>
+          <button class="view-toggle-btn" id="ag-fd-dia" onclick="setAgFiltroData('dia')">Dia</button>
           <button class="view-toggle-btn" id="ag-fd-semana" onclick="setAgFiltroData('semana')">Semana</button>
           <button class="view-toggle-btn" id="ag-fd-mes" onclick="setAgFiltroData('mes')">Mês</button>
         </div>
@@ -5834,17 +5835,20 @@ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho',
 let agFiltroModo = 'tudo', agFiltroRef = null;   // agFiltroRef = segunda da semana ou dia 1 do mês (AAAA-MM-DD)
 function agRefDeHoje(modo) {
   const h = todayStr();
+  if (modo === 'dia') return h;
   if (modo === 'semana') { const d = new Date(h + 'T00:00:00'); return addDays(h, -((d.getDay() + 6) % 7)); }
   return h.slice(0, 8) + '01';
 }
 function agIniFim() {
+  if (agFiltroModo === 'dia') return { ini: agFiltroRef, fim: agFiltroRef };
   if (agFiltroModo === 'semana') return { ini: agFiltroRef, fim: addDays(agFiltroRef, 6) };
   if (agFiltroModo === 'mes') { const [y, m] = agFiltroRef.split('-').map(Number); return { ini: agFiltroRef, fim: y + '-' + String(m).padStart(2, '0') + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0') }; }
   return null;
 }
 function setAgFiltroData(modo) { agFiltroModo = modo; agFiltroRef = modo === 'tudo' ? null : agRefDeHoje(modo); renderCalendario(); }
 function agMoverFiltro(dir) {
-  if (agFiltroModo === 'semana') agFiltroRef = addDays(agFiltroRef, 7 * dir);
+  if (agFiltroModo === 'dia') agFiltroRef = addDays(agFiltroRef, dir);
+  else if (agFiltroModo === 'semana') agFiltroRef = addDays(agFiltroRef, 7 * dir);
   else if (agFiltroModo === 'mes') { const [y, m] = agFiltroRef.split('-').map(Number); const d = new Date(y, m - 1 + dir, 1); agFiltroRef = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }
   renderCalendario();
 }
@@ -5855,11 +5859,11 @@ function agNoPeriodo(a) {
   return a.data >= r.ini && a.data <= r.fim;
 }
 function atualizarFiltroDataAg() {
-  ['tudo', 'semana', 'mes'].forEach(m => { const b = document.getElementById('ag-fd-' + m); if (b) b.classList.toggle('active', agFiltroModo === m); });
+  ['tudo', 'dia', 'semana', 'mes'].forEach(m => { const b = document.getElementById('ag-fd-' + m); if (b) b.classList.toggle('active', agFiltroModo === m); });
   const nav = document.getElementById('ag-fd-nav'); if (nav) nav.style.display = agFiltroModo === 'tudo' ? 'none' : '';
   const rot = document.getElementById('ag-fd-rotulo'); if (!rot) return;
   const r = agIniFim();
-  rot.textContent = !r ? '' : agFiltroModo === 'mes' ? MESES_PT[Number(r.ini.slice(5, 7)) - 1] + ' de ' + r.ini.slice(0, 4)
+  rot.textContent = !r ? '' : agFiltroModo === 'dia' ? (() => { const n = new Date(r.ini + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long' }); return (r.ini === todayStr() ? 'Hoje · ' : '') + n.charAt(0).toUpperCase() + n.slice(1) + ', ' + formatDate(r.ini); })() : agFiltroModo === 'mes' ? MESES_PT[Number(r.ini.slice(5, 7)) - 1] + ' de ' + r.ini.slice(0, 4)
     : formatDate(r.ini).slice(0, 5) + ' a ' + formatDate(r.fim).slice(0, 5) + '/' + r.fim.slice(0, 4);
 }
 
