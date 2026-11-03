@@ -8995,6 +8995,36 @@ function scrumBaixarPDF() {
   #modal-overlay .modal-footer { margin: 18px 0 0; padding: 14px 24px 18px; border-top: 1px solid var(--border-light, rgba(127,127,127,.25)); background: rgba(127,127,127,.05); }
   #modal-overlay #f-lic-erp-hint { margin-left: 0; margin-right: 0; }
 </style>
+<style id="bk-per-css">
+  /* Analistas: criados por período e por trimestre */
+  .bkp-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 6px; }
+  .bkp-datas { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--gray-text); }
+  .bkp-datas label { display: inline-flex; gap: 6px; align-items: center; }
+  .bkp-datas input[type=date] { padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light, rgba(127,127,127,.35)); background: var(--white); color: var(--text-main); font: inherit; }
+  .bkp-comp { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; font-size: 12.5px; color: var(--gray-text); cursor: pointer; }
+  .bkp-rot { margin: 0 0 10px; font-size: 12px; color: var(--gray-text); }
+  .bkp-wrap { overflow-x: auto; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .bkp-tab { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .bkp-tab th { padding: 10px 12px; text-align: right; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); white-space: nowrap; }
+  .bkp-tab th small { display: block; font-size: 10.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .bkp-tab td { padding: 10px 12px; text-align: right; border-top: 1px solid var(--border-light, rgba(127,127,127,.22)); color: var(--text-main); }
+  .bkp-tab th:first-child, .bkp-tab td:first-child { text-align: left; }
+  .bkp-tab tr.tot td { font-weight: 700; background: rgba(127,127,127,.08); }
+  .bkp-nome { --ac: #64748B; display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+  .bkp-nome i { width: 10px; height: 10px; border-radius: 50%; background: var(--ac); flex: none; }
+  .bkp-delta { display: block; font-size: 11px; font-weight: 500; color: var(--gray-text); white-space: nowrap; }
+  .bkp-fut { color: var(--gray-text); }
+  .bkp-cel { cursor: pointer; min-width: 92px; }
+  .bkp-cel:hover { background: rgba(127,127,127,.1); }
+  .bkp-cel.atual { background: rgba(59,130,246,.08); }
+  .bkp-mini { height: 5px; margin-top: 5px; border-radius: 3px; background: rgba(127,127,127,.2); overflow: hidden; }
+  .bkp-mini i { display: block; height: 100%; margin-left: auto; border-radius: 3px; background: var(--ac, #3B82F6); }
+  .bkp-tab tr:nth-child(1) .bkp-mini i { background: #2F80ED; } .bkp-tab tr:nth-child(2) .bkp-mini i { background: #8B5CF6; } .bkp-tab tr:nth-child(3) .bkp-mini i { background: #F59E0B; }
+  .bkp-tri-tit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 8px; }
+  .bkp-tri-tit .bk-sec { margin: 0; }
+  .bkp-ano { display: inline-flex; align-items: center; gap: 8px; }
+  .bkp-ano button:disabled { opacity: .4; cursor: default; }
+</style>
 <style id="backlog-css">
   .bk-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
   .bk-sub { margin: 0; font-size: 12.5px; color: var(--gray-text); line-height: 1.5; max-width: 760px; }
@@ -9542,6 +9572,147 @@ async function bkCarregarAnalistas() {
   if (activeTab === 'backlog') renderBacklog();
 }
 const BK_ANA_COR = { Edimilson: '#2F80ED', Jefferson: '#8B5CF6', Leandro: '#F59E0B' };
+// ── Analistas: criados por período (filtro) e por trimestre. Fica abaixo dos cartões, sem tirar nada deles.
+// Mesma fonte dos cartões: tickets do ERP por responsável (?desde=&ate=), contados pela data de CRIAÇÃO; a situação
+// (ainda aberto / fechado / cancelado) é a de HOJE, porque o ERP não guarda a data de fechamento.
+let bkPerModo = 'tri', bkPerDesde = '', bkPerAte = '', bkPerComp = false, bkPerAno = Number(todayStr().slice(0, 4));
+const BK_PER_ANO_MIN = 2025;   // o ERP tem tickets desde maio/2025
+const bkPerCache = new Map();  // 'desde|ate' -> { dados, erro, em, buscando }
+let bkPerFila = Promise.resolve(), bkPerTimer = null;
+const BK_PER_CHIPS = [['tri', 'Este trimestre'], ['tri-1', 'Trimestre anterior'], ['sem', 'Este semestre'], ['ano', 'Este ano'], ['custom', 'Período…']];
+const BK_TRI_MESES = ['jan–mar', 'abr–jun', 'jul–set', 'out–dez'];
+function bkMesesDeslocados(ds, k) {
+  let [y, m] = ds.split('-').map(Number);
+  m += k;
+  while (m < 1) { m += 12; y--; }
+  while (m > 12) { m -= 12; y++; }
+  return y + '-' + bkPad(m) + '-01';
+}
+function bkPerIntervalo() {
+  const hoje = todayStr(), [hy, hm] = hoje.split('-').map(Number);
+  const iniTri = hy + '-' + bkPad(Math.floor((hm - 1) / 3) * 3 + 1) + '-01';
+  let desde, ate = hoje, passo = 0;
+  if (bkPerModo === 'tri') { desde = iniTri; passo = 3; }
+  else if (bkPerModo === 'tri-1') { desde = bkMesesDeslocados(iniTri, -3); ate = addDays(iniTri, -1); passo = 3; }
+  else if (bkPerModo === 'sem') { desde = hy + (hm <= 6 ? '-01-01' : '-07-01'); passo = 6; }
+  else if (bkPerModo === 'ano') { desde = hy + '-01-01'; passo = 12; }
+  else { desde = bkPerDesde || iniTri; ate = bkPerAte || hoje; if (ate > hoje) ate = hoje; if (desde > ate) desde = ate; }
+  // período anterior de comparação: de mesmo tamanho; se o atual ainda está em curso, compara só o mesmo trecho já decorrido
+  let ant;
+  if (bkPerModo === 'custom') { const len = daysBetween(desde, ate), pa = addDays(desde, -1); ant = { desde: addDays(pa, -len), ate: pa }; }
+  else {
+    const pd = bkMesesDeslocados(desde, -passo), lim = addDays(desde, -1), fim = addDays(pd, daysBetween(desde, ate));
+    ant = { desde: pd, ate: ate === hoje ? (fim < lim ? fim : lim) : lim };
+  }
+  return { desde, ate, ant };
+}
+const bkPerVazio = () => ({ n: 0, classe: { implantacao: 0, base: 0, interno: 0 }, estado: { aberto: 0, fechado: 0, cancelado: 0 } });
+function bkPerGet(desde, ate) {
+  const key = desde + '|' + ate;
+  let e = bkPerCache.get(key);
+  if (!e) { e = { dados: null, erro: '', em: 0, buscando: false }; bkPerCache.set(key, e); }
+  if (!e.buscando && Date.now() - e.em > 120000) {
+    e.buscando = true;
+    bkPerFila = bkPerFila.then(async () => {   // uma consulta por vez, para não sobrecarregar o ERP
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(TICKETS_ERP_FN_URL + '?desde=' + desde + '&ate=' + ate, { headers: { Authorization: 'Bearer ' + session.access_token } });
+        const json = await res.json();
+        if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
+        if (!Array.isArray(json.linhas) || !json.periodo) throw new Error('a função tickets-erp publicada é antiga (não filtra por período): publique a versão atual');
+        const por = {};
+        tkPrepararLinhas(json.linhas).forEach(l => {
+          const p = por[l.pessoa] || (por[l.pessoa] = bkPerVazio()), n = Number(l.n) || 0;
+          p.n += n; p.classe[l.classe] = (p.classe[l.classe] || 0) + n; p.estado[l.grupo] = (p.estado[l.grupo] || 0) + n;
+        });
+        e.dados = por; e.erro = '';
+      } catch (err) { e.erro = (err && err.message) || String(err); }
+      e.em = Date.now(); e.buscando = false;
+      clearTimeout(bkPerTimer);
+      bkPerTimer = setTimeout(() => { if (activeTab === 'backlog' && bkAba === 'analistas') renderBacklog(); }, 0);
+    });
+  }
+  return e;
+}
+const bkPerDe = (e, nome) => (e && e.dados ? (e.dados[nome] || bkPerVazio()) : null);
+function bkPerEquipe(e) {
+  if (!e || !e.dados) return null;
+  const t = bkPerVazio();
+  BK_ANALISTAS.forEach(n => { const p = e.dados[n]; if (!p) return; t.n += p.n; for (const k in t.classe) t.classe[k] += p.classe[k] || 0; for (const k in t.estado) t.estado[k] += p.estado[k] || 0; });
+  return t;
+}
+function bkPerSet(m) { bkPerModo = m; if (m === 'custom' && !bkPerDesde) { const iv = bkPerIntervalo(); bkPerDesde = iv.desde; bkPerAte = iv.ate; } renderBacklog(); }
+function bkPerAplicar() {
+  const de = document.getElementById('bkp-de').value, ate = document.getElementById('bkp-ate').value;
+  if (!de || !ate) { alert('Informe as duas datas.'); return; }
+  if (de > ate) { alert('A data inicial não pode ser depois da final.'); return; }
+  bkPerDesde = de; bkPerAte = ate; bkPerModo = 'custom'; renderBacklog();
+}
+function bkPerComparar(on) { bkPerComp = !!on; renderBacklog(); }
+function bkPerAnoMuda(d) { bkPerAno = Math.min(Number(todayStr().slice(0, 4)), Math.max(BK_PER_ANO_MIN, bkPerAno + d)); renderBacklog(); }
+function bkPerTri(ano, q) {
+  const hoje = todayStr(), fim = bkUltimoDia(ano, q * 3 + 3);
+  bkPerDesde = ano + '-' + bkPad(q * 3 + 1) + '-01'; bkPerAte = fim > hoje ? hoje : fim; bkPerModo = 'custom'; renderBacklog();
+}
+function bkPeriodoHtml() {
+  const hoje = todayStr(), iv = bkPerIntervalo();
+  const e = bkPerGet(iv.desde, iv.ate), ea = bkPerComp ? bkPerGet(iv.ant.desde, iv.ant.ate) : null;
+  const dias = daysBetween(iv.desde, iv.ate) + 1, semanas = dias / 7;
+  const num = x => String(x.toFixed(1)).replace('.', ',');
+  const chips = BK_PER_CHIPS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPerModo === k ? ' active' : '') + '" onclick="bkPerSet(\'' + k + '\')">' + n + '</button>').join('');
+  const datas = bkPerModo === 'custom'
+    ? '<span class="bkp-datas"><label>De <input type="date" id="bkp-de" value="' + iv.desde + '" max="' + hoje + '"></label><label>até <input type="date" id="bkp-ate" value="' + iv.ate + '" max="' + hoje + '"></label><button class="view-toggle-btn" onclick="bkPerAplicar()">Aplicar</button></span>' : '';
+  const linhas = BK_ANALISTAS.map(n => ({ nome: n, cor: BK_ANA_COR[n], p: bkPerDe(e, n), a: bkPerDe(ea, n) }))
+    .concat([{ nome: 'Equipe', total: true, p: bkPerEquipe(e), a: bkPerEquipe(ea) }]);
+  const tr = r => {
+    const p = r.p, c = v => (p ? v : '…');
+    let crit = p ? '<b>' + p.n + '</b>' : '…';
+    if (p && r.a) { const d = p.n - r.a.n, pc = r.a.n ? Math.round(d / r.a.n * 100) : null; crit += '<small class="bkp-delta">antes ' + r.a.n + ' · ' + (d > 0 ? '+' : '') + d + (pc === null ? '' : ' (' + (d > 0 ? '+' : '') + pc + '%)') + '</small>'; }
+    return '<tr' + (r.total ? ' class="tot"' : '') + '><td><span class="bkp-nome"' + (r.cor ? ' style="--ac:' + r.cor + '"' : '') + '>' + (r.cor ? '<i></i>' : '') + escapeHtml(r.nome) + '</span></td>'
+      + '<td>' + crit + '</td><td>' + c(p && p.classe.implantacao) + '</td><td>' + c(p && p.classe.base) + '</td><td>' + c(p && p.classe.interno) + '</td>'
+      + '<td>' + c(p && p.estado.aberto) + '</td><td>' + c(p && p.estado.fechado) + '</td><td>' + c(p && p.estado.cancelado) + '</td>'
+      + '<td>' + (p ? (dias >= 7 ? num(p.n / semanas) : '—') : '…') + '</td></tr>';
+  };
+  const erro = !e.dados && e.erro ? '<div class="bk-aviso">Não consegui ler os tickets do período (' + escapeHtml(e.erro) + ').</div>' : '';
+  const tabPeriodo = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th><th>Criados</th><th>Implantação</th><th>Base</th><th>Intelipulse</th><th title="Dos criados no período, quantos ainda estão em aberto hoje">Ainda abertos</th><th title="Dos criados no período, quantos já foram fechados">Fechados</th><th>Cancelados</th><th>Média/semana</th></tr></thead><tbody>' + linhas.map(tr).join('') + '</tbody></table></div>';
+
+  // quadro por trimestre do ano escolhido
+  const hy = Number(hoje.slice(0, 4)), ano = bkPerAno;
+  const qs = [0, 1, 2, 3].map(q => {
+    const desde = ano + '-' + bkPad(q * 3 + 1) + '-01';
+    if (desde > hoje) return { q, futuro: true };
+    const fimTri = bkUltimoDia(ano, q * 3 + 3), parcial = fimTri > hoje;
+    return { q, desde, ate: parcial ? hoje : fimTri, parcial, e: bkPerGet(desde, parcial ? hoje : fimTri) };
+  });
+  const analistas = BK_ANALISTAS.concat(['Equipe']);
+  const cel = (qq, nome) => (qq.futuro ? undefined : (nome === 'Equipe' ? bkPerEquipe(qq.e) : bkPerDe(qq.e, nome)));
+  let maxCel = 1;
+  BK_ANALISTAS.forEach(n => qs.forEach(qq => { const p = cel(qq, n); if (p && p.n > maxCel) maxCel = p.n; }));
+  const quando = qq => (qq.futuro ? '' : (qq.parcial ? ' em curso' : ''));
+  const triLinha = nome => {
+    const cor = BK_ANA_COR[nome];
+    let soma = 0, falta = false;
+    const tds = qs.map(qq => {
+      if (qq.futuro) return '<td class="bkp-fut">—</td>';
+      const p = cel(qq, nome);
+      if (!p) { falta = true; return '<td>…</td>'; }
+      soma += p.n;
+      const w = nome === 'Equipe' ? 0 : Math.round(p.n / maxCel * 100);
+      return '<td class="bkp-cel' + (qq.parcial ? ' atual' : '') + '" title="Ver este trimestre na tabela acima" onclick="bkPerTri(' + ano + ',' + qq.q + ')"><b>' + p.n + '</b>' + (nome === 'Equipe' ? '' : '<div class="bkp-mini"><i style="width:' + w + '%"></i></div>') + '</td>';
+    }).join('');
+    return '<tr' + (nome === 'Equipe' ? ' class="tot"' : '') + '><td><span class="bkp-nome"' + (cor ? ' style="--ac:' + cor + '"' : '') + '>' + (cor ? '<i></i>' : '') + nome + '</span></td>' + tds + '<td><b>' + (falta ? '…' : soma) + '</b></td></tr>';
+  };
+  const erroTri = qs.some(qq => !qq.futuro && !qq.e.dados && qq.e.erro) ? '<div class="bk-aviso">Não consegui ler algum trimestre (' + escapeHtml(qs.find(qq => !qq.futuro && !qq.e.dados && qq.e.erro).e.erro) + ').</div>' : '';
+  const tabTri = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th>' + qs.map(qq => '<th>' + (qq.q + 1) + 'º tri<small>' + BK_TRI_MESES[qq.q] + quando(qq) + '</small></th>').join('') + '<th>Ano</th></tr></thead><tbody>' + analistas.map(triLinha).join('') + '</tbody></table></div>';
+
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">📅 Criados por período<small>tickets do ERP por responsável</small></h3>'
+    + '<p class="bk-fonte">Escolha um período para ver quantos tickets cada analista recebeu. Conta pela <b>data de criação</b>; <b>Ainda abertos / Fechados / Cancelados</b> mostram como esses tickets estão <b>hoje</b> (o ERP não guarda a data de fechamento). Implantação, Base e Intelipulse dizem de que tipo de cliente eles vieram.</p>'
+    + '<div class="bkp-bar">' + chips + datas + '<label class="bkp-comp"><input type="checkbox"' + (bkPerComp ? ' checked' : '') + ' onchange="bkPerComparar(this.checked)"> comparar com o período anterior</label></div>'
+    + '<div class="bkp-rot">' + formatDate(iv.desde) + ' a ' + formatDate(iv.ate) + ' · ' + dias + (dias === 1 ? ' dia' : ' dias') + (bkPerComp ? ' · anterior: ' + formatDate(iv.ant.desde) + ' a ' + formatDate(iv.ant.ate) : '') + '</div>'
+    + erro + tabPeriodo
+    + '<div class="bkp-tri-tit"><div class="bk-sec">Por trimestre</div><span class="bkp-ano"><button class="view-toggle-btn" onclick="bkPerAnoMuda(-1)"' + (ano <= BK_PER_ANO_MIN ? ' disabled' : '') + '>‹</button><b>' + ano + '</b><button class="view-toggle-btn" onclick="bkPerAnoMuda(1)"' + (ano >= hy ? ' disabled' : '') + '>›</button></span></div>'
+    + erroTri + tabTri + '</div>';
+}
 function bkAnalistasHtml() {
   bkCarregarAnalistas();
   const hoje = todayStr();
@@ -9595,7 +9766,7 @@ function bkAnalistasHtml() {
   return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets do ERP por responsável</small></h3>'
     + '<p class="bk-fonte">Tickets do ERP em que a pessoa é a responsável, de qualquer cliente. <b>Abertos</b> = sem fechar (inclui a fila de desenvolvimento): clique no anel ou na linha para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados. As barras comparam um analista com o outro.</p>'
     + (bkAnaErro ? '<div class="bk-aviso">Não consegui ler os tickets criados por período (' + escapeHtml(bkAnaErro) + ').</div>' : '')
-    + equipe + '<div class="bk-ana-grid">' + cards + '</div></div>';
+    + equipe + '<div class="bk-ana-grid">' + cards + '</div></div>' + bkPeriodoHtml();
 }
 
 function renderBacklog() {
