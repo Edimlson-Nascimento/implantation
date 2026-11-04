@@ -9796,8 +9796,8 @@ function bkAnalistasHtml() {
   };
   // a equipe (faixa de cima) é só dos analistas; o quadro do Gilson (gestor) vem a mais e só aparece para quem vê tudo
   const dados = bkAnalistasVis().map(mkDado), dadosG = bkVerTudo() ? [mkDado('Gilson')] : [], todosCards = dados.concat(dadosG);
-  const soma = f => dados.reduce((t, d) => t + (d[f] || 0), 0);
-  const totAb = dados.reduce((t, d) => t + d.r.total, 0);
+  const soma = f => todosCards.reduce((t, d) => t + (d[f] || 0), 0);
+  const totAb = todosCards.reduce((t, d) => t + d.r.total, 0), totAna = dados.reduce((t, d) => t + d.r.total, 0);   // a faixa inclui o Gilson; o "% dos abertos" dos analistas é só entre eles
   const max = f => Math.max(1, ...todosCards.map(d => d[f] || 0));
   const kpi = (v, rot, cls) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
   const equipe = '<div class="bk-eq">'
@@ -9805,13 +9805,13 @@ function bkAnalistasHtml() {
     + kpi(bkAna ? soma('semana') : null, 'criados na semana')
     + kpi(bkAna ? soma('mes') : null, 'criados no mês')
     + kpi(bkAna ? soma('ano') : null, 'criados no ano')
-    + '<div class="bk-eq-bar">' + (totAb ? dados.filter(d => d.r.total).map(d => '<i style="flex:' + d.r.total + ';background:' + BK_ANA_COR[d.nome] + '" title="' + d.nome + ' · ' + d.r.total + ' abertos"></i>').join('') : '') + '</div>'
-    + '<div class="bk-eq-leg">' + dados.map(d => '<span><i style="background:' + BK_ANA_COR[d.nome] + '"></i>' + d.nome + ' <b>' + d.r.total + '</b></span>').join('') + '</div>'
+    + '<div class="bk-eq-bar">' + (totAb ? todosCards.filter(d => d.r.total).map(d => '<i style="flex:' + d.r.total + ';background:' + BK_ANA_COR[d.nome] + '" title="' + d.nome + ' · ' + d.r.total + ' abertos"></i>').join('') : '') + '</div>'
+    + '<div class="bk-eq-leg">' + todosCards.map(d => '<span><i style="background:' + BK_ANA_COR[d.nome] + '"></i>' + d.nome + ' <b>' + d.r.total + '</b></span>').join('') + '</div>'
     + '</div>';
   const cards = todosCards.map(d => {
     const { nome, itens, r } = d;
     const cor = BK_ANA_COR[nome] || '#14B8A6';
-    const pct = totAb ? Math.round(r.total / totAb * 100) : 0;
+    const pct = totAna ? Math.round(r.total / totAna * 100) : 0;
     let acc = 0; const stops = [];
     BK_GRUPOS.forEach(g => { const n = itens.filter(i => i.grupo === g.k).length; if (!n) return; stops.push(g.cor + ' ' + (acc / r.total * 360) + 'deg ' + ((acc + n) / r.total * 360) + 'deg'); acc += n; });
     const fundo = r.total ? 'conic-gradient(' + stops.join(',') + ')' : 'rgba(127,127,127,.22)';
