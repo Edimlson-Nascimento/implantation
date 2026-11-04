@@ -9201,7 +9201,7 @@ function scrumBaixarPDF() {
 </style>
 <script>
 // Backlog (2026-10-29): o que está em aberto agora e há quanto tempo, em Implantação e em Atendimento, com a evolução.
-// Dois blocos no mesmo formato: tickets do ERP e atividades do painel. Atendimento = clientes na Base; Intelipulse = interno
+// Dois blocos no mesmo formato: tickets e atividades do painel. Atendimento = clientes na Base; Intelipulse = interno
 // (cliente código 1) ou atividade sem cliente cadastrado.
 // EVOLUÇÃO — atividades: usa as datas de criação e de conclusão que o painel já guarda. Tickets: o ERP não informa quando o
 // ticket foi fechado; o painel anota (tabela backlog_tickets, migracao-backlog.sql) os tickets abertos a cada leitura do ERP e
@@ -9355,7 +9355,7 @@ function bkCard(g, itens, evo, verbo, mesesHtml, tipo, semanasHtml, totalSecao) 
   const cor = g.k === 'interno' ? '#64748B' : g.cor;
   const unid = tipo === 'ticket' ? (r.total === 1 ? 'ticket' : 'tickets') : (r.total === 1 ? 'atividade' : 'atividades');
   const pct = totalSecao ? Math.round(r.total / totalSecao * 100) : 0;
-  const topo = '<div class="bk-ana-banner" style="--ac:' + cor + '"><span class="bk-ana-av">' + (BK_ICO[g.k] || '•') + '</span><div class="bk-ana-nome"><b>' + escapeHtml(g.nome) + '</b><small>' + (tipo === 'ticket' ? 'tickets do ERP' : 'atividades do painel') + '</small></div><span class="bk-ana-share" title="Parte do total em aberto">' + pct + '% do total</span></div>';
+  const topo = '<div class="bk-ana-banner" style="--ac:' + cor + '"><span class="bk-ana-av">' + (BK_ICO[g.k] || '•') + '</span><div class="bk-ana-nome"><b>' + escapeHtml(g.nome) + '</b><small>' + (tipo === 'ticket' ? 'tickets' : 'atividades do painel') + '</small></div><span class="bk-ana-share" title="Parte do total em aberto">' + pct + '% do total</span></div>';
   let acc = 0; const st = [];
   r.faixas.forEach(f => { if (!f.n) return; st.push(f.cor + ' ' + (acc / r.total * 360) + 'deg ' + ((acc + f.n) / r.total * 360) + 'deg'); acc += f.n; });
   const fundo = r.total ? 'conic-gradient(' + st.join(',') + ')' : 'rgba(127,127,127,.22)';
@@ -9542,14 +9542,14 @@ function bkSecao(titulo, fonte, itens, hist, inicio, verbo, aviso, linhasMes, ro
 
 // null = os tickets já podem ser mostrados; senão, o texto explicando o motivo
 function bkTicketsIndisponivel() {
-  if (licencasErp === null) return 'Carregando os tickets do ERP…';
+  if (licencasErp === null) return 'Carregando os tickets…';
   if (licencasErpErro) return 'Não consegui ler o ERP agora (' + escapeHtml(licencasErpErro) + '). Use "Atualizar tickets" para tentar de novo.';
   if (ticketsAbertosErp === null) return 'A função tickets-erp publicada no Supabase é antiga e não traz a lista de tickets: publique a versão atual.';
-  if (ticketsAbertosErpErro) return 'Não consegui ler os tickets no ERP (' + escapeHtml(ticketsAbertosErpErro) + ').';
+  if (ticketsAbertosErpErro) return 'Não consegui ler os tickets (' + escapeHtml(ticketsAbertosErpErro) + ').';
   return null;
 }
 
-// ── Analistas da Implantação: tickets do ERP por responsável (abertos agora, criados na semana/mês/ano e médias)
+// ── Analistas da Implantação: tickets por responsável (abertos agora, criados na semana/mês/ano e médias)
 const BK_ANALISTAS = ['Edimilson', 'Jefferson', 'Leandro'];
 const BK_GRUPO_CURTO = { implantacao: 'Implantação', atendimento: 'Base', interno: 'Intelipulse' };
 let bkAna = null, bkAnaBusca = 0, bkAnaErro = '';
@@ -9576,7 +9576,7 @@ async function bkCarregarAnalistas() {
 }
 const BK_ANA_COR = { Edimilson: '#2F80ED', Jefferson: '#8B5CF6', Leandro: '#F59E0B' };
 // ── Analistas: criados por período (filtro) e por trimestre. Fica abaixo dos cartões, sem tirar nada deles.
-// Mesma fonte dos cartões: tickets do ERP por responsável (?desde=&ate=), contados pela data de CRIAÇÃO; a situação
+// Mesma fonte dos cartões: tickets por responsável (?desde=&ate=), contados pela data de CRIAÇÃO; a situação
 // (ainda aberto / fechado / cancelado) é a de HOJE, porque o ERP não guarda a data de fechamento.
 let bkPerModo = 'tri', bkPerDesde = '', bkPerAte = '', bkPerComp = false, bkPerAno = Number(todayStr().slice(0, 4));
 const BK_PER_ANO_MIN = 2025;   // o ERP tem tickets desde maio/2025
@@ -9726,7 +9726,7 @@ function bkPeriodoHtml() {
   const erroTri = qs.some(qq => !qq.futuro && !qq.e.dados && qq.e.erro) ? '<div class="bk-aviso">Não consegui ler algum trimestre (' + escapeHtml(qs.find(qq => !qq.futuro && !qq.e.dados && qq.e.erro).e.erro) + ').</div>' : '';
   const tabTri = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th>' + qs.map(qq => '<th>' + (qq.q + 1) + 'º tri<small>' + BK_TRI_MESES[qq.q] + quando(qq) + '</small></th>').join('') + '<th>Ano</th></tr></thead><tbody>' + analistas.map(triLinha).join('') + '</tbody></table></div>';
 
-  return '<div class="bk-secao"><h3 class="bk-secao-tit">📅 Criados por período<small>tickets do ERP por responsável</small></h3>'
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">📅 Criados por período<small>tickets por responsável</small></h3>'
     + '<p class="bk-fonte">Escolha um período para ver quantos tickets cada analista recebeu. Conta pela <b>data de criação</b>; <b>Ainda abertos / Fechados / Cancelados</b> mostram como esses tickets estão <b>hoje</b> (o ERP não guarda a data de fechamento). Implantação, Base e Intelipulse dizem de que tipo de cliente eles vieram. <b>% da empresa</b> = parte do total de tickets criados no período na empresa inteira (inclui tickets de outros responsáveis e sem responsável).</p>'
     + '<div class="bkp-bar">' + chips + datas + '<label class="bkp-comp"><input type="checkbox"' + (bkPerComp ? ' checked' : '') + ' onchange="bkPerComparar(this.checked)"> comparar com o período anterior</label></div>'
     + '<div class="bkp-rot">' + formatDate(iv.desde) + ' a ' + formatDate(iv.ate) + ' · ' + dias + (dias === 1 ? ' dia' : ' dias') + (bkPerComp ? ' · anterior: ' + formatDate(iv.ant.desde) + ' a ' + formatDate(iv.ant.ate) : '') + '</div>'
@@ -9784,8 +9784,8 @@ function bkAnalistasHtml() {
       + '<div><div class="bk-ana-sec">Média este ano</div><div class="bk-ana-tiles dois">' + tile(mediaSem === null ? null : num(mediaSem), 'por semana', refMedSem) + tile(mediaMes === null ? null : num(mediaMes), 'por mês', refMedMes) + '</div></div>'
       + '</div></div>';
   }).join('');
-  return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets do ERP por responsável</small></h3>'
-    + '<p class="bk-fonte">Tickets do ERP em que a pessoa é a responsável, de qualquer cliente. <b>Abertos</b> = sem fechar (inclui a fila de desenvolvimento): clique no anel ou na linha para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados. As barras comparam um analista com o outro.</p>'
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets por responsável</small></h3>'
+    + '<p class="bk-fonte">Tickets em que a pessoa é a responsável, de qualquer cliente. <b>Abertos</b> = sem fechar (inclui a fila de desenvolvimento): clique no anel ou na linha para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados. As barras comparam um analista com o outro.</p>'
     + (bkAnaErro ? '<div class="bk-aviso">Não consegui ler os tickets criados por período (' + escapeHtml(bkAnaErro) + ').</div>' : '')
     + equipe + '<div class="bk-ana-grid">' + cards + '</div></div>' + bkPeriodoHtml();
 }
@@ -9797,20 +9797,20 @@ function renderBacklog() {
   bkCarregarMensal();
   const indisp = bkTicketsIndisponivel();
   let tickets;
-  if (indisp) tickets = '<div class="bk-secao"><h3 class="bk-secao-tit">🎫 Tickets do ERP</h3><div class="bk-aviso">' + indisp + '</div></div>';
+  if (indisp) tickets = '<div class="bk-secao"><h3 class="bk-secao-tit">🎫 Tickets</h3><div class="bk-aviso">' + indisp + '</div></div>';
   else {
     const temHist = Array.isArray(bkHist);
     const inicio = temHist ? bkInicioRegistro() : null;
-    const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. A linha do tempo <b>Criados por mês</b> usa a data de criação de todos os tickets do ERP (abertos e já fechados) e mostra como cada um está hoje. Como o ERP não informa quando o ticket foi fechado, o painel anota' + (temHist ? ' desde <b>' + formatDate(inicio) + '</b>' : '') + ' o dia em que vê cada ticket sair da lista de abertos (fechado ou cancelado); quando houver pelo menos 2 semanas de anotações, aparece aqui a evolução do que estava em aberto.'
+    const fonteTk = 'Tickets sem fechar agora, de qualquer data (inclui a fila de desenvolvimento). A idade conta a partir do dia em que o ticket foi criado. A linha do tempo <b>Criados por mês</b> usa a data de criação de todos os tickets (abertos e já fechados) e mostra como cada um está hoje. Como o ERP não informa quando o ticket foi fechado, o painel anota' + (temHist ? ' desde <b>' + formatDate(inicio) + '</b>' : '') + ' o dia em que vê cada ticket sair da lista de abertos (fechado ou cancelado); quando houver pelo menos 2 semanas de anotações, aparece aqui a evolução do que estava em aberto.'
       + '';
     const aviso = bkHistSemTabela ? 'A evolução dos tickets ainda não está sendo guardada: rode o arquivo <b>migracao-backlog.sql</b> no SQL Editor do Supabase. Enquanto isso o quadro mostra só a situação de hoje.'
       : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').'
         : (bkSemanalSemFn ? 'Para ver o gráfico <b>Criados por semana</b>, publique a versão nova da função <b>tickets-erp</b> no Supabase (Edge Functions → tickets-erp → Code → colar o index.ts → Deploy).' : ''));
-    tickets = bkSecao('🎫 Tickets do ERP', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
+    tickets = bkSecao('🎫 Tickets', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
   const nTk = indisp ? null : bkItensTickets().length, nAt = bkItensAtividades().length;
-  const abas = [['analistas', '👥 Analistas', null], ['tickets', '🎫 Tickets do ERP', nTk], ['atividades', '✅ Atividades', nAt]];
+  const abas = [['analistas', '👥 Analistas', null], ['tickets', '🎫 Tickets', nTk], ['atividades', '✅ Atividades', nAt]];
   const corpo = bkAba === 'tickets' ? tickets : (bkAba === 'atividades' ? ativ : (indisp ? tickets : bkAnalistasHtml()));
   const bx = document.getElementById('bk-abas-box');
   if (bx) bx.innerHTML = '<div class="bk-abas" role="tablist">' + abas.map(([k, n, q]) => '<button type="button" role="tab" class="bk-aba' + (bkAba === k ? ' ativa' : '') + '" onclick="bkSetAba(\'' + k + '\')">' + n + (q === null ? '' : ' <em>' + q + '</em>') + '</button>').join('') + '</div>';
@@ -9876,8 +9876,8 @@ function bkTexto() {
     L.push('');
   };
   const indisp = bkTicketsIndisponivel();
-  if (indisp) L.push('TICKETS DO ERP', '• indisponível agora', '');
-  else { const th = Array.isArray(bkHist); bloco('TICKETS DO ERP (sem fechar, qualquer data)', bkItensTickets(), th ? bkHistTickets() : null, th ? bkInicioRegistro() : null, 'saíram do backlog'); }
+  if (indisp) L.push('TICKETS', '• indisponível agora', '');
+  else { const th = Array.isArray(bkHist); bloco('TICKETS (sem fechar, qualquer data)', bkItensTickets(), th ? bkHistTickets() : null, th ? bkInicioRegistro() : null, 'saíram do backlog'); }
   bloco('ATIVIDADES DO PAINEL (não concluídas)', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas');
   return L.join('\n').trim();
 }
