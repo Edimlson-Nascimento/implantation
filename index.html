@@ -9677,7 +9677,7 @@ function bkPeriodoHtml() {
     ? '<span class="bkp-datas"><label>De <input type="date" id="bkp-de" value="' + iv.desde + '" max="' + hoje + '"></label><label>até <input type="date" id="bkp-ate" value="' + iv.ate + '" max="' + hoje + '"></label><button class="view-toggle-btn" onclick="bkPerAplicar()">Aplicar</button></span>' : '';
   const totE = bkPerTotal(e), eqE = bkPerEquipe(e);
   const linhas = BK_ANALISTAS.map(n => ({ nome: n, cor: BK_ANA_COR[n], p: bkPerDe(e, n), a: bkPerDe(ea, n) }))
-    .concat([{ nome: 'Equipe', total: true, p: eqE, a: bkPerEquipe(ea) },
+    .concat([{ nome: 'Total Integração', total: true, p: eqE, a: bkPerEquipe(ea) },
       { nome: 'Outros responsáveis', suave: true, p: totE && eqE ? bkPerMenos(totE, eqE) : null },
       { nome: 'Total da empresa', total: true, p: totE, a: bkPerTotal(ea) }]);
   const tr = r => {
@@ -9721,7 +9721,7 @@ function bkPeriodoHtml() {
       return '<td class="bkp-cel' + (qq.parcial ? ' atual' : '') + '" title="Ver este trimestre na tabela acima" onclick="bkPerTri(' + ano + ',' + qq.q + ')"><b>' + p.n + '</b>' + sub + '</td>';
     }).join('');
     const totAno = '<td><b>' + (falta ? '…' : soma) + '</b>' + (nome === 'Equipe' && !falta && somaTot ? '<small class="bkp-delta">' + bkPerPct(soma, somaTot) + ' da empresa</small>' : '') + '</td>';
-    return '<tr' + (ehTot ? ' class="tot"' : '') + '><td><span class="bkp-nome"' + (cor ? ' style="--ac:' + cor + '"' : '') + '>' + (cor ? '<i></i>' : '') + nome + '</span></td>' + tds + totAno + '</tr>';
+    return '<tr' + (ehTot ? ' class="tot"' : '') + '><td><span class="bkp-nome"' + (cor ? ' style="--ac:' + cor + '"' : '') + '>' + (cor ? '<i></i>' : '') + (nome === 'Equipe' ? 'Total Integração' : nome) + '</span></td>' + tds + totAno + '</tr>';
   };
   const erroTri = qs.some(qq => !qq.futuro && !qq.e.dados && qq.e.erro) ? '<div class="bk-aviso">Não consegui ler algum trimestre (' + escapeHtml(qs.find(qq => !qq.futuro && !qq.e.dados && qq.e.erro).e.erro) + ').</div>' : '';
   const tabTri = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th>' + qs.map(qq => '<th>' + (qq.q + 1) + 'º tri<small>' + BK_TRI_MESES[qq.q] + quando(qq) + '</small></th>').join('') + '<th>Ano</th></tr></thead><tbody>' + analistas.map(triLinha).join('') + '</tbody></table></div>';
