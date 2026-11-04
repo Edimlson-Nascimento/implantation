@@ -9014,6 +9014,8 @@ function scrumBaixarPDF() {
   .bkp-nome i { width: 10px; height: 10px; border-radius: 50%; background: var(--ac); flex: none; }
   .bkp-delta { display: block; font-size: 11px; font-weight: 500; color: var(--gray-text); white-space: nowrap; }
   .bkp-fut { color: var(--gray-text); }
+  .bkp-tab td.bkp-n { cursor: pointer; }
+  .bkp-tab td.bkp-n:hover { color: #38BDF8; text-decoration: underline; }
   .bkp-tab td.bkp-pct { font-weight: 700; color: #38BDF8; }
   .bkp-tab tr.suave td { color: var(--gray-text); }
   .bkp-tab tr.suave td:first-child .bkp-nome { font-weight: 600; }
@@ -9234,7 +9236,8 @@ function bkGrupoAtividade(a) {
   if (!c || String(c.codigo || '').trim() === '1') return 'interno';
   return (c.fase || 'implantacao') === 'base' ? 'atendimento' : 'implantacao';
 }
-function bkItensTickets() {
+function bkItensTickets() { const todos = bkItensTicketsTodos(); return bkVerTudo() ? todos : todos.filter(i => i.pessoa === bkMeuNome()); }
+function bkItensTicketsTodos() {
   return (ticketsAbertosErp || []).map(t => {
     const id = Number(t.empresa_id);
     const classe = tkClasseDe(id, null);                        // interno | implantacao | base
@@ -9250,7 +9253,7 @@ function bkItensTickets() {
   });
 }
 function bkItensAtividades() {
-  return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida').map(a => ({
+  return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida' && bkAtivMinha(a)).map(a => ({
     grupo: bkGrupoAtividade(a), cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0,
     situacao: raiaNomeCurto(a.coluna), pessoa: a.responsavel || '—', impedido: !!a.impedidoDesde
   }));
@@ -9263,7 +9266,7 @@ function bkHistTickets() {
   });
 }
 function bkHistAtividades() {
-  return atividades.filter(a => !a.cancelado && a.criadoEm).map(a => ({
+  return atividades.filter(a => !a.cancelado && a.criadoEm && bkAtivMinha(a)).map(a => ({
     grupo: bkGrupoAtividade(a), criado: desempDataLocal(a.criadoEm), fechado: a.coluna === 'concluida' ? (a.concluidoEm || null) : null
   }));
 }
@@ -9398,13 +9401,13 @@ function bkLinhasMesTickets() {
   return (bkMensal || ticketsMensal || []).map(r => ({ mes: r.mes, grupo: r.classe === 'base' ? 'atendimento' : r.classe, estado: r.grupo, n: Number(r.n) || 0 }));
 }
 function bkLinhasMesAtividades() {
-  return atividades.filter(a => a.criadoEm).map(a => ({
+  return atividades.filter(a => a.criadoEm && bkAtivMinha(a)).map(a => ({
     mes: desempDataLocal(a.criadoEm).slice(0, 7), grupo: bkGrupoAtividade(a),
     estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
   }));
 }
 function bkLinhasSemAtividades() {
-  return atividades.filter(a => a.criadoEm).map(a => ({
+  return atividades.filter(a => a.criadoEm && bkAtivMinha(a)).map(a => ({
     sem: segundaDe(desempDataLocal(a.criadoEm)), grupo: bkGrupoAtividade(a),
     estado: a.cancelado ? 'cancelado' : (a.coluna === 'concluida' ? 'fechado' : 'aberto'), n: 1
   }));
@@ -9551,6 +9554,11 @@ function bkTicketsIndisponivel() {
 
 // ── Analistas da Implantação: tickets por responsável (abertos agora, criados na semana/mês/ano e médias)
 const BK_ANALISTAS = ['Edimilson', 'Jefferson', 'Leandro'];
+// Quem vê o quê no Backlog: Edimilson e Gilson veem tudo; os demais (Jefferson, Leandro) só o que é deles
+const bkVerTudo = () => desempVerTodos();
+const bkMeuNome = () => desempNomeProprio();
+const bkAnalistasVis = () => (bkVerTudo() ? BK_ANALISTAS : BK_ANALISTAS.filter(n => n === bkMeuNome()));
+const bkAtivMinha = a => bkVerTudo() || a.responsavel === bkMeuNome() || (a.participantes || []).includes(bkMeuNome());
 const BK_GRUPO_CURTO = { implantacao: 'Implantação', atendimento: 'Base', interno: 'Intelipulse' };
 let bkAna = null, bkAnaBusca = 0, bkAnaErro = '';
 async function bkCarregarAnalistas() {
@@ -9624,11 +9632,12 @@ function bkPerGet(desde, ate) {
         if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
         if (!Array.isArray(json.linhas) || !json.periodo) throw new Error('a função tickets-erp publicada é antiga (não filtra por período): publique a versão atual');
         const por = {}, tot = bkPerVazio();   // tot = todos os tickets da empresa no período, de qualquer responsável
-        tkPrepararLinhas(json.linhas).forEach(l => {
+        const lp = tkPrepararLinhas(json.linhas);
+        lp.forEach(l => {
           const p = por[l.pessoa] || (por[l.pessoa] = bkPerVazio()), n = Number(l.n) || 0;
           [p, tot].forEach(o => { o.n += n; o.classe[l.classe] = (o.classe[l.classe] || 0) + n; o.estado[l.grupo] = (o.estado[l.grupo] || 0) + n; });
         });
-        e.dados = por; e.total = tot; e.erro = '';
+        e.dados = por; e.total = tot; e.linhas = lp; e.erro = '';
       } catch (err) { e.erro = (err && err.message) || String(err); }
       e.em = Date.now(); e.buscando = false;
       clearTimeout(bkPerTimer);
@@ -9654,6 +9663,36 @@ function bkPerMenos(a, b) {
 }
 // parte do total da empresa, com uma casa decimal ("18,2%")
 const bkPerPct = (n, tot) => (tot ? (n / tot * 100).toFixed(1).replace('.', ',') + '%' : '—');
+const BK_PER_METR = { criados: 'Criados', implantacao: 'Implantação', base: 'Base', interno: 'Intelipulse', aberto: 'Ainda abertos', fechado: 'Fechados', cancelado: 'Cancelados' };
+const BK_PER_TIPO = { implantacao: 'Implantação', base: 'Base', interno: 'Intelipulse' };
+// Lista de clientes por trás de um número da tabela "Criados por período" (cliente + quantidade de tickets)
+function bkPerAbrir(el) {
+  const d = el.dataset, e = bkPerCache.get(d.k);
+  if (!e || !e.linhas) return;
+  if (!bkVerTudo() && d.r !== bkMeuNome()) return;   // quem não vê tudo só abre as próprias linhas
+  const daLinha = l => d.r === '__total' || (d.r === '__equipe' ? BK_ANALISTAS.includes(l.pessoa) : (d.r === '__outros' ? !BK_ANALISTAS.includes(l.pessoa) : l.pessoa === d.r));
+  const daMetrica = l => d.m === 'criados' || l.classe === d.m || l.grupo === d.m;
+  const por = new Map();
+  e.linhas.filter(l => daLinha(l) && daMetrica(l)).forEach(l => {
+    const n = Number(l.n) || 0, k = (l.empresa_id == null ? '' : l.empresa_id) + '|' + l.cliente;
+    const o = por.get(k) || { cliente: l.cliente, classe: l.classe, n: 0, dev: 0 };
+    o.n += n; if (l.dev) o.dev += n; por.set(k, o);
+  });
+  const lista = [...por.values()].sort((a, b) => b.n - a.n || String(a.cliente).localeCompare(String(b.cliente)));
+  const total = lista.reduce((s, o) => s + o.n, 0);
+  const [desde, ate] = d.k.split('|');
+  const quem = d.r === '__total' ? 'Total da empresa' : (d.r === '__equipe' ? 'Total Integração' : (d.r === '__outros' ? 'Outros responsáveis' : d.r));
+  bkFecharTip();
+  const fundo = document.createElement('div');
+  fundo.className = 'bk-modal-fundo';
+  fundo.id = 'bk-modal-fundo';
+  fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
+  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + escapeHtml(quem) + ' · ' + BK_PER_METR[d.m] + '</b>'
+    + '<small>' + formatDate(desde) + ' a ' + formatDate(ate) + ' · ' + total + (total === 1 ? ' ticket' : ' tickets') + ' em ' + lista.length + (lista.length === 1 ? ' cliente' : ' clientes') + '</small></div>'
+    + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
+    + '<div class="bk-modal-lista">' + (lista.length ? lista.map(o => '<div class="bk-it"><div><b>' + escapeHtml(o.cliente) + '</b><small>' + (BK_PER_TIPO[o.classe] || o.classe) + (o.dev ? ' · ' + o.dev + ' na fila de desenvolvimento' : '') + '</small></div><em>' + o.n + '</em></div>').join('') : '<div class="bk-it"><div>Nenhum ticket.</div></div>') + '</div></div>';
+  document.body.appendChild(fundo);
+}
 function bkPerSet(m) { bkPerModo = m; if (m === 'custom' && !bkPerDesde) { const iv = bkPerIntervalo(); bkPerDesde = iv.desde; bkPerAte = iv.ate; } renderBacklog(); }
 function bkPerAplicar() {
   const de = document.getElementById('bkp-de').value, ate = document.getElementById('bkp-ate').value;
@@ -9675,23 +9714,29 @@ function bkPeriodoHtml() {
   const chips = BK_PER_CHIPS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPerModo === k ? ' active' : '') + '" onclick="bkPerSet(\'' + k + '\')">' + n + '</button>').join('');
   const datas = bkPerModo === 'custom'
     ? '<span class="bkp-datas"><label>De <input type="date" id="bkp-de" value="' + iv.desde + '" max="' + hoje + '"></label><label>até <input type="date" id="bkp-ate" value="' + iv.ate + '" max="' + hoje + '"></label><button class="view-toggle-btn" onclick="bkPerAplicar()">Aplicar</button></span>' : '';
+  const vt = bkVerTudo(), kPer = iv.desde + '|' + iv.ate;
   const totE = bkPerTotal(e), eqE = bkPerEquipe(e);
-  const linhas = BK_ANALISTAS.map(n => ({ nome: n, cor: BK_ANA_COR[n], p: bkPerDe(e, n), a: bkPerDe(ea, n) }))
-    .concat([{ nome: 'Total Integração', total: true, p: eqE, a: bkPerEquipe(ea) },
-      { nome: 'Outros responsáveis', suave: true, p: totE && eqE ? bkPerMenos(totE, eqE) : null },
-      { nome: 'Total da empresa', total: true, p: totE, a: bkPerTotal(ea) }]);
+  const linhas = bkAnalistasVis().map(n => ({ key: n, nome: n, cor: BK_ANA_COR[n], p: bkPerDe(e, n), a: bkPerDe(ea, n) }));
+  if (vt) linhas.push({ key: '__equipe', nome: 'Total Integração', total: true, p: eqE, a: bkPerEquipe(ea) },
+    { key: '__outros', nome: 'Outros responsáveis', suave: true, p: totE && eqE ? bkPerMenos(totE, eqE) : null },
+    { key: '__total', nome: 'Total da empresa', total: true, p: totE, a: bkPerTotal(ea) });
   const tr = r => {
-    const p = r.p, c = v => (p ? v : '…');
+    const p = r.p;
     const pct = p ? (totE ? bkPerPct(p.n, totE.n) : '—') : '…';
-    let crit = p ? '<b>' + p.n + '</b>' : '…';
-    if (p && r.a) { const d = p.n - r.a.n, pc = r.a.n ? Math.round(d / r.a.n * 100) : null; crit += '<small class="bkp-delta">antes ' + r.a.n + ' · ' + (d > 0 ? '+' : '') + d + (pc === null ? '' : ' (' + (d > 0 ? '+' : '') + pc + '%)') + '</small>'; }
+    // número clicável (abre a lista de clientes); zero e "carregando" ficam sem clique
+    const clic = (v, m, negrito, extra) => (!p ? '<td>…</td>' : (v
+      ? '<td class="bkp-n" title="Ver os clientes" data-k="' + kPer + '" data-r="' + r.key + '" data-m="' + m + '" onclick="bkPerAbrir(this)">' + (negrito ? '<b>' + v + '</b>' : v) + (extra || '') + '</td>'
+      : '<td>' + (negrito ? '<b>' + v + '</b>' : v) + (extra || '') + '</td>'));
+    let delta = '';
+    if (p && r.a) { const d = p.n - r.a.n, pc = r.a.n ? Math.round(d / r.a.n * 100) : null; delta = '<small class="bkp-delta">antes ' + r.a.n + ' · ' + (d > 0 ? '+' : '') + d + (pc === null ? '' : ' (' + (d > 0 ? '+' : '') + pc + '%)') + '</small>'; }
     return '<tr' + (r.total ? ' class="tot"' : (r.suave ? ' class="suave"' : '')) + '><td><span class="bkp-nome"' + (r.cor ? ' style="--ac:' + r.cor + '"' : '') + '>' + (r.cor ? '<i></i>' : '') + escapeHtml(r.nome) + '</span></td>'
-      + '<td>' + crit + '</td><td class="bkp-pct">' + pct + '</td><td>' + c(p && p.classe.implantacao) + '</td><td>' + c(p && p.classe.base) + '</td><td>' + c(p && p.classe.interno) + '</td>'
-      + '<td>' + c(p && p.estado.aberto) + '</td><td>' + c(p && p.estado.fechado) + '</td><td>' + c(p && p.estado.cancelado) + '</td>'
+      + clic(p && p.n, 'criados', true, delta) + (vt ? '<td class="bkp-pct">' + pct + '</td>' : '')
+      + clic(p && p.classe.implantacao, 'implantacao') + clic(p && p.classe.base, 'base') + clic(p && p.classe.interno, 'interno')
+      + clic(p && p.estado.aberto, 'aberto') + clic(p && p.estado.fechado, 'fechado') + clic(p && p.estado.cancelado, 'cancelado')
       + '<td>' + (p ? (dias >= 7 ? num(p.n / semanas) : '—') : '…') + '</td></tr>';
   };
   const erro = !e.dados && e.erro ? '<div class="bk-aviso">Não consegui ler os tickets do período (' + escapeHtml(e.erro) + ').</div>' : '';
-  const tabPeriodo = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th><th>Criados</th><th title="Parte do total de tickets criados no período na empresa inteira (todos os responsáveis, inclusive sem responsável)">% da empresa</th><th>Implantação</th><th>Base</th><th>Intelipulse</th><th title="Dos criados no período, quantos ainda estão em aberto hoje">Ainda abertos</th><th title="Dos criados no período, quantos já foram fechados">Fechados</th><th>Cancelados</th><th>Média/semana</th></tr></thead><tbody>' + linhas.map(tr).join('') + '</tbody></table></div>';
+  const tabPeriodo = '<div class="bkp-wrap"><table class="bkp-tab"><thead><tr><th>Analista</th><th>Criados</th>' + (vt ? '<th title="Parte do total de tickets criados no período na empresa inteira (todos os responsáveis, inclusive sem responsável)">% da empresa</th>' : '') + '<th>Implantação</th><th>Base</th><th>Intelipulse</th><th title="Dos criados no período, quantos ainda estão em aberto hoje">Ainda abertos</th><th title="Dos criados no período, quantos já foram fechados">Fechados</th><th>Cancelados</th><th>Média/semana</th></tr></thead><tbody>' + linhas.map(tr).join('') + '</tbody></table></div>';
 
   // quadro por trimestre do ano escolhido
   const hy = Number(hoje.slice(0, 4)), ano = bkPerAno;
@@ -9701,10 +9746,10 @@ function bkPeriodoHtml() {
     const fimTri = bkUltimoDia(ano, q * 3 + 3), parcial = fimTri > hoje;
     return { q, desde, ate: parcial ? hoje : fimTri, parcial, e: bkPerGet(desde, parcial ? hoje : fimTri) };
   });
-  const analistas = BK_ANALISTAS.concat(['Equipe', 'Total da empresa']);
+  const analistas = bkVerTudo() ? BK_ANALISTAS.concat(['Equipe', 'Total da empresa']) : bkAnalistasVis();
   const cel = (qq, nome) => (qq.futuro ? undefined : (nome === 'Equipe' ? bkPerEquipe(qq.e) : (nome === 'Total da empresa' ? bkPerTotal(qq.e) : bkPerDe(qq.e, nome))));
   let maxCel = 1;
-  BK_ANALISTAS.forEach(n => qs.forEach(qq => { const p = cel(qq, n); if (p && p.n > maxCel) maxCel = p.n; }));
+  bkAnalistasVis().forEach(n => qs.forEach(qq => { const p = cel(qq, n); if (p && p.n > maxCel) maxCel = p.n; }));
   const quando = qq => (qq.futuro ? '' : (qq.parcial ? ' em curso' : ''));
   const triLinha = nome => {
     const cor = BK_ANA_COR[nome];
@@ -9742,7 +9787,7 @@ function bkAnalistasHtml() {
   const mesesDecorridos = (hm - 1) + hd / new Date(hy, hm, 0).getDate();
   const todos = bkItensTickets();
   const num = n => String(n.toFixed(1)).replace('.', ',');
-  const dados = BK_ANALISTAS.map(nome => {
+  const dados = bkAnalistasVis().map(nome => {
     const itens = todos.filter(i => i.pessoa === nome);
     bkRegistro['ana:' + nome] = itens;
     const q = p => (bkAna ? ((bkAna[p] || {})[nome] || 0) : null);
@@ -9753,7 +9798,7 @@ function bkAnalistasHtml() {
   const max = f => Math.max(1, ...dados.map(d => d[f] || 0));
   const kpi = (v, rot, cls) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
   const equipe = '<div class="bk-eq">'
-    + kpi(totAb, 'abertos da equipe', 'destaque')
+    + kpi(totAb, bkVerTudo() ? 'abertos da equipe' : 'meus abertos', 'destaque')
     + kpi(bkAna ? soma('semana') : null, 'criados na semana')
     + kpi(bkAna ? soma('mes') : null, 'criados no mês')
     + kpi(bkAna ? soma('ano') : null, 'criados no ano')
@@ -9784,7 +9829,7 @@ function bkAnalistasHtml() {
       + '<div><div class="bk-ana-sec">Média este ano</div><div class="bk-ana-tiles dois">' + tile(mediaSem === null ? null : num(mediaSem), 'por semana', refMedSem) + tile(mediaMes === null ? null : num(mediaMes), 'por mês', refMedMes) + '</div></div>'
       + '</div></div>';
   }).join('');
-  return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Analistas da Implantação<small>tickets por responsável</small></h3>'
+  return '<div class="bk-secao"><h3 class="bk-secao-tit">👥 Equipe de Implantação<small>tickets por responsável</small></h3>'
     + '<p class="bk-fonte">Tickets em que a pessoa é a responsável, de qualquer cliente. <b>Abertos</b> = sem fechar (inclui a fila de desenvolvimento): clique no anel ou na linha para ver a lista. <b>Criados</b> = tickets criados no período, mesmo os já fechados. As barras comparam um analista com o outro.</p>'
     + (bkAnaErro ? '<div class="bk-aviso">Não consegui ler os tickets criados por período (' + escapeHtml(bkAnaErro) + ').</div>' : '')
     + equipe + '<div class="bk-ana-grid">' + cards + '</div></div>' + bkPeriodoHtml();
@@ -9806,15 +9851,16 @@ function renderBacklog() {
     const aviso = bkHistSemTabela ? 'A evolução dos tickets ainda não está sendo guardada: rode o arquivo <b>migracao-backlog.sql</b> no SQL Editor do Supabase. Enquanto isso o quadro mostra só a situação de hoje.'
       : (bkHistErro ? 'Não consegui guardar/ler o histórico dos tickets (' + escapeHtml(bkHistErro) + ').'
         : (bkSemanalSemFn ? 'Para ver o gráfico <b>Criados por semana</b>, publique a versão nova da função <b>tickets-erp</b> no Supabase (Edge Functions → tickets-erp → Code → colar o index.ts → Deploy).' : ''));
-    tickets = bkSecao('🎫 Tickets', fonteTk, bkItensTickets(), temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', aviso, bkLinhasMesTickets(), 'fechados', 'ticket', bkLinhasSemTickets());
+    const vt = bkVerTudo();   // os gráficos e o histórico são da empresa inteira: só para quem vê tudo
+    tickets = bkSecao('🎫 Tickets', fonteTk, bkItensTickets(), vt && temHist ? bkHistTickets() : null, inicio, 'saíram do backlog', vt ? aviso : '', vt ? bkLinhasMesTickets() : [], 'fechados', 'ticket', vt ? bkLinhasSemTickets() : []);
   }
   const ativ = bkSecao('✅ Atividades do painel', 'Atividades não concluídas e não canceladas. O grupo vem do cliente da atividade (em implantação, na Base ou Intelipulse; atividade sem cliente cadastrado entra em Intelipulse). A idade conta a partir da data de criação da atividade, e a evolução usa as datas de criação e de conclusão.', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas', '', bkLinhasMesAtividades(), 'concluídas', 'atividade');
   const nTk = indisp ? null : bkItensTickets().length, nAt = bkItensAtividades().length;
-  const abas = [['analistas', '👥 Analistas', null], ['tickets', '🎫 Tickets', nTk], ['atividades', '✅ Atividades', nAt]];
+  const abas = [['analistas', '👥 Implantação', null], ['tickets', '🎫 Tickets', nTk], ['atividades', '✅ Atividades', nAt]];
   const corpo = bkAba === 'tickets' ? tickets : (bkAba === 'atividades' ? ativ : (indisp ? tickets : bkAnalistasHtml()));
   const bx = document.getElementById('bk-abas-box');
   if (bx) bx.innerHTML = '<div class="bk-abas" role="tablist">' + abas.map(([k, n, q]) => '<button type="button" role="tab" class="bk-aba' + (bkAba === k ? ' ativa' : '') + '" onclick="bkSetAba(\'' + k + '\')">' + n + (q === null ? '' : ' <em>' + q + '</em>') + '</button>').join('') + '</div>';
-  el.innerHTML = corpo;
+  el.innerHTML = (bkVerTudo() ? '' : '<div class="bk-aviso">Você vê só os tickets e as atividades em que é o responsável' + (bkMeuNome() ? ' (' + escapeHtml(bkMeuNome()) + ')' : '') + '.</div>') + corpo;
   const fl = document.querySelector('.bk-filtro'); if (fl) fl.style.display = bkAba === 'analistas' ? 'none' : '';
   const fp = document.getElementById('bk-periodos');
   if (fp) fp.innerHTML = BK_PERIODOS.map(([k, n]) => '<button class="view-toggle-btn' + (bkPeriodo === k ? ' active' : '') + '" onclick="bkSetPeriodo(\'' + k + '\')">' + n + '</button>').join('');
@@ -9877,7 +9923,7 @@ function bkTexto() {
   };
   const indisp = bkTicketsIndisponivel();
   if (indisp) L.push('TICKETS', '• indisponível agora', '');
-  else { const th = Array.isArray(bkHist); bloco('TICKETS (sem fechar, qualquer data)', bkItensTickets(), th ? bkHistTickets() : null, th ? bkInicioRegistro() : null, 'saíram do backlog'); }
+  else { const th = bkVerTudo() && Array.isArray(bkHist); bloco('TICKETS (sem fechar, qualquer data)', bkItensTickets(), th ? bkHistTickets() : null, th ? bkInicioRegistro() : null, 'saíram do backlog'); }
   bloco('ATIVIDADES DO PAINEL (não concluídas)', bkItensAtividades(), bkHistAtividades(), null, 'foram concluídas');
   return L.join('\n').trim();
 }
