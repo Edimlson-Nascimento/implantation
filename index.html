@@ -9554,6 +9554,7 @@ function bkTicketsIndisponivel() {
 
 // ── Analistas da Implantação: tickets por responsável (abertos agora, criados na semana/mês/ano e médias)
 const BK_ANALISTAS = ['Edimilson', 'Jefferson', 'Leandro'];
+const BK_INTEGRACAO = BK_ANALISTAS.concat(['Gilson']);   // a equipe de integração inclui o Gilson (gestor)
 // Quem vê o quê no Backlog: Edimilson e Gilson veem tudo; os demais (Jefferson, Leandro) só o que é deles
 const bkVerTudo = () => desempVerTodos();
 const bkMeuNome = () => desempNomeProprio();
@@ -9650,7 +9651,7 @@ const bkPerDe = (e, nome) => (e && e.dados ? (e.dados[nome] || bkPerVazio()) : n
 function bkPerEquipe(e) {
   if (!e || !e.dados) return null;
   const t = bkPerVazio();
-  BK_ANALISTAS.forEach(n => { const p = e.dados[n]; if (!p) return; t.n += p.n; for (const k in t.classe) t.classe[k] += p.classe[k] || 0; for (const k in t.estado) t.estado[k] += p.estado[k] || 0; });
+  BK_INTEGRACAO.forEach(n => { const p = e.dados[n]; if (!p) return; t.n += p.n; for (const k in t.classe) t.classe[k] += p.classe[k] || 0; for (const k in t.estado) t.estado[k] += p.estado[k] || 0; });
   return t;
 }
 const bkPerTotal = e => (e && e.dados && e.total ? e.total : null);
@@ -9670,7 +9671,7 @@ function bkPerAbrir(el) {
   const d = el.dataset, e = bkPerCache.get(d.k);
   if (!e || !e.linhas) return;
   if (!bkVerTudo() && d.r !== bkMeuNome()) return;   // quem não vê tudo só abre as próprias linhas
-  const daLinha = l => d.r === '__total' || (d.r === '__equipe' ? BK_ANALISTAS.includes(l.pessoa) : (d.r === '__outros' ? !BK_ANALISTAS.includes(l.pessoa) && l.pessoa !== 'Gilson' : l.pessoa === d.r));
+  const daLinha = l => d.r === '__total' || (d.r === '__equipe' ? BK_INTEGRACAO.includes(l.pessoa) : (d.r === '__outros' ? !BK_INTEGRACAO.includes(l.pessoa) : l.pessoa === d.r));
   const daMetrica = l => d.m === 'criados' || l.classe === d.m || l.grupo === d.m;
   const por = new Map();
   e.linhas.filter(l => daLinha(l) && daMetrica(l)).forEach(l => {
@@ -9717,9 +9718,9 @@ function bkPeriodoHtml() {
   const vt = bkVerTudo(), kPer = iv.desde + '|' + iv.ate;
   const totE = bkPerTotal(e), eqE = bkPerEquipe(e);
   const linhas = bkAnalistasVis().map(n => ({ key: n, nome: n, cor: BK_ANA_COR[n], p: bkPerDe(e, n), a: bkPerDe(ea, n) }));
-  if (vt) linhas.push({ key: '__equipe', nome: 'Total Integração', total: true, p: eqE, a: bkPerEquipe(ea) },
-    { key: 'Gilson', nome: 'Gilson', cor: BK_ANA_COR.Gilson, p: bkPerDe(e, 'Gilson'), a: bkPerDe(ea, 'Gilson') },
-    { key: '__outros', nome: 'Outros responsáveis', suave: true, p: totE && eqE && bkPerDe(e, 'Gilson') ? bkPerMenos(bkPerMenos(totE, eqE), bkPerDe(e, 'Gilson')) : null },
+  if (vt) linhas.push({ key: 'Gilson', nome: 'Gilson', cor: BK_ANA_COR.Gilson, p: bkPerDe(e, 'Gilson'), a: bkPerDe(ea, 'Gilson') },
+    { key: '__equipe', nome: 'Total Integração', total: true, p: eqE, a: bkPerEquipe(ea) },
+    { key: '__outros', nome: 'Outros responsáveis', suave: true, p: totE && eqE ? bkPerMenos(totE, eqE) : null },
     { key: '__total', nome: 'Total da empresa', total: true, p: totE, a: bkPerTotal(ea) });
   const tr = r => {
     const p = r.p;
@@ -9747,7 +9748,7 @@ function bkPeriodoHtml() {
     const fimTri = bkUltimoDia(ano, q * 3 + 3), parcial = fimTri > hoje;
     return { q, desde, ate: parcial ? hoje : fimTri, parcial, e: bkPerGet(desde, parcial ? hoje : fimTri) };
   });
-  const analistas = bkVerTudo() ? BK_ANALISTAS.concat(['Equipe', 'Gilson', 'Total da empresa']) : bkAnalistasVis();
+  const analistas = bkVerTudo() ? BK_INTEGRACAO.concat(['Equipe', 'Total da empresa']) : bkAnalistasVis();
   const cel = (qq, nome) => (qq.futuro ? undefined : (nome === 'Equipe' ? bkPerEquipe(qq.e) : (nome === 'Total da empresa' ? bkPerTotal(qq.e) : bkPerDe(qq.e, nome))));
   let maxCel = 1;
   (bkVerTudo() ? BK_ANALISTAS.concat(['Gilson']) : bkAnalistasVis()).forEach(n => qs.forEach(qq => { const p = cel(qq, n); if (p && p.n > maxCel) maxCel = p.n; }));
