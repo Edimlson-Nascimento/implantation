@@ -9582,7 +9582,7 @@ async function bkCarregarAnalistas() {
   } catch (e) { bkAna = null; bkAnaErro = (e && e.message) || String(e); }
   if (activeTab === 'backlog') renderBacklog();
 }
-const BK_ANA_COR = { Edimilson: '#2F80ED', Jefferson: '#8B5CF6', Leandro: '#F59E0B' };
+const BK_ANA_COR = { Edimilson: '#2F80ED', Jefferson: '#8B5CF6', Leandro: '#F59E0B', Gilson: '#14B8A6' };
 // ── Analistas: criados por período (filtro) e por trimestre. Fica abaixo dos cartões, sem tirar nada deles.
 // Mesma fonte dos cartões: tickets por responsável (?desde=&ate=), contados pela data de CRIAÇÃO; a situação
 // (ainda aberto / fechado / cancelado) é a de HOJE, porque o ERP não guarda a data de fechamento.
@@ -9787,15 +9787,17 @@ function bkAnalistasHtml() {
   const mesesDecorridos = (hm - 1) + hd / new Date(hy, hm, 0).getDate();
   const todos = bkItensTickets();
   const num = n => String(n.toFixed(1)).replace('.', ',');
-  const dados = bkAnalistasVis().map(nome => {
+  const mkDado = nome => {
     const itens = todos.filter(i => i.pessoa === nome);
     bkRegistro['ana:' + nome] = itens;
     const q = p => (bkAna ? ((bkAna[p] || {})[nome] || 0) : null);
     return { nome, itens, r: bkResumo(itens), semana: q('semana'), mes: q('mes'), ano: q('ano') };
-  });
+  };
+  // a equipe (faixa de cima) é só dos analistas; o quadro do Gilson (gestor) vem a mais e só aparece para quem vê tudo
+  const dados = bkAnalistasVis().map(mkDado), dadosG = bkVerTudo() ? [mkDado('Gilson')] : [], todosCards = dados.concat(dadosG);
   const soma = f => dados.reduce((t, d) => t + (d[f] || 0), 0);
   const totAb = dados.reduce((t, d) => t + d.r.total, 0);
-  const max = f => Math.max(1, ...dados.map(d => d[f] || 0));
+  const max = f => Math.max(1, ...todosCards.map(d => d[f] || 0));
   const kpi = (v, rot, cls) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span></div>';
   const equipe = '<div class="bk-eq">'
     + kpi(totAb, bkVerTudo() ? 'abertos da equipe' : 'meus abertos', 'destaque')
@@ -9805,7 +9807,7 @@ function bkAnalistasHtml() {
     + '<div class="bk-eq-bar">' + (totAb ? dados.filter(d => d.r.total).map(d => '<i style="flex:' + d.r.total + ';background:' + BK_ANA_COR[d.nome] + '" title="' + d.nome + ' · ' + d.r.total + ' abertos"></i>').join('') : '') + '</div>'
     + '<div class="bk-eq-leg">' + dados.map(d => '<span><i style="background:' + BK_ANA_COR[d.nome] + '"></i>' + d.nome + ' <b>' + d.r.total + '</b></span>').join('') + '</div>'
     + '</div>';
-  const cards = dados.map(d => {
+  const cards = todosCards.map(d => {
     const { nome, itens, r } = d;
     const cor = BK_ANA_COR[nome] || '#14B8A6';
     const pct = totAb ? Math.round(r.total / totAb * 100) : 0;
@@ -9815,10 +9817,10 @@ function bkAnalistasHtml() {
     const tile = (v, rot, ref, f) => '<div class="bk-ana-tile"><b>' + (v === null ? '…' : v) + '</b><span>' + rot + '</span><div class="bk-ana-bar"><i style="width:' + (v === null ? 0 : Math.round(parseFloat(String(v).replace(',', '.')) / ref * 100)) + '%"></i></div></div>';
     const mediaSem = bkAna ? d.ano / (diasAno / 7) : null;
     const mediaMes = bkAna ? d.ano / Math.max(mesesDecorridos, 0.1) : null;
-    const refMedSem = Math.max(0.1, ...dados.map(x => x.ano / (diasAno / 7)));
-    const refMedMes = Math.max(0.1, ...dados.map(x => x.ano / Math.max(mesesDecorridos, 0.1)));
+    const refMedSem = Math.max(0.1, ...todosCards.map(x => x.ano / (diasAno / 7)));
+    const refMedMes = Math.max(0.1, ...todosCards.map(x => x.ano / Math.max(mesesDecorridos, 0.1)));
     return '<div class="bk-ana-card" style="--ac:' + cor + '">'
-      + '<div class="bk-ana-banner"><span class="bk-ana-av">' + inicialDe(nome) + '</span><div class="bk-ana-nome"><b>' + escapeHtml(nome) + '</b><small>Analista de implantação</small></div><span class="bk-ana-share" title="Parte dos tickets em aberto da equipe">' + pct + '% dos abertos</span></div>'
+      + '<div class="bk-ana-banner"><span class="bk-ana-av">' + inicialDe(nome) + '</span><div class="bk-ana-nome"><b>' + escapeHtml(nome) + '</b><small>' + (nome === 'Gilson' ? 'Gestor' : 'Analista de implantação') + '</small></div><span class="bk-ana-share" title="Parte dos tickets em aberto da equipe">' + (nome === 'Gilson' ? 'Gestor' : pct + '% dos abertos') + '</span></div>'
       + '<div class="bk-ana-corpo">'
       + '<div class="bk-ana-topo">'
       + '<div class="bk-ring' + (r.total ? ' clic' : '') + '" style="background:' + fundo + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '><div class="bk-ring-in"><b>' + r.total + '</b><small>abertos</small></div></div>'
