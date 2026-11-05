@@ -1590,7 +1590,7 @@
       </div>
       <div id="resumo-painel" class="v8-resumo"></div>
       <div id="resumo-obs"></div>
-      <div class="v8-bloco v8-texto" style="--ac:#64748B"><div class="bk-ana-banner"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">📝</span><div class="bk-ana-nome"><b>Texto para copiar</b><small>pronto para colar no WhatsApp ou e-mail</small></div></div><div class="v8-corpo"><div class="resumo-pre" id="resumo-texto"></div></div></div>
+      <div class="resumo-pre" id="resumo-texto" style="display:none"></div>
     </div>
   </section>
 
@@ -4536,12 +4536,12 @@ function renderResumoPainel(dia, concluidosHoje, ehHoje) {
     porPessoa.filter(p => p.n).map((p, i) => [p.n, CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length], p.nome]),
     porPessoa.map(p => [CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length], p.nome, p.n]),
     'v7-compacta') +
-    '<div class="v8-cols">'
+    '<div class="v8-um">'
     + bloco('#22C55E', '✅', 'Concluídas ' + quando, 'de ' + total + ' entre em andamento e prontas', pct + '%',
       '<div class="bk-ana-topo"><div class="bk-ring" style="background:' + fundo + '"><div class="bk-ring-in"><b>' + nConc + '</b><small>de ' + total + '</small></div></div>'
       + '<div class="bk-ana-leg"><span class="bk-ana-chip"><i style="background:#22C55E"></i>Concluídas<b>' + nConc + '</b></span><span class="bk-ana-chip' + (nAndamento ? '' : ' zero') + '"><i style="background:#F59E0B"></i>Em andamento<b>' + nAndamento + '</b></span></div></div>'
-      + empresasHtml)
-    + bloco('#3B82F6', '📅', 'Agenda do dia', '', ags.length + ' compromisso' + (ags.length === 1 ? '' : 's'), agItens)
+      + '<div class="v8-emp-grid">' + empresasHtml + '</div>')
+    + '</div><div class="v8-um">' + bloco('#3B82F6', '📅', 'Agenda do dia', '', ags.length + ' compromisso' + (ags.length === 1 ? '' : 's'), '<div class="v8-ag-grid">' + agItens + '</div>')
     + '</div><div class="v8-cols">'
     + bloco('#F59E0B', '📋', 'Fila atual', 'abertas agora', '', '<div class="v8-raias">' + raiasAbertasAtivas().map(r => '<div class="v8-raia" style="--rc:' + (KC_CORES[r.id] || '#94A3B8') + '"><b>' + abertas(r.id).length + '</b><span>' + escapeHtml(raiaNomeCurto(r.id)) + '</span></div>').join('') + '</div>')
     + bloco('#8B5CF6', '👥', 'Entregas por pessoa', 'concluídas ' + quando, '', porPessoa.map(p => '<div class="v8-barra"><span style="display:flex;align-items:center;gap:8px">' + avatarHtml(p.nome) + escapeHtml(p.nome) + '</span><div class="tr"><i style="width:' + Math.round(p.n / maxP * 100) + '%;background:' + CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length] + '"></i></div><b>' + p.n + '</b></div>').join(''))
@@ -8951,6 +8951,10 @@ function scrumBaixarPDF() {
   .v8-bloco { --ac: #3B82F6; border: 1px solid var(--border-light, rgba(127,127,127,.28)); border-radius: 16px; background: var(--white); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); min-width: 0; }
   .v8-corpo { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
   .v8-corpo .resumo-pre { margin: 0; }
+  .v8-um { margin-bottom: 16px; }
+  .v8-emp-grid { column-width: 300px; column-gap: 12px; }
+  .v8-emp-grid .v8-emp { break-inside: avoid; margin-bottom: 12px; }
+  .v8-ag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
   .v8-bloco.v8-texto { margin-top: 0; }
   .v8-emp { padding: 10px 12px; border-radius: 12px; background: rgba(127,127,127,.07); border-left: 4px solid #22C55E; }
   .v8-emp b { display: block; font-size: 13.5px; color: var(--text-main); margin-bottom: 4px; }
