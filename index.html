@@ -1207,6 +1207,13 @@
   .lic-mod-tit { margin: 10px 0 4px; font-size: 12px; font-weight: 700; }
   .pca-modulos b { color: var(--blue, #3B82F6); }
   .mod-demo { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 999px; background: rgba(245,158,11,.2); color: var(--amber); vertical-align: 1px; }
+  .pca-canais { flex-wrap: wrap; }
+  .can-ok { color: #22C55E; font-weight: 700; } .can-off { color: #EF4444; font-weight: 700; } .can-sem { color: var(--gray-text); font-weight: 700; }
+  .can-st { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(127,127,127,.15); color: var(--gray-text); white-space: nowrap; }
+  .can-st.conectado { background: rgba(34,197,94,.15); color: #22C55E; } .can-st.desconectado { background: rgba(239,68,68,.15); color: #EF4444; } .can-st.conectando { background: rgba(245,158,11,.18); color: var(--amber); }
+  .can-id { color: var(--gray-text); font-weight: 400; }
+  .can-resumo { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; margin: 4px 0 8px; } .can-resumo b { font-size: 15px; margin-right: 3px; }
+  .bk-eq-kpi.can-alerta b { color: #F87171; } .bk-eq-kpi.can-clic { cursor: pointer; } .bk-eq-kpi.can-clic:hover span { text-decoration: underline; }
   .tk-count-btn { border: 1px solid var(--amber); background: transparent; color: var(--amber); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1; padding: 2px 9px; border-radius: 999px; cursor: pointer; }
   .tk-count-btn:hover { background: var(--amber); color: #1a1a1a; }
   .tk-count-btn.tk-neutro { border-color: var(--gray-text); color: var(--text-main); }
@@ -3791,7 +3798,7 @@ function pnFaixaHtml(kpis, list) {
   const cont = { verde: 0, amarelo: 0, vermelho: 0 };
   list.forEach(c => { cont[c.saude || 'verde']++; });
   const ks = ['verde', 'amarelo', 'vermelho'];
-  return '<div class="bk-eq pn-faixa">' + kpis.map(([v, l, cls]) => '<div class="bk-eq-kpi ' + (cls || '') + '"><b>' + v + '</b><span>' + l + '</span></div>').join('')
+  return '<div class="bk-eq pn-faixa">' + kpis.map(([v, l, cls, click]) => '<div class="bk-eq-kpi ' + (cls || '') + '"' + (click ? ' onclick="' + click + '" role="button" title="Ver a lista"' : '') + '><b>' + v + '</b><span>' + l + '</span></div>').join('')
     + '<div class="bk-eq-bar">' + ks.filter(k => cont[k]).map(k => '<i style="flex:' + cont[k] + ';background:' + PN_SAUDE[k][0] + '" title="' + PN_SAUDE[k][1] + ' · ' + cont[k] + '"></i>').join('') + '</div>'
     + '<div class="bk-eq-leg">' + ks.map(k => '<span><i style="background:' + PN_SAUDE[k][0] + '"></i>' + PN_SAUDE[k][1] + ' <b>' + cont[k] + '</b></span>').join('') + '</div></div>';
 }
@@ -3807,7 +3814,14 @@ function pnResumoTopo() {
     let nc = 0, nr = 0;
     l.forEach(c => c.pendencias.forEach(p => { if (!p.feito) { if (p.responsavel === 'cliente') nc++; else if (p.responsavel === 'rscrm') nr++; } }));
     const semContato = l.filter(c => (c.fase || 'implantacao') === 'implantacao' && c.ultimoContato !== hoje).length;
-    el.innerHTML = pnFaixaHtml([[l.length, l.length === 1 ? 'cliente' : 'clientes', 'destaque'], [nc + nr, 'pendências abertas'], [nc, 'do cliente'], [nr, 'da Intelipulse'], [semContato, 'sem contato hoje']], l);
+    // canais de atendimento (ERP): total e desconectados dos clientes listados; só aparecem quando a leitura funcionou
+    let kc = [];
+    if (Array.isArray(canaisErp) && !canaisErpErro) {
+      let ct = 0, cf = 0;
+      l.forEach(c => { const e = empresaErpDoCliente(c); if (e) { const n = canaisContagem(canaisDaEmpresa(e.empresa_id)); ct += n.total; cf += n.fora; } });
+      kc = [[ct, 'canais de atendimento'], [cf, 'canais desconectados', cf ? 'can-alerta can-clic' : '', cf ? 'abrirCanaisGeral()' : '']];
+    }
+    el.innerHTML = pnFaixaHtml([[l.length, l.length === 1 ? 'cliente' : 'clientes', 'destaque'], [nc + nr, 'pendências abertas'], [nc, 'do cliente'], [nr, 'da Intelipulse'], [semContato, 'sem contato hoje']].concat(kc), l);
   }, 0);
 }
 function pnAtualizarCard(c) {
@@ -3876,7 +3890,7 @@ function renderPendencias() {
       <div class="pn-corpo">
       <div class="pn-topo"><div class="bk-ana-topo" id="pn-anel-${c.id}">${pnAnelHtml(c)}</div>${pnTilesHtml(c)}</div>
         <div class="pendencia-card-analista pn-info">
-          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) : ((licencasErp && licencasErp.length) || licencasErpErro || licencasErroAtivas ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${licencasErpErro ? 'Erro ao ler o ERP: ' + escapeHtml(licencasErpErro) : 'Sem vínculo com o ERP: clique para ver como ligar'}">—</button></div>` : ''))(licencasInfo(c))}
+          ${(l => l && l.contratadas != null ? `<div class="pca-linha pca-licencas" title="${l.origem === 'erp' ? escapeHtml(l.detalhe) + ' — detalhes no cadastro do cliente' : 'Licenças contratadas, informadas à mão no cadastro do cliente'}"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${l.origem === 'erp' ? 'Ver contratadas, ativas, disponíveis, tipos e módulos' : 'Ver as licenças (digitadas à mão)'}">${l.contratadas}</button></div>` + (l.origem === 'erp' && l.modulos && l.modulos.length ? `<div class="pca-linha pca-licencas pca-modulos" title="Módulos extras: ${escapeHtml(l.modulos.map(m => m.modulo + ' — ' + rotuloStatusModulo(m) + (m.quantidade != null ? ', ' + m.quantidade + ' licença(s)' : '')).join(' · '))} — detalhes no cadastro do cliente"><span class="pca-rot">Módulos</span><b>${l.modulos.map(m => escapeHtml(m.modulo) + (m.status === 'demo' ? ' <span class="mod-demo">demo</span>' : '')).join(', ')}</b></div>` : '') + ticketsLinhaHtml(c, l) + canaisLinhaHtml(c, l) : ((licencasErp && licencasErp.length) || licencasErpErro || licencasErroAtivas ? `<div class="pca-linha pca-licencas" title="Sem vínculo com o ERP: abra o cadastro do cliente e escolha a empresa do ERP (ou digite as licenças)"><span class="pca-rot">Licenças</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirLicencasCliente('${c.id}')" title="${licencasErpErro ? 'Erro ao ler o ERP: ' + escapeHtml(licencasErpErro) : 'Sem vínculo com o ERP: clique para ver como ligar'}">—</button></div>` : ''))(licencasInfo(c))}
         </div>
       ${(() => {
         const prazoHtml = '';  // os dias de implantação agora ficam sob o nome do cliente (prazoLinhaHtml)
@@ -4111,6 +4125,7 @@ function lerNumeroLicenca(id) {
 let licencasErp = null, licencasErpCarregando = false, licencasErpErro = '';
 let ticketsAbertosErp = null, ticketsAbertosErpErro = '', ticketsTituloColuna = null, ticketsColunasErp = [];  // tickets em aberto por empresa (lista), junto das licenças
 let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';
+let canaisErp = null, canaisErpErro = '', canaisLidoEm = null;   // canais de atendimento (t900_canais), vêm junto das licenças; null = função antiga
 let licencasErroAtivas = '';   // erro ao contar usuários ativos (as contratadas continuam valendo)
 let usuariosColunasErp = [];   // colunas de t01_usuarios (diagnóstico do filtro de usuário ativo)   // add-ons por empresa (wiz_projetos), vêm junto das licenças
 function garantirLicencasErp() {
@@ -4128,6 +4143,9 @@ function garantirLicencasErp() {
       modulosProjetoErpErro = json.modulos_projeto_erro || '';
       usuariosColunasErp = json.usuarios_colunas || [];
       licencasErroAtivas = json.licencas_erro || '';
+      canaisErp = Array.isArray(json.canais) ? json.canais : null;
+      canaisErpErro = json.canais_erro || '';
+      canaisLidoEm = new Date();
       ticketsAbertosErp = Array.isArray(json.tickets_abertos) ? json.tickets_abertos : null;   // null = função antiga, sem tickets
       ticketsAbertosErpErro = json.tickets_erro || '';
       ticketsTituloColuna = json.tickets_titulo_coluna || null;
@@ -4261,6 +4279,101 @@ function abrirTicketsCliente(clienteId) {
     : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
   document.getElementById('tk-cli-overlay').classList.add('open');
 }
+// ── Canais de atendimento (ERP: t900_canais) ──
+// Conexão do canal = t900_status_whatsapp (open = conectado); a disponibilidade do usuário (on-line/pausa/off-line) é outra informação.
+function canalConexao(st) {
+  const s = String(st == null ? '' : st).trim().toLowerCase();
+  if (!s) return 'sem';
+  if (['open', 'connected', 'conectado'].includes(s)) return 'conectado';
+  if (['connecting', 'qr', 'conectando'].includes(s)) return 'conectando';
+  return 'desconectado';
+}
+const CANAL_ROTULO = { conectado: 'Conectado', conectando: 'Conectando', desconectado: 'Desconectado', sem: 'Sem status' };
+function canalTipoRotulo(t) {
+  const s = String(t || '').toLowerCase();
+  if (!s) return '—';
+  if (s.includes('telegram')) return 'Telegram';
+  if (s.includes('insta')) return 'Instagram';
+  if (s.includes('hibrid') || s.includes('híbrid') || s.includes('coex')) return 'Coexistência';
+  if (s.includes('whatsapp') || s.includes('wpp') || s.includes('wuzapi') || s.includes('evolution')) return 'WhatsApp';
+  return String(t);
+}
+function canaisDaEmpresa(empresaId) { return (canaisErp || []).filter(x => Number(x.empresa_id) === Number(empresaId)); }
+// conectado · fora (desconectado ou conectando: ainda não está conectado) · sem (sem status)
+function canaisContagem(lista) {
+  const r = { total: lista.length, conectado: 0, fora: 0, sem: 0 };
+  lista.forEach(x => { const k = canalConexao(x.status); if (k === 'conectado') r.conectado++; else if (k === 'sem') r.sem++; else r.fora++; });
+  return r;
+}
+function canalUsuarioHtml(x) {
+  if (!x.usuario) return '<span class="tk-sem-titulo">—</span>';
+  const s = String(x.usuario_status || '').toLowerCase();
+  const st = x.usuario_pausa ? 'em pausa' : (['on-line', 'online', 'on_line'].includes(s) ? 'on-line' : 'off-line');
+  return escapeHtml(x.usuario) + ' <span class="tk-sem-titulo">(' + st + ')</span>';
+}
+function canalLinhaTabelaHtml(x, comCliente) {
+  const k = canalConexao(x.status);
+  const sec = x.status_sec != null && String(x.status_sec).trim() !== '' ? canalConexao(x.status_sec) : null;
+  return '<tr>' + (comCliente ? '<td>' + escapeHtml(comCliente) + '</td>' : '')
+    + '<td>' + escapeHtml(x.canal || '—') + ' <small class="can-id">#' + x.canal_id + '</small></td>'
+    + '<td>' + escapeHtml(canalTipoRotulo(x.tipo)) + '</td>'
+    + '<td><span class="can-st ' + k + '" title="Status técnico no ERP: ' + escapeHtml(String(x.status == null ? '—' : x.status)) + '">' + CANAL_ROTULO[k] + '</span>'
+    + (sec && sec !== 'conectado' ? ' <span class="can-st desconectado" title="Status técnico da 2ª conexão: ' + escapeHtml(String(x.status_sec)) + '">2ª conexão: ' + CANAL_ROTULO[sec] + '</span>' : '') + '</td>'
+    + (comCliente ? '' : '<td>' + canalUsuarioHtml(x) + '</td>') + '</tr>';
+}
+// Fora do ar primeiro, depois por nome
+function canaisOrdenados(lista) {
+  return [...lista].sort((a, b) => (canalConexao(a.status) === 'conectado') - (canalConexao(b.status) === 'conectado') || String(a.canal || '').localeCompare(String(b.canal || '')));
+}
+function canaisNotaHtml() {
+  return '<div class="lic-quadro-obs">O ERP atualiza o status dos canais a cada 6 minutos, em dias úteis, das 10h às 22h; fora dessa janela pode ser uma foto antiga. "Conectando" conta como desconectado (ainda não está conectado). O usuário padrão é quem recebe o canal; estar off-line não significa canal desconectado.'
+    + (canaisLidoEm ? ' Lido às ' + canaisLidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '.' : '') + '</div>';
+}
+// Seção "Canais de atendimento" (cadastro do cliente, modal de licenças e modal do cartão)
+function canaisSecaoHtml(empresaId, semTitulo) {
+  const tit = semTitulo ? '' : '<div class="lic-mod-tit">Canais de atendimento</div>';
+  if (canaisErp === null) return tit + '<div class="lic-quadro-obs">A função tickets-erp publicada no Supabase é antiga e não traz os canais: publique a versão atual.</div>';
+  if (canaisErpErro) return tit + '<div class="lic-quadro-obs" style="color:var(--amber);">⚠ Não consegui ler os canais no ERP (' + escapeHtml(canaisErpErro) + '). Se o motivo falar de permissão, é o time do ERP que precisa liberar a leitura de <code>t900_canais</code> para o usuário <code>analista_ro</code>.</div>';
+  const lista = canaisDaEmpresa(empresaId), n = canaisContagem(lista);
+  if (!lista.length) return tit + '<div class="lic-quadro-obs">Nenhum canal de atendimento cadastrado para esta empresa.</div>';
+  return tit + '<div class="can-resumo"><span><b>' + n.total + '</b> cadastrados</span><span class="can-ok"><b>' + n.conectado + '</b> conectados</span><span class="' + (n.fora ? 'can-off' : '') + '"><b>' + n.fora + '</b> desconectados</span>' + (n.sem ? '<span><b>' + n.sem + '</b> sem status</span>' : '') + '</div>'
+    + '<div class="table-wrap"><table class="lic-tipos can-tabela"><thead><tr><th>Canal</th><th>Tipo</th><th>Conexão</th><th>Usuário padrão</th></tr></thead><tbody>' + canaisOrdenados(lista).map(x => canalLinhaTabelaHtml(x, '')).join('') + '</tbody></table></div>' + canaisNotaHtml();
+}
+// Linha "Canais N ● conectados ● desconectados" do cartão de Pendências; o número abre a lista
+function canaisLinhaHtml(c, l) {
+  if (!l || l.origem !== 'erp' || canaisErp === null) return '';
+  if (canaisErpErro) return '<div class="pca-linha pca-licencas pca-canais"><span class="pca-rot">Canais</span><button type="button" class="tk-count-btn tk-neutro" onclick="abrirCanaisCliente(\'' + c.id + '\')" title="Não consegui ler os canais: ' + escapeHtml(canaisErpErro) + '">—</button></div>';
+  const n = canaisContagem(canaisDaEmpresa(l.empresaId));
+  if (!n.total) return '<div class="pca-linha pca-licencas pca-canais"><span class="pca-rot">Canais</span><b>0</b></div>';
+  return '<div class="pca-linha pca-licencas pca-canais"><span class="pca-rot">Canais</span>'
+    + '<button type="button" class="tk-count-btn tk-neutro" onclick="abrirCanaisCliente(\'' + c.id + '\')" title="Ver os ' + n.total + ' canal(is) de atendimento">' + n.total + '</button>'
+    + '<span class="can-ok" title="Conectados">● ' + n.conectado + '</span>'
+    + (n.fora ? '<span class="can-off" title="Desconectados">● ' + n.fora + '</span>' : '')
+    + (n.sem ? '<span class="can-sem" title="Sem status">● ' + n.sem + '</span>' : '') + '</div>';
+}
+function abrirCanaisCliente(clienteId) {
+  const c = state.clients.find(x => x.id === clienteId);
+  const l = c && licencasInfo(c);
+  if (!c || !l || l.origem !== 'erp') return;
+  document.getElementById('tk-cli-titulo').textContent = 'Canais de atendimento — ' + c.nome;
+  document.getElementById('tk-cli-corpo').innerHTML = '<div class="lic-quadro">' + canaisSecaoHtml(l.empresaId, true) + '</div>';
+  document.getElementById('tk-cli-overlay').classList.add('open');
+}
+// Todos os canais fora do ar dos clientes que estão na tela de Pendências (número "desconectados" da faixa de resumo)
+function abrirCanaisGeral() {
+  const linhas = [];
+  (pendListaAtual || []).forEach(c => {
+    const e = empresaErpDoCliente(c);
+    if (e) canaisOrdenados(canaisDaEmpresa(e.empresa_id)).filter(x => ['desconectado', 'conectando'].includes(canalConexao(x.status))).forEach(x => linhas.push({ c, x }));
+  });
+  linhas.sort((a, b) => String(a.c.nome).localeCompare(String(b.c.nome)));
+  const clientes = new Set(linhas.map(r => r.c.id)).size;
+  document.getElementById('tk-cli-titulo').textContent = 'Canais desconectados — ' + linhas.length + (linhas.length === 1 ? ' canal' : ' canais') + ' em ' + clientes + (clientes === 1 ? ' cliente' : ' clientes');
+  document.getElementById('tk-cli-corpo').innerHTML = '<div class="lic-quadro">' + (linhas.length
+    ? '<div class="table-wrap"><table class="lic-tipos can-tabela"><thead><tr><th>Cliente</th><th>Canal</th><th>Tipo</th><th>Conexão</th></tr></thead><tbody>' + linhas.map(r => canalLinhaTabelaHtml(r.x, r.c.nome)).join('') + '</tbody></table></div>'
+    : '<div class="lic-quadro-obs">Nenhum canal desconectado nos clientes listados.</div>') + canaisNotaHtml() + '</div>';
+  document.getElementById('tk-cli-overlay').classList.add('open');
+}
 function fecharTicketsCliente() { document.getElementById('tk-cli-overlay').classList.remove('open'); }
 function escolherEmpresaErp(id) {
   if (!id) return;
@@ -4282,7 +4395,7 @@ function licencasQuadroHtml(l, comNota) {
         ${l.tipos.map(t => `<tr><td>${t.nome}</td><td>${t.contratadas}</td><td>${susp ? '—' : t.ativas}</td></tr>`).join('')}
       </tbody></table>
       ${l.ativasIndisponiveis ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Não consegui contar os usuários ativos no ERP</b> (as licenças contratadas estão certas). ${licencasErroAtivas ? `Motivo: <small>${escapeHtml(licencasErroAtivas)}</small>` : ''}<br>Se o motivo falar de permissão em alguma tabela, é o time do ERP que precisa liberar a leitura dela para o usuário <code>analista_ro</code>.</div>` : (susp ? `<div class="lic-quadro-obs" style="color:var(--amber);">⚠ <b>Usuários ativos não confiável:</b> o ERP devolveu ${l.ativasSuspeitas.toLocaleString('pt-BR')} registros em <code>t01_usuarios</code> para esta empresa (contratadas: ${l.contratadas}), o que indica que a tabela guarda outros registros além dos usuários do sistema. A regra de usuário ativo já foi corrigida na função (<code>t01_tipo = platform_user</code> com <code>t01_uuid</code> preenchido, sem o suporte Intelipulse): se este aviso aparecer, a função ainda deve estar na versão antiga — publique o <code>index.ts</code> atual no Supabase. Enquanto isso, ativas e disponíveis não são mostrados. ${usuariosColunasErp.length ? `<br>Colunas da tabela para levar ao time do ERP: <small>${escapeHtml(usuariosColunasErp.join(', '))}</small>` : ''}</div>` : '')}
-      ${modulosHtml(l)}
+      ${modulosHtml(l)}${canaisSecaoHtml(l.empresaId)}
       ${comNota ? `<div class="lic-quadro-obs">Os campos acima (digitados) só valem se o ERP não achar a empresa. Disponíveis = contratadas − em uso, no total: como no CRM, o saldo não é calculado tipo por tipo (um usuário Conversas pode estar usando uma licença Full).</div>` : ''}
     </div>`;
 }
