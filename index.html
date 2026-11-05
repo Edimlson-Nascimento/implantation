@@ -9591,7 +9591,7 @@ let bkPerModo = 'tri', bkPerDesde = '', bkPerAte = '', bkPerComp = false, bkPerA
 const BK_PER_ANO_MIN = 2025;   // o ERP tem tickets desde maio/2025
 const bkPerCache = new Map();  // 'desde|ate' -> { dados, erro, em, buscando }
 let bkPerFila = Promise.resolve(), bkPerTimer = null;
-const BK_PER_CHIPS = [['tri', 'Este trimestre'], ['tri-1', 'Trimestre anterior'], ['sem', 'Este semestre'], ['ano', 'Este ano'], ['custom', 'Período…']];
+const BK_PER_CHIPS = [['semana', 'Esta semana'], ['mes', 'Este mês'], ['tri', 'Este trimestre'], ['tri-1', 'Trimestre anterior'], ['sem', 'Este semestre'], ['ano', 'Este ano'], ['custom', 'Período…']];
 const BK_TRI_MESES = ['jan–mar', 'abr–jun', 'jul–set', 'out–dez'];
 function bkMesesDeslocados(ds, k) {
   let [y, m] = ds.split('-').map(Number);
@@ -9604,7 +9604,9 @@ function bkPerIntervalo() {
   const hoje = todayStr(), [hy, hm] = hoje.split('-').map(Number);
   const iniTri = hy + '-' + bkPad(Math.floor((hm - 1) / 3) * 3 + 1) + '-01';
   let desde, ate = hoje, passo = 0;
-  if (bkPerModo === 'tri') { desde = iniTri; passo = 3; }
+  if (bkPerModo === 'semana') { desde = segundaDe(hoje); }
+  else if (bkPerModo === 'mes') { desde = hy + '-' + bkPad(hm) + '-01'; passo = 1; }
+  else if (bkPerModo === 'tri') { desde = iniTri; passo = 3; }
   else if (bkPerModo === 'tri-1') { desde = bkMesesDeslocados(iniTri, -3); ate = addDays(iniTri, -1); passo = 3; }
   else if (bkPerModo === 'sem') { desde = hy + (hm <= 6 ? '-01-01' : '-07-01'); passo = 6; }
   else if (bkPerModo === 'ano') { desde = hy + '-01-01'; passo = 12; }
@@ -9613,7 +9615,7 @@ function bkPerIntervalo() {
   let ant;
   if (bkPerModo === 'custom') { const len = daysBetween(desde, ate), pa = addDays(desde, -1); ant = { desde: addDays(pa, -len), ate: pa }; }
   else {
-    const pd = bkMesesDeslocados(desde, -passo), lim = addDays(desde, -1), fim = addDays(pd, daysBetween(desde, ate));
+    const pd = bkPerModo === 'semana' ? addDays(desde, -7) : bkMesesDeslocados(desde, -passo), lim = addDays(desde, -1), fim = addDays(pd, daysBetween(desde, ate));
     ant = { desde: pd, ate: ate === hoje ? (fim < lim ? fim : lim) : lim };
   }
   return { desde, ate, ant };
