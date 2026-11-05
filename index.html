@@ -1589,6 +1589,7 @@
         <button class="btn btn-primary btn-sm" onclick="copyResumo()">📋 Copiar resumo</button>
       </div>
       <div id="resumo-painel" class="v8-resumo"></div>
+      <div id="resumo-obs"></div>
       <div class="v8-bloco v8-texto" style="--ac:#64748B"><div class="bk-ana-banner"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">📝</span><div class="bk-ana-nome"><b>Texto para copiar</b><small>pronto para colar no WhatsApp ou e-mail</small></div></div><div class="v8-corpo"><div class="resumo-pre" id="resumo-texto"></div></div></div>
     </div>
   </section>
@@ -4495,6 +4496,7 @@ function renderResumo() {
 
   document.getElementById('resumo-texto').textContent = txt;
   renderResumoPainel(dia, concluidosHoje, ehHoje);
+  renderResumoObs(dia);
 }
 
 // Painel em blocos do Resumo do Dia (só desenho: usa os mesmos dados que o texto)
@@ -4544,6 +4546,44 @@ function renderResumoPainel(dia, concluidosHoje, ehHoje) {
     + bloco('#F59E0B', '📋', 'Fila atual', 'abertas agora', '', '<div class="v8-raias">' + raiasAbertasAtivas().map(r => '<div class="v8-raia" style="--rc:' + (KC_CORES[r.id] || '#94A3B8') + '"><b>' + abertas(r.id).length + '</b><span>' + escapeHtml(raiaNomeCurto(r.id)) + '</span></div>').join('') + '</div>')
     + bloco('#8B5CF6', '👥', 'Entregas por pessoa', 'concluídas ' + quando, '', porPessoa.map(p => '<div class="v8-barra"><span style="display:flex;align-items:center;gap:8px">' + avatarHtml(p.nome) + escapeHtml(p.nome) + '</span><div class="tr"><i style="width:' + Math.round(p.n / maxP * 100) + '%;background:' + CORES_PESSOA[PESSOAS.indexOf(p.nome) % CORES_PESSOA.length] + '"></i></div><b>' + p.n + '</b></div>').join(''))
     + '</div>';
+}
+
+// Observações do dia (campo do cartão de Pendências) reunidas por cliente no Resumo do Dia — resumo da reunião para enviar ao Gilson.
+// Lê do Histórico do cliente (entradas com o prefixo OBS_DIA_TAG na data escolhida); respeita o filtro de empresa e a data do Resumo.
+let resumoObsTexto = '';
+function resumoObsDoDia(dia) {
+  return state.clients
+    .filter(c => !resumoFiltroEmpresa || c.nome === resumoFiltroEmpresa)
+    .map(c => ({ c, obs: (c.historico || []).filter(h => h.data === dia && String(h.texto).startsWith(OBS_DIA_TAG)).reverse().map(h => String(h.texto).slice(OBS_DIA_TAG.length).trim()).filter(Boolean) }))
+    .filter(x => x.obs.length)
+    .sort((a, b) => (Number(a.c.codigo) || 9999) - (Number(b.c.codigo) || 9999) || a.c.nome.localeCompare(b.c.nome));
+}
+function renderResumoObs(dia) {
+  const el = document.getElementById('resumo-obs');
+  if (!el) return;
+  const lista = resumoObsDoDia(dia);
+  const total = lista.reduce((s, x) => s + x.obs.length, 0);
+  resumoObsTexto = '📝 Observações do dia — ' + formatDate(dia) + (resumoFiltroEmpresa ? ' — ' + resumoFiltroEmpresa : '') + '\n\n'
+    + (lista.length ? lista.map(x => '🏢 ' + x.c.nome + (x.c.analistaResponsavel ? ' (Analista: ' + x.c.analistaResponsavel + ')' : '') + '\n' + x.obs.map(t => '  • ' + t.replace(/\n/g, '\n    ')).join('\n')).join('\n\n') : 'Nenhuma observação registrada nesse dia.');
+  const corpo = lista.length
+    ? lista.map(x => '<div class="v8-emp"><b>🏢 ' + escapeHtml(x.c.nome) + (x.c.analistaResponsavel ? ' <small style="font-weight:500;opacity:.7">· ' + escapeHtml(x.c.analistaResponsavel) + '</small>' : '') + '</b>'
+        + x.obs.map(t => '<div style="white-space:pre-wrap">• ' + escapeHtml(t) + '</div>').join('') + '</div>').join('')
+    : '<div class="v8-vazio">Nenhuma observação registrada nesse dia. Elas vêm do campo "Observação do dia" da aba Pendências.</div>';
+  el.innerHTML = '<div class="v8-bloco" style="--ac:#14B8A6;margin-bottom:16px"><div class="bk-ana-banner"><span class="bk-ana-av" style="width:34px;height:34px;font-size:16px">🗒️</span>'
+    + '<div class="bk-ana-nome"><b>Observações do dia</b><small>' + total + ' observaç' + (total === 1 ? 'ão' : 'ões') + ' em ' + lista.length + ' cliente' + (lista.length === 1 ? '' : 's') + ' · vindas de Pendências</small></div>'
+    + (lista.length ? '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="copyResumoObs()">📋 Copiar observações</button>' : '')
+    + '</div><div class="v8-corpo">' + corpo + '</div></div>';
+}
+function copyResumoObs() {
+  const texto = resumoObsTexto;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(
+      () => alert('Observações copiadas! Já pode colar no WhatsApp ou e-mail.'),
+      () => promptFallbackCopy(texto)
+    );
+  } else {
+    promptFallbackCopy(texto);
+  }
 }
 
 function copyResumo() {
