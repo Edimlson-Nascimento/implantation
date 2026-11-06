@@ -10262,10 +10262,10 @@ function renderPedidoVenda() {
     ? '<div class="pv-aviso">⚠ A tabela deste módulo ainda não existe no Supabase. Rode o arquivo <code>migracao-pedido-venda.sql</code> no SQL Editor do projeto <b>implantation</b> e clique em Atualizar.</div>'
     : (pvErro ? '<div class="pv-aviso">⚠ Não consegui ler os dados do módulo (' + escapeHtml(pvErro) + ').</div>' : '');
   // resumo
-  let nOk = 0, nAnd = 0, nPend = 0, nGoLive = 0;
-  linhas.forEach(({ r }) => PV_ETAPAS.forEach(([k]) => { const s = pvStatusDe(r, k); if (s === 'ok') nOk++; else if (s === 'andamento') nAnd++; else nPend++; if (k === 'golive' && s === 'ok') nGoLive++; }));
+  let nOk = 0, nAnd = 0, nPend = 0, nGoLive = 0, nHC = 0;
+  linhas.forEach(({ r }) => PV_ETAPAS.forEach(([k]) => { const s = pvStatusDe(r, k); if (s === 'ok') nOk++; else if (s === 'andamento') nAnd++; else nPend++; if (k === 'golive' && s === 'ok') nGoLive++; if (k === 'hardcare' && s === 'ok') nHC++; }));
   const resumo = linhas.length && typeof v7FaixaHtml === 'function'
-    ? '<div class="pv-resumo">' + v7FaixaHtml([[linhas.length, linhas.length === 1 ? 'cliente no módulo' : 'clientes no módulo', 'destaque'], [nGoLive, 'em Go Live ou além'], [nAnd, 'etapas em andamento'], [nOk, 'etapas concluídas']],
+    ? '<div class="pv-resumo">' + v7FaixaHtml([[linhas.length, linhas.length === 1 ? 'cliente no módulo' : 'clientes no módulo', 'destaque'], [nGoLive, 'em Go Live ou além'], [nAnd, 'etapas em andamento'], [nHC, 'com Hard Care concluído']],
         [[nOk, '#22C55E', 'Concluído'], [nAnd, '#F59E0B', 'Em andamento'], [nPend, '#64748B', 'Pendente']].filter(p => p[0] > 0),
         [['#22C55E', 'Concluído', nOk], ['#F59E0B', 'Em andamento', nAnd], ['#64748B', 'Pendente', nPend]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
