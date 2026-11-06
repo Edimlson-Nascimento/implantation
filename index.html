@@ -10414,7 +10414,7 @@ function pvRenderModal(id) {
   document.getElementById('pv-corpo').innerHTML =
     '<div class="pv-sec"><h4>Etapas</h4>' + etapas + '</div>'
     + '<div class="pv-sec"><h4>Setup de implantação · ' + pvFeitos(r, 'setup', PV_SETUP) + ' de ' + PV_SETUP.length + '</h4>' + lista('setup', PV_SETUP) + '</div>'
-    + '<div class="pv-sec"><h4>Precisamos validar · ' + pvFeitos(r, 'validacao', PV_VALID) + ' de ' + PV_VALID.length + '</h4>' + lista('validacao', PV_VALID) + '</div>'
+    + '<div class="pv-sec"><h4>Validação com Cliente · ' + pvFeitos(r, 'validacao', PV_VALID) + ' de ' + PV_VALID.length + '</h4>' + lista('validacao', PV_VALID) + '</div>'
     + '<div class="pv-sec"><h4>Observação geral</h4><textarea class="pv-geral" placeholder="Anotações deste cliente no módulo" onchange="pvSetGeral(\'' + id + '\',this.value)">' + escapeHtml(r.observacao || '') + '</textarea></div>'
     + (r.atualizado_em ? '<div class="pv-sec" style="font-size:11.5px;color:var(--gray-text);">Última alteração: ' + escapeHtml(formatDataHora(r.atualizado_em)) + (r.atualizado_por ? ' por ' + escapeHtml(r.atualizado_por) : '') + '</div>' : '');
   document.getElementById('pv-remover').onclick = () => pvRemover(id);
