@@ -10163,7 +10163,7 @@ function bkCopiar() {
    com o checklist de Setup (5 itens), o de Validação (9 itens) e o prazo opcional do Hard Care. Tabela: pv_clientes
    (migracao-pedido-venda.sql). Só a equipe edita (RLS is_equipe). Etapas e itens são fixos no código, de propósito. */
 const PV_ETAPAS = [['instalacao', 'Instalação'], ['setup', 'Setup'], ['validacao', 'Validação'], ['treinamento', 'Treinamento'], ['golive', 'Go Live'], ['hardcare', 'Hard Care']];
-const PV_STATUS = { pendente: 'Pendente', andamento: 'Em andamento', ok: 'OK' };
+const PV_STATUS = { pendente: 'Pendente', andamento: 'Em andamento', ok: 'Concluído' };
 const PV_PROX = { pendente: 'andamento', andamento: 'ok', ok: 'pendente' };
 const PV_SETUP = [
   ['task_flow', 'Task Flow', 'Habilitar o módulo e limitar a quantidade de usuários'],
@@ -10232,7 +10232,7 @@ function pvCelulaHtml(r, k) {
   if (k === 'setup') sub = pvFeitos(r, 'setup', PV_SETUP) + '/' + PV_SETUP.length + ' itens';
   else if (k === 'validacao') sub = pvFeitos(r, 'validacao', PV_VALID) + '/' + PV_VALID.length + ' itens';
   else if (k === 'hardcare') { const h = pvHardCare(r); if (h) sub = '<span class="' + h.cls + '">' + h.txt + '</span>'; }
-  return '<td class="pv-td"><button type="button" class="pv-pill pv-' + st + '" onclick="pvCiclar(\'' + r.cliente_id + '\',\'' + k + '\')" title="Clique para mudar: Pendente → Em andamento → OK">' + PV_STATUS[st] + '</button>'
+  return '<td class="pv-td"><button type="button" class="pv-pill pv-' + st + '" onclick="pvCiclar(\'' + r.cliente_id + '\',\'' + k + '\')" title="Clique para mudar: Pendente → Em andamento → Concluído">' + PV_STATUS[st] + '</button>'
     + (sub ? '<small class="pv-sub">' + sub + '</small>' : '') + '</td>';
 }
 function renderPedidoVenda() {
@@ -10255,8 +10255,8 @@ function renderPedidoVenda() {
   linhas.forEach(({ r }) => PV_ETAPAS.forEach(([k]) => { const s = pvStatusDe(r, k); if (s === 'ok') nOk++; else if (s === 'andamento') nAnd++; else nPend++; if (k === 'golive' && s === 'ok') nGoLive++; }));
   const resumo = linhas.length && typeof v7FaixaHtml === 'function'
     ? '<div class="pv-resumo">' + v7FaixaHtml([[linhas.length, linhas.length === 1 ? 'cliente no módulo' : 'clientes no módulo', 'destaque'], [nGoLive, 'em Go Live ou além'], [nAnd, 'etapas em andamento'], [nOk, 'etapas concluídas']],
-        [[nOk, '#22C55E', 'OK'], [nAnd, '#F59E0B', 'Em andamento'], [nPend, '#64748B', 'Pendente']].filter(p => p[0] > 0),
-        [['#22C55E', 'OK', nOk], ['#F59E0B', 'Em andamento', nAnd], ['#64748B', 'Pendente', nPend]], 'v7-compacta') + '</div>' : '';
+        [[nOk, '#22C55E', 'Concluído'], [nAnd, '#F59E0B', 'Em andamento'], [nPend, '#64748B', 'Pendente']].filter(p => p[0] > 0),
+        [['#22C55E', 'Concluído', nOk], ['#F59E0B', 'Em andamento', nAnd], ['#64748B', 'Pendente', nPend]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
     ? '<table class="pv-tabela"><thead><tr><th>Cliente</th>' + PV_ETAPAS.map(([, n]) => '<th>' + n + '</th>').join('') + '</tr></thead><tbody>'
       + linhas.map(({ r, c }) => '<tr><td><button type="button" class="pv-cli" onclick="pvAbrir(\'' + r.cliente_id + '\')" title="Abrir checklist de Setup e Validação">' + escapeHtml(c.nome) + '</button>'
@@ -10264,7 +10264,7 @@ function renderPedidoVenda() {
           + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + '</tr>').join('')
       + '</tbody></table>'
     : '<div class="pv-vazio">Nenhum cliente neste módulo ainda. Use "Adicionar cliente" para começar.</div>';
-  el.innerHTML = '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Pedido de Venda</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → OK) e no nome do cliente para ver o Setup e a Validação.</p></div>'
+  el.innerHTML = '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Pedido de Venda</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
     + '<div class="pv-acoes"><select id="pv-add-sel" onchange="pvAdicionar(this.value)" title="Adicionar um cliente ao módulo"><option value="">+ Adicionar cliente…</option>'
     + disponiveis.map(c => '<option value="' + c.id + '">' + (pvTemModuloErp(c) ? '★ ' : '') + escapeHtml(c.nome) + (c.codigo ? ' (#' + escapeHtml(c.codigo) + ')' : '') + '</option>').join('') + '</select>'
     + '<button class="btn btn-sm" onclick="pvAtualizarDados()" title="Ler os dados de novo">🔄 Atualizar</button>'
