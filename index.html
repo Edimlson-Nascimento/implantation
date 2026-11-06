@@ -565,6 +565,9 @@
   .cal-evento-chip:hover { background:var(--border-light); }
   .cal-evento-chip input[type=checkbox] { width:12px; height:12px; vertical-align:middle; margin-right:2px; }
   .cal-evento-chip.feito { opacity:0.5; text-decoration:line-through; }
+  .cal-evento-chip[draggable="true"] { cursor: grab; }
+  .cal-evento-chip.arrastando { opacity: .4; }
+  .cal-cel.arrasto-sobre { outline: 2px dashed var(--green-mid); outline-offset: -3px; background: rgba(0,230,118,.10); }
   .cal-evento-hora { font-weight:700; color:var(--navy); }
   :root[data-theme="dark"] .cal-evento-hora { color: var(--on-navy); }
   .cal-evento-cliente { font-weight:700; color: var(--green-mid); }
@@ -6165,10 +6168,10 @@ function renderCalendario() {
       const data = iso(y, m, d);
       const eventos = (grupos[data] || []).map(a => {
         const { nome: nomeExibicao } = infoCliente(a);
-        return `<div class="cal-evento-chip ${a.feito ? 'feito' : ''}" style="--c:${corDoTipo(a.tipo)}" onclick="event.stopPropagation(); openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${nomeExibicao ? ' — ' + escapeHtml(nomeExibicao) : ''}${a.reagendadoDe ? ' — Reagendado, era ' + formatDate(a.reagendadoDe) : ''}">
+        return `<div class="cal-evento-chip ${a.feito ? 'feito' : ''}" style="--c:${corDoTipo(a.tipo)}" ${a.outlookUid ? '' : `draggable="true" ondragstart="agDragInicio(event,'${a.id}')" ondragend="agDragFim(event)"`} onclick="event.stopPropagation(); openAgendamentoModal('${a.id}')" title="${escapeHtml(a.titulo)}${nomeExibicao ? ' — ' + escapeHtml(nomeExibicao) : ''}${a.reagendadoDe ? ' — Reagendado, era ' + formatDate(a.reagendadoDe) : ''}">
           <input type="checkbox" ${a.feito ? 'checked' : ''} onclick="event.stopPropagation(); toggleAgendamentoFeito('${a.id}')"><span class="cal-evento-hora">${a.hora || '—'}</span>${a.reagendadoDe ? '🔁 ' : ''}${escapeHtml(a.titulo)}</div>`;
       }).join('');
-      cel += `<div class="cal-cel ${data === today ? 'hoje' : ''}" onclick="novoAgendamentoNoDia('${data}')" title="Novo agendamento em ${formatDate(data)}"><div class="cal-num">${d}</div>${eventos}</div>`;
+      cel += `<div class="cal-cel ${data === today ? 'hoje' : ''}" ondragover="agDragSobre(event)" ondragleave="agDragSai(event)" ondrop="agDrop(event,'${data}')" onclick="novoAgendamentoNoDia('${data}')" title="Novo agendamento em ${formatDate(data)}"><div class="cal-num">${d}</div>${eventos}</div>`;
     }
     const resto = (7 - ((antes + diasNoMes) % 7)) % 7;
     for (let d = 1; d <= resto; d++) cel += `<div class="cal-cel fora"><div class="cal-num">${d}</div></div>`;
@@ -6192,6 +6195,42 @@ function mudarMesCalendario(delta) {
     calendarioMesRef = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
   renderCalendario();
+}
+// Arrastar um compromisso para outro dia do calendário do mês: muda a data e mantém o horário; a data antiga vai para reagendado_de
+// (mesmo selo "Reagendado" do modal). Os que vieram do Outlook não arrastam: a sincronização os devolveria ao dia original.
+let agArrastandoId = null;
+function agDragInicio(ev, id) {
+  agArrastandoId = id;
+  ev.dataTransfer.effectAllowed = 'move';
+  try { ev.dataTransfer.setData('text/plain', id); } catch (_) {}
+  ev.currentTarget.classList.add('arrastando');
+}
+function agDragFim(ev) {
+  agArrastandoId = null;
+  ev.currentTarget.classList.remove('arrastando');
+  document.querySelectorAll('.cal-cel.arrasto-sobre').forEach(e => e.classList.remove('arrasto-sobre'));
+}
+function agDragSobre(ev) {
+  if (!agArrastandoId) return;
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+  ev.currentTarget.classList.add('arrasto-sobre');
+}
+function agDragSai(ev) {
+  if (ev.relatedTarget && ev.currentTarget.contains(ev.relatedTarget)) return;
+  ev.currentTarget.classList.remove('arrasto-sobre');
+}
+async function agDrop(ev, data) {
+  ev.preventDefault(); ev.stopPropagation();
+  ev.currentTarget.classList.remove('arrasto-sobre');
+  const id = agArrastandoId; agArrastandoId = null;
+  const a = agendamentos.find(x => x.id === id);
+  if (!a || a.data === data) return;
+  const antes = a.data;
+  const { error } = await sb.from('agendamentos').update({ data, reagendado_de: antes }).eq('id', id);
+  if (error) { alert('Não consegui mover o agendamento (' + error.message + ').'); return; }
+  a.data = data; a.reagendadoDe = antes;
+  render();
 }
 function novoAgendamentoNoDia(data) {
   openAgendamentoModal(null);
