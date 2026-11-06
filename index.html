@@ -10133,6 +10133,11 @@ function bkCopiar() {
   .pv-cli:hover { text-decoration: underline; }
   .pv-cli-sub { display: block; font-size: 11px; color: var(--pv-mut); font-weight: 400; }
   .pv-cli-wrap { display: flex; align-items: flex-start; gap: 8px; }
+  .pv-tabela th.pv-sort { cursor: pointer; user-select: none; }
+  .pv-tabela th.pv-sort:hover { color: var(--pv-fg); }
+  .pv-tabela th.pv-sorted { color: var(--green-mid); }
+  .pv-visual.pv-export th.pv-sorted { color: var(--pv-mut); }
+  .pv-tabela td.pv-cod { font-weight: 700; width: 56px; color: var(--pv-fg); }
   .pv-grip { cursor: grab; color: var(--pv-mut); font-size: 16px; line-height: 1.2; user-select: none; padding: 0 2px; }
   .pv-grip:hover { color: var(--pv-fg); }
   .pv-tabela tr.pv-arrastando { opacity: .4; }
@@ -10215,8 +10220,8 @@ async function pvCarregar() {
 function pvAtualizarDados() { pvDados = null; pvErro = ''; renderPedidoVenda(); }
 function pvStatusDe(r, k) { return (r.etapas[k] && r.etapas[k].status) || 'pendente'; }
 function pvLinhas() {
-  return (pvDados || []).map(r => ({ r, c: state.clients.find(x => x.id === r.cliente_id) })).filter(x => x.c)
-    .sort((a, b) => (a.r.ordem == null ? 1e9 : a.r.ordem) - (b.r.ordem == null ? 1e9 : b.r.ordem) || (parseInt(a.c.codigo, 10) || 9999) - (parseInt(b.c.codigo, 10) || 9999) || String(a.c.nome).localeCompare(String(b.c.nome)));
+  const base = (pvDados || []).map(r => ({ r, c: state.clients.find(x => x.id === r.cliente_id) })).filter(x => x.c)
+    .sort((a, b) => (a.r.ordem == null ? 1e9 : a.r.ordem) - (b.r.ordem == null ? 1e9 : b.r.ordem) || (parseInt(a.c.codigo, 10) || 9999) - (parseInt(b.c.codigo, 10) || 9999) || String(a.c.nome).localeCompare(String(b.c.nome))); return pvAplicarOrdenacao(base);
 }
 function pvFeitos(r, grupo, lista) { const d = r[grupo] || {}; return lista.filter(i => d[i[0]] && d[i[0]].feito).length; }
 function pvHardCare(r) {
@@ -10264,15 +10269,16 @@ function renderPedidoVenda() {
         [[nOk, '#22C55E', 'Concluído'], [nAnd, '#F59E0B', 'Em andamento'], [nPend, '#64748B', 'Pendente']].filter(p => p[0] > 0),
         [['#22C55E', 'Concluído', nOk], ['#F59E0B', 'Em andamento', nAnd], ['#64748B', 'Pendente', nPend]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
-    ? '<table class="pv-tabela"><thead><tr><th>Cliente</th>' + PV_ETAPAS.map(([, n]) => '<th>' + n + '</th>').join('') + '</tr></thead><tbody>'
-      + linhas.map(({ r, c }) => '<tr data-id="' + r.cliente_id + '"><td><div class="pv-cli-wrap"><span class="pv-grip" title="Arraste para reordenar" onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false">⠿</span><div><button type="button" class="pv-cli" onclick="pvAbrir(\'' + r.cliente_id + '\')" title="Abrir checklist de Setup e Validação">' + escapeHtml(c.nome) + '</button>'
-          + '<span class="pv-cli-sub">' + (c.codigo ? '#' + escapeHtml(c.codigo) + ' · ' : '') + pvSubFase(c) + '</span></div></div></td>'
+    ? '<table class="pv-tabela"><thead><tr>' + pvThHtml('codigo', 'Código') + pvThHtml('nome', 'Cliente') + PV_ETAPAS.map(([k, n]) => pvThHtml(k, n)).join('') + '</tr></thead><tbody>'
+      + linhas.map(({ r, c }) => '<tr data-id="' + r.cliente_id + '"><td class="pv-cod">' + escapeHtml(c.codigo || '') + '</td><td><div class="pv-cli-wrap">' + (pvSortCol ? '' : '<span class="pv-grip" title="Arraste para reordenar" onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false">⠿</span>') + '<div><button type="button" class="pv-cli" onclick="pvAbrir(\'' + r.cliente_id + '\')" title="Abrir checklist de Setup e Validação">' + escapeHtml(c.nome) + '</button>'
+          + '<span class="pv-cli-sub">' + pvSubFase(c) + '</span></div></div></td>'
           + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + '</tr>').join('')
       + '</tbody></table>'
     : '<div class="pv-vazio">Nenhum cliente neste módulo ainda. Use "Adicionar cliente" para começar.</div>';
   el.innerHTML = '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Pedido de Venda</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
     + '<div class="pv-acoes"><select id="pv-add-sel" onchange="pvAdicionar(this.value)" title="Adicionar um cliente ao módulo"><option value="">+ Adicionar cliente…</option>'
     + disponiveis.map(c => '<option value="' + c.id + '">' + (pvTemModuloErp(c) ? '★ ' : '') + escapeHtml(c.nome) + (c.codigo ? ' (#' + escapeHtml(c.codigo) + ')' : '') + '</option>').join('') + '</select>'
+    + (pvSortCol ? '<button class="btn btn-sm" onclick="pvOrdenar(null)" title="Voltar à ordem que você arrastou">↺ Ordem manual</button>' : '')
     + '<button class="btn btn-sm" onclick="pvAtualizarDados()" title="Ler os dados de novo">🔄 Atualizar</button>'
     + '<button class="btn btn-sm" onclick="pvCopiarTexto()">📋 Copiar texto</button>'
     + '<button class="btn btn-sm" onclick="pvBaixarImagem()">📸 Baixar imagem</button></div></div>'
@@ -10280,6 +10286,32 @@ function renderPedidoVenda() {
     + '<div class="pv-visual" id="pv-visual"><h3>Painel de implantação do módulo de Pedido de Venda</h3><div class="pv-data">Referente a ' + formatDate(todayStr()) + '</div>' + corpo + '</div>'
     + (disponiveis.some(pvTemModuloErp) ? '<p class="bk-sub" style="margin-top:8px;">★ = o ERP mostra o módulo de pedidos contratado ou em demonstração para esse cliente.</p>' : '');
   pvLigarArrastar();
+}
+
+// ── ordenar clicando no cabeçalho (como em Clientes); sem coluna escolhida vale a ordem manual ──
+let pvSortCol = null, pvSortDir = 'asc';
+const PV_RANK = { pendente: 0, andamento: 1, ok: 2 };
+function pvOrdenar(col) {
+  if (col === null) { pvSortCol = null; pvSortDir = 'asc'; }
+  else if (pvSortCol === col) pvSortDir = pvSortDir === 'asc' ? 'desc' : 'asc';
+  else { pvSortCol = col; pvSortDir = 'asc'; }
+  renderPedidoVenda();
+}
+function pvThHtml(col, rotulo) {
+  const ativo = pvSortCol === col;
+  return '<th class="pv-sort' + (ativo ? ' pv-sorted' : '') + '" onclick="pvOrdenar(\'' + col + '\')" title="Ordenar por ' + escapeHtml(rotulo) + '">' + escapeHtml(rotulo) + (ativo ? (pvSortDir === 'asc' ? ' ▲' : ' ▼') : '') + '</th>';
+}
+function pvAplicarOrdenacao(base) {
+  if (!pvSortCol) return base;
+  const col = pvSortCol, dir = pvSortDir === 'asc' ? 1 : -1;
+  const val = x => col === 'codigo' ? (parseInt(x.c.codigo, 10) || 9999)
+    : col === 'nome' ? String(x.c.nome).toLowerCase()
+    : (PV_RANK[pvStatusDe(x.r, col)] || 0);
+  return base.slice().sort((a, b) => {
+    const va = val(a), vb = val(b);
+    const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return cmp * dir;
+  });
 }
 
 // ── fase do cliente e ordem manual (arrastar) ──
