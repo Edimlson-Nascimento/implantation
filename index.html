@@ -1474,7 +1474,16 @@
       <div class="header-tag">Gestão de Implantação</div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
-    <div class="sidebar-user" id="sidebar-user"></div>
+    <div class="user-wrap" id="user-wrap">
+      <div class="sidebar-user" id="sidebar-user" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" title="Configurações, cronogramas, temas e sair" onclick="toggleMenuUsuario(event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleMenuUsuario(event)}"></div>
+      <div class="user-menu" id="user-menu" role="menu">
+        <button type="button" role="menuitem" class="user-menu-item" id="tab-etapas" onclick="fecharMenuUsuario(); setTab('etapas')">⚙️ Configurações</button>
+        <a role="menuitem" class="user-menu-item" href="https://edimlson-nascimento.github.io/implantation/cronograma.html" target="_blank" rel="noopener" onclick="fecharMenuUsuario()">🗂 Cronogramas de Clientes</a>
+        <button type="button" role="menuitem" class="user-menu-item" onclick="fecharMenuUsuario(); abrirEstudioTemas()">🎨 Temas e cores</button>
+        <div class="user-menu-sep"></div>
+        <button type="button" role="menuitem" class="user-menu-item sair" onclick="withLock(this, doLogout)">🚪 Sair</button>
+      </div>
+    </div>
     <nav class="sidebar-nav">
       <button class="nav-item" id="tab-calendario" onclick="setTab('calendario')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>Agenda <span class="badge-count" id="calendario-count">0</span></button>
       <button class="nav-item" id="tab-clientes" onclick="setTab('clientes')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1a4 4 0 0 0-3-3.8"/></svg>Clientes</button>
@@ -1488,15 +1497,7 @@
       <button class="nav-item" id="tab-buscar" onclick="setTab('buscar')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
       <button class="nav-item" id="tab-desempenho" style="display:none" onclick="setTab('desempenho')"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8M15 7h5v5"/></svg>Desempenho</button>
     </nav>
-    <div class="sidebar-footer">
-      <div id="auth-user-saudacao" style="font-size:12px; color:var(--on-navy); opacity:.7; padding:0 4px;"></div>
-      <button class="btn-sidebar" id="tab-etapas" onclick="setTab('etapas')">⚙️ Configurações</button>
-      <a class="btn-sidebar" href="https://edimlson-nascimento.github.io/implantation/cronograma.html" target="_blank" rel="noopener" style="text-decoration:none;display:block;">🗂 Cronogramas de Clientes</a>
-      
-      
-      <button type="button" class="btn-sidebar" onclick="abrirEstudioTemas()" style="width:100%;text-align:left;">🎨 Temas e cores</button>
-<button class="btn-sidebar" onclick="withLock(this, doLogout)">🚪 Sair</button>
-    </div>
+    <div class="sidebar-footer"><div id="auth-user-saudacao" style="display:none"></div></div>
   </aside>
 
   <div class="main-area">
@@ -7628,7 +7629,7 @@ async function showApp(session) {
 
   currentPessoaNome = pessoaRow.nome;
   document.getElementById('auth-user-saudacao').textContent = currentPessoaNome ? `Olá, ${currentPessoaNome}` : '';
-  document.getElementById('sidebar-user').innerHTML = currentPessoaNome ? `<span class="su-av">${inicialDe(currentPessoaNome)}</span><div><b>${escapeHtml(currentPessoaNome)}</b><small>Equipe de Implantação</small></div>` : '';
+  document.getElementById('sidebar-user').innerHTML = currentPessoaNome ? `<span class="su-av">${inicialDe(currentPessoaNome)}</span><div class="su-txt"><b>${escapeHtml(currentPessoaNome)}</b><small>Equipe de Implantação</small></div><svg class="su-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>` : '';
 
   await loadState();
   if (window.innerWidth < 720) setClientsView('cards');
@@ -10392,5 +10393,41 @@ async function pvBaixarImagem() {
 }
 </script>
 
+<style id="user-menu-css">
+  /* Menu do usuário: clicar no nome abre Configurações, Cronogramas, Temas e Sair (saíram do rodapé do menu lateral) */
+  .user-wrap { position: relative; margin: -8px 0 0; }
+  .user-wrap:has(.sidebar-user:empty) { display: none; }
+  .user-wrap .sidebar-user { margin: 0; cursor: pointer; transition: background .15s; }
+  .user-wrap .sidebar-user:hover, .user-wrap .sidebar-user[aria-expanded="true"] { background: rgba(255,255,255,.12); }
+  .user-wrap .sidebar-user:focus-visible { outline: 2px solid #00FF7A; outline-offset: 2px; }
+  .sidebar-user .su-txt { min-width: 0; flex: 1; }
+  .sidebar-user .su-chev { width: 18px; height: 18px; flex: none; color: #9FC4DD; transition: transform .2s; }
+  .sidebar-user[aria-expanded="true"] .su-chev { transform: rotate(180deg); }
+  .user-menu { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 60; padding: 6px; border-radius: 14px; background: var(--sb-bg, #021F33); border: 1px solid var(--sb-line, rgba(255,255,255,.14)); box-shadow: 0 14px 32px rgba(0,0,0,.45); }
+  .user-menu.open { display: block; }
+  .user-menu-item { display: block; width: 100%; box-sizing: border-box; text-align: left; text-decoration: none; font: inherit; font-size: 13px; font-weight: 600; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--sb-fg, #CFE3F1); cursor: pointer; }
+  .user-menu-item:hover, .user-menu-item:focus-visible { background: var(--sb-hover, rgba(255,255,255,.09)); color: var(--sb-fg-strong, #fff); outline: none; }
+  .user-menu-item.active { background: var(--sb-active-bg, rgba(0,255,122,.12)); color: var(--sb-active-fg, #00FF7A); }
+  .user-menu-item.sair { color: #F87171; }
+  .user-menu-item.sair:hover { background: rgba(248,113,113,.14); color: #FCA5A5; }
+  .user-menu-sep { height: 1px; margin: 5px 6px; background: var(--sb-line, rgba(255,255,255,.14)); }
+</style>
+<script>
+function fecharMenuUsuario() {
+  const m = document.getElementById('user-menu'), c = document.getElementById('sidebar-user');
+  if (m) m.classList.remove('open');
+  if (c) c.setAttribute('aria-expanded', 'false');
+}
+function toggleMenuUsuario(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('user-menu'), c = document.getElementById('sidebar-user');
+  if (!m || !c) return;
+  const abre = !m.classList.contains('open');
+  m.classList.toggle('open', abre);
+  c.setAttribute('aria-expanded', abre ? 'true' : 'false');
+}
+document.addEventListener('click', ev => { const w = document.getElementById('user-wrap'); if (w && !w.contains(ev.target)) fecharMenuUsuario(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') fecharMenuUsuario(); });
+</script>
 </body>
 </html>
