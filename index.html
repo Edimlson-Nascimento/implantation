@@ -10167,7 +10167,30 @@ function bkCopiar() {
   .pv-tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
   .pv-tabela th { text-align: left; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--pv-mut); padding: 8px 8px; border-bottom: 2px solid var(--pv-linha); white-space: nowrap; }
   .pv-tabela td { padding: 9px 8px; border-bottom: 1px solid var(--pv-linha); vertical-align: top; }
-  .pv-tabela td.pv-td { min-width: 118px; }
+  .pv-tabela td.pv-td { min-width: 100px; padding-left: 0; padding-right: 0; }
+  .pv-tabela th.pv-c { text-align: center; }
+  .pv-visual { overflow-x: auto; }
+  .pv-visual.pv-export { overflow: visible; }
+  .pv-tabela { min-width: 960px; }
+  /* linha do tempo: um ponto por etapa, ligado ao anterior por uma linha (mesmo desenho do Cronograma) */
+  .pv-step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .pv-step .pv-track { position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: var(--pv-linha); z-index: 0; }
+  .pv-step .pv-track.ok { background: #22C55E; }
+  .pv-step .pv-track.and { background: linear-gradient(90deg, #22C55E, #F59E0B); }
+  .pv-node { position: relative; z-index: 1; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--pv-linha); background: var(--pv-bg); color: var(--pv-mut); display: flex; align-items: center; justify-content: center; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .pv-node:hover { filter: brightness(1.15); }
+  .pv-node i { width: 8px; height: 8px; border-radius: 50%; background: #F59E0B; display: block; }
+  .pv-step.pv-ok .pv-node { background: #22C55E; border-color: #22C55E; color: #052e16; }
+  .pv-step.pv-andamento .pv-node { border-color: #F59E0B; box-shadow: 0 0 0 4px rgba(245,158,11,.22); }
+  .pv-tag { margin-top: 6px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; font-weight: 600; color: var(--pv-mut); }
+  .pv-step.pv-ok .pv-tag { color: #16A34A; }
+  .pv-step.pv-andamento .pv-tag { color: #D97706; }
+  .pv-pct { display: inline-block; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(148,163,184,.22); color: var(--pv-mut); }
+  .pv-pct.alta { background: rgba(34,197,94,.2); color: #16A34A; }
+  .pv-pct.media { background: rgba(245,158,11,.22); color: #D97706; }
+  .pv-tabela td.pv-status { text-align: right; width: 92px; }
+  .pv-tabela td.pv-status small { display: block; margin-top: 5px; font-size: 10.5px; color: var(--pv-mut); }
+  .pv-tabela th.pv-status-th { text-align: right; }
   .pv-cli { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--pv-fg); cursor: pointer; text-align: left; }
   .pv-cli:hover { text-decoration: underline; }
   .pv-cli-sub { display: block; font-size: 11px; color: var(--pv-mut); font-weight: 400; }
@@ -10295,14 +10318,23 @@ function pvTemModuloErp(c) {
   const e = empresaErpDoCliente(c);
   return !!e && (modulosErp || []).some(m => Number(m.empresa_id) === Number(e.empresa_id) && String(m.slug || '').toLowerCase() === 'pedidos');
 }
+function pvPctTd(r) {
+  const n = PV_ETAPAS.filter(([k]) => pvStatusDe(r, k) === 'ok').length, p = Math.round(n * 100 / PV_ETAPAS.length);
+  return '<td class="pv-status"><span class="pv-pct ' + (p >= 80 ? 'alta' : (p >= 40 ? 'media' : '')) + '">' + p + '%</span><small>' + n + ' de ' + PV_ETAPAS.length + '</small></td>';
+}
 function pvCelulaHtml(r, k) {
   const st = pvStatusDe(r, k);
   let sub = '';
   if (k === 'setup') sub = pvFeitos(r, 'setup', PV_SETUP) + '/' + PV_SETUP.length + ' itens';
   else if (k === 'validacao') sub = pvFeitos(r, 'validacao', PV_VALID) + '/' + PV_VALID.length + ' itens';
   else if (k === 'hardcare') { const h = pvHardCare(r); if (h) sub = '<span class="' + h.cls + '">' + h.txt + '</span>'; }
-  return '<td class="pv-td"><button type="button" class="pv-pill pv-' + st + '" onclick="pvCiclar(\'' + r.cliente_id + '\',\'' + k + '\')" title="Clique para mudar: Pendente → Em andamento → Concluído">' + PV_STATUS[st] + '</button>'
-    + (sub ? '<small class="pv-sub">' + sub + '</small>' : '') + '</td>';
+  const idx = PV_ETAPAS.findIndex(e => e[0] === k), nome = PV_ETAPAS[idx][1];
+  const ant = idx > 0 ? pvStatusDe(r, PV_ETAPAS[idx - 1][0]) : null;
+  const trilho = !ant ? '' : (ant === 'ok' && st === 'ok' ? 'ok' : (ant === 'ok' && st === 'andamento' ? 'and' : ''));
+  return '<td class="pv-td"><div class="pv-step pv-' + st + '">' + (idx > 0 ? '<span class="pv-track ' + trilho + '"></span>' : '')
+    + '<button type="button" class="pv-node" onclick="pvCiclar(\'' + r.cliente_id + '\',\'' + k + '\')" title="' + escapeHtml(nome) + ' — clique para mudar: Pendente → Em andamento → Concluído">' + (st === 'ok' ? '✓' : (st === 'andamento' ? '<i></i>' : '')) + '</button>'
+    + '<div class="pv-tag">' + PV_STATUS[st] + '</div>'
+    + (sub ? '<small class="pv-sub">' + sub + '</small>' : '') + '</div></td>';
 }
 function renderPedidoVenda() {
   const el = document.getElementById('pv-conteudo');
@@ -10327,10 +10359,10 @@ function renderPedidoVenda() {
         [[nHC, '#22C55E', 'Hard Care concluído'], [nHCand, '#F59E0B', 'Hard Care em andamento'], [linhas.length - nHC - nHCand, '#64748B', 'Hard Care não iniciado']].filter(p => p[0] > 0),
         [['#22C55E', 'Hard Care concluído', nHC], ['#F59E0B', 'Hard Care em andamento', nHCand], ['#64748B', 'Hard Care não iniciado', linhas.length - nHC - nHCand]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
-    ? '<table class="pv-tabela"><thead><tr>' + pvThHtml('codigo', 'Código') + pvThHtml('nome', 'Cliente') + PV_ETAPAS.map(([k, n]) => pvThHtml(k, n)).join('') + '</tr></thead><tbody>'
+    ? '<table class="pv-tabela"><thead><tr>' + pvThHtml('codigo', 'Código') + pvThHtml('nome', 'Cliente') + PV_ETAPAS.map(([k, n]) => pvThHtml(k, n)).join('') + pvThHtml('status', 'Status') + '</tr></thead><tbody>'
       + linhas.map(({ r, c }) => '<tr data-id="' + r.cliente_id + '"><td class="pv-cod">' + escapeHtml(c.codigo || '') + '</td><td><div class="pv-cli-wrap">' + (pvSortCol ? '' : '<span class="pv-grip" title="Arraste para reordenar" onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false">⠿</span>') + '<div><button type="button" class="pv-cli" onclick="pvAbrir(\'' + r.cliente_id + '\')" title="Abrir checklist de Setup e Validação">' + escapeHtml(c.nome) + '</button>'
           + '<span class="pv-cli-sub">' + pvSubFase(c) + '</span></div></div></td>'
-          + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + '</tr>').join('')
+          + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + pvPctTd(r) + '</tr>').join('')
       + '</tbody></table>'
     : '<div class="pv-vazio">Nenhum cliente neste módulo ainda. Use "Adicionar cliente" para começar.</div>';
   el.innerHTML = '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Módulo de Digitação de pedido</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
@@ -10357,13 +10389,14 @@ function pvOrdenar(col) {
 }
 function pvThHtml(col, rotulo) {
   const ativo = pvSortCol === col;
-  return '<th class="pv-sort' + (ativo ? ' pv-sorted' : '') + '" onclick="pvOrdenar(\'' + col + '\')" title="Ordenar por ' + escapeHtml(rotulo) + '">' + escapeHtml(rotulo) + (ativo ? (pvSortDir === 'asc' ? ' ▲' : ' ▼') : '') + '</th>';
+  return '<th class="pv-sort' + (col === 'status' ? ' pv-status-th' : (col !== 'codigo' && col !== 'nome' ? ' pv-c' : '')) + (ativo ? ' pv-sorted' : '') + '" onclick="pvOrdenar(\'' + col + '\')" title="Ordenar por ' + escapeHtml(rotulo) + '">' + escapeHtml(rotulo) + (ativo ? (pvSortDir === 'asc' ? ' ▲' : ' ▼') : '') + '</th>';
 }
 function pvAplicarOrdenacao(base) {
   if (!pvSortCol) return base;
   const col = pvSortCol, dir = pvSortDir === 'asc' ? 1 : -1;
   const val = x => col === 'codigo' ? (parseInt(x.c.codigo, 10) || 9999)
     : col === 'nome' ? String(x.c.nome).toLowerCase()
+    : col === 'status' ? PV_ETAPAS.filter(([k]) => pvStatusDe(x.r, k) === 'ok').length
     : (PV_RANK[pvStatusDe(x.r, col)] || 0);
   return base.slice().sort((a, b) => {
     const va = val(a), vb = val(b);
