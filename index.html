@@ -9318,6 +9318,23 @@ function scrumBaixarPDF() {
   .bk-it small { display: block; margin-top: 2px; font-size: 11.5px; color: #94A3B8; }
   .bk-it em { flex: none; font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; color: #CBD5E1; }
   .bk-it em.velho { color: #F87171; }
+  .bk-cli-bloco { border-bottom: 1px dashed rgba(255,255,255,.14); }
+  .bk-cli-bloco:last-child { border-bottom: 0; }
+  .bk-cli-bloco > .bk-it { border-bottom: 0; padding-bottom: 7px; }
+  .bk-cli-btn { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+  .bk-cli-btn::before { content: '\25B8'; font-size: 11px; color: #94A3B8; transition: transform .12s; }
+  .bk-cli-btn[aria-expanded="true"]::before { transform: rotate(90deg); color: #CBD5E1; }
+  .bk-cli-btn:hover { text-decoration: underline; }
+  .bk-cli-tk { margin: 0 0 10px 18px; padding: 4px 12px; border-radius: 10px; background: rgba(255,255,255,.05); }
+  .bk-cli-tk[hidden] { display: none; }
+  .bk-tk { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 12.5px; line-height: 1.4; }
+  .bk-tk:last-child { border-bottom: 0; }
+  .bk-tk > div { min-width: 0; overflow-wrap: anywhere; }
+  .bk-tk b { color: #CBD5E1; }
+  .bk-tk small { display: block; margin-top: 2px; font-size: 11.5px; color: #94A3B8; }
+  .bk-tk em { flex: none; font-style: normal; font-size: 11.5px; font-variant-numeric: tabular-nums; color: #94A3B8; }
+  .bk-tk-msg { padding: 8px 0; font-size: 12px; color: #94A3B8; }
+  .bk-tk-msg.erro { color: #F87171; }
   .bk-lista li.bk-clic { cursor: pointer; border-radius: 6px; transition: background .12s; }
   .bk-lista li.bk-clic:hover { background: rgba(127,127,127,.12); }
   .bk-lista li.bk-clic:hover > span:first-child { text-decoration: underline; }
@@ -9895,12 +9912,13 @@ function bkPerAbrir(el) {
   const por = new Map();
   e.linhas.filter(l => daLinha(l) && daMetrica(l)).forEach(l => {
     const n = Number(l.n) || 0, k = (l.empresa_id == null ? '' : l.empresa_id) + '|' + l.cliente;
-    const o = por.get(k) || { cliente: l.cliente, classe: l.classe, n: 0, dev: 0 };
+    const o = por.get(k) || { cliente: l.cliente, classe: l.classe, empresa: l.empresa_id, n: 0, dev: 0 };
     o.n += n; if (l.dev) o.dev += n; por.set(k, o);
   });
   const lista = [...por.values()].sort((a, b) => b.n - a.n || String(a.cliente).localeCompare(String(b.cliente)));
   const total = lista.reduce((s, o) => s + o.n, 0);
   const [desde, ate] = d.k.split('|');
+  bkPerModal = { desde, ate, daLinha, daMetrica };
   const quem = d.r === '__total' ? 'Total da empresa' : (d.r === '__equipe' ? 'Total Integração' : (d.r === '__outros' ? 'Outros responsáveis' : d.r));
   bkFecharTip();
   const fundo = document.createElement('div');
@@ -9908,10 +9926,60 @@ function bkPerAbrir(el) {
   fundo.id = 'bk-modal-fundo';
   fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
   fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + escapeHtml(quem) + ' · ' + BK_PER_METR[d.m] + '</b>'
-    + '<small>' + formatDate(desde) + ' a ' + formatDate(ate) + ' · ' + total + (total === 1 ? ' ticket' : ' tickets') + ' em ' + lista.length + (lista.length === 1 ? ' cliente' : ' clientes') + '</small></div>'
+    + '<small>' + formatDate(desde) + ' a ' + formatDate(ate) + ' · ' + total + (total === 1 ? ' ticket' : ' tickets') + ' em ' + lista.length + (lista.length === 1 ? ' cliente' : ' clientes') + ' · clique no cliente para ver os tickets</small></div>'
     + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
-    + '<div class="bk-modal-lista">' + (lista.length ? lista.map(o => '<div class="bk-it"><div><b>' + escapeHtml(o.cliente) + '</b><small>' + (BK_PER_TIPO[o.classe] || o.classe) + (o.dev ? ' · ' + o.dev + ' na fila de desenvolvimento' : '') + '</small></div><em>' + o.n + '</em></div>').join('') : '<div class="bk-it"><div>Nenhum ticket.</div></div>') + '</div></div>';
+    + '<div class="bk-modal-lista">' + (lista.length ? lista.map(o => '<div class="bk-cli-bloco"><div class="bk-it"><div><button type="button" class="bk-cli-btn" aria-expanded="false" data-e="' + (o.empresa == null ? '' : o.empresa) + '" onclick="bkPerCliToggle(this)" title="Ver os tickets deste cliente">' + escapeHtml(o.cliente) + '</button><small>' + (BK_PER_TIPO[o.classe] || o.classe) + (o.dev ? ' · ' + o.dev + ' na fila de desenvolvimento' : '') + '</small></div><em>' + o.n + '</em></div><div class="bk-cli-tk" hidden></div></div>').join('') : '<div class="bk-it"><div>Nenhum ticket.</div></div>') + '</div></div>';
   document.body.appendChild(fundo);
+}
+// Tickets de um cliente: clicar no nome do cliente, dentro do modal de "Criados por período", abre abaixo dele a lista dos tickets
+// criados no período (uma consulta à função tickets-erp com ?modo=tickets, feita só no primeiro clique e guardada por 2 min).
+let bkPerModal = null;
+const bkPerTick = new Map();   // 'desde|ate' -> { lista, erro, em, truncado, promessa }
+function bkPerTicketsGet(desde, ate) {
+  const key = desde + '|' + ate, ant = bkPerTick.get(key);
+  if (ant && ant.promessa) return ant.promessa;
+  if (ant && ant.lista && Date.now() - ant.em < 120000) return Promise.resolve(ant);
+  const e = { lista: null, erro: '', em: 0, truncado: false, promessa: null };
+  bkPerTick.set(key, e);
+  e.promessa = (async () => {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(TICKETS_ERP_FN_URL + '?modo=tickets&desde=' + desde + '&ate=' + ate, { headers: { Authorization: 'Bearer ' + session.access_token } });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
+      if (!Array.isArray(json.tickets)) throw new Error('a função tickets-erp publicada é antiga (não traz a lista de tickets do período): publique a versão atual');
+      e.lista = json.tickets; e.truncado = !!json.truncado;
+    } catch (err) { e.erro = (err && err.message) || String(err); }
+    e.em = Date.now(); e.promessa = null;
+    return e;
+  })();
+  return e.promessa;
+}
+function bkPerTickHtml(t) {
+  const sit = t.grupo === 'dev' ? 'Fila de desenvolvimento' : (bkSemNumero(t.status) || '—');
+  const pessoa = BK_EQUIPE.includes(t.pessoa) ? t.pessoa : (bkEquipePorNome(t.responsavel_nome) || (t.responsavel_nome ? bkNomeCurto(t.responsavel_nome) : (t.pessoa || 'Sem responsável')));
+  return '<div class="bk-tk"><div><b>#' + escapeHtml(t.numero || t.id) + '</b> ' + (t.titulo ? escapeHtml(t.titulo) : '(sem título)')
+    + '<small>' + escapeHtml(sit) + ' · ' + escapeHtml(pessoa) + '</small></div><em title="Data de criação">' + formatDate(dataLocalISO(t.criado_em)) + '</em></div>';
+}
+async function bkPerCliToggle(btn) {
+  const ctx = bkPerModal, bloco = btn.closest('.bk-cli-bloco'), box = bloco && bloco.querySelector('.bk-cli-tk');
+  if (!ctx || !box) return;
+  if (btn.getAttribute('aria-expanded') === 'true') { btn.setAttribute('aria-expanded', 'false'); box.hidden = true; return; }
+  btn.setAttribute('aria-expanded', 'true'); box.hidden = false;
+  if (box.dataset.ok) return;
+  box.innerHTML = '<div class="bk-tk-msg">Buscando os tickets…</div>';
+  const e = await bkPerTicketsGet(ctx.desde, ctx.ate);
+  if (!box.isConnected) return;
+  if (!e.lista) { box.innerHTML = '<div class="bk-tk-msg erro">Não consegui ler os tickets (' + escapeHtml(e.erro) + ').</div>'; return; }
+  const emp = btn.dataset.e;
+  const itens = e.lista.filter(t => {
+    if (String(t.empresa_id) !== emp) return false;
+    const x = { pessoa: t.pessoa, classe: tkClasseDe(t.empresa_id, t.classe), grupo: t.grupo === 'dev' ? 'aberto' : t.grupo };   // mesmo critério da linha clicada na tabela
+    return ctx.daLinha(x) && ctx.daMetrica(x);
+  });
+  box.dataset.ok = '1';
+  box.innerHTML = (itens.length ? itens.map(bkPerTickHtml).join('') : '<div class="bk-tk-msg">Nenhum ticket encontrado para esta linha.</div>')
+    + (e.truncado ? '<div class="bk-tk-msg">A lista foi cortada nos 5000 tickets mais recentes do período.</div>' : '');
 }
 function bkPerSet(m) { bkPerModo = m; if (m === 'custom' && !bkPerDesde) { const iv = bkPerIntervalo(); bkPerDesde = iv.desde; bkPerAte = iv.ate; } renderBacklog(); }
 function bkPerAplicar() {
