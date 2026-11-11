@@ -113,12 +113,13 @@
   .etapa-count { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--slate); }
 
   table.itens { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  table.itens .col-mvp { width: 6%; text-align: center; }
-  table.itens .col-item { width: 29%; }
-  table.itens .col-resp { width: 16%; }
-  table.itens .col-baseline { width: 18%; }
-  table.itens .col-data { width: 17%; }
-  table.itens .col-status { width: 14%; }
+  table.itens .col-mvp { width: 5%; text-align: center; }
+  table.itens .col-item { width: 23%; }
+  table.itens .col-resp { width: 13%; }
+  table.itens .col-baseline { width: 14%; }
+  table.itens .col-data { width: 14%; }
+  table.itens .col-status { width: 15%; }
+  table.itens .col-prereq { width: 16%; }
   table.itens th { text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); padding: 0 10px 10px; border-bottom: 1px solid var(--line); }
   table.itens td { padding: 13px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
   table.itens tr:last-child > td { border-bottom: none; }
@@ -151,6 +152,17 @@
   .mvp-star.parcial { opacity:.45; }
   .mvp-star.mini { font-size:12px; margin-left:2px; }
   .mvp-subs { margin-top:8px; padding-left:2px; }
+  /* 7 colunas (só em tela larga): células mais justas e campos que acompanham a largura da coluna */
+  @media (min-width: 641px) {
+    table.itens td { padding-left:6px; padding-right:6px; }
+    table.itens th { padding-left:6px; padding-right:6px; }
+    table.itens .baseline-field, table.itens .date-field { width:100%; min-width:0; }
+    table.itens .pill { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  }
+  .prereq-txt { font-size:12.5px; line-height:1.45; color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .prereq-txt.vazio { color:var(--slate); }
+  table.admin-itens .col-prereq { width:220px; }
+  table.admin-itens td.col-prereq textarea { width:100%; min-height:54px; font-size:12.5px; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; resize:vertical; }
   .btn-filtro-mvp { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.02em; padding:6px 13px; border-radius:100px; border:1px solid var(--line); background:var(--surface); color:var(--slate); cursor:pointer; white-space:nowrap; }
   .btn-filtro-mvp:hover { border-color:#F5B301; color:#F5B301; }
   .btn-filtro-mvp.ativo { background:#F5B301; border-color:#F5B301; color:#3a2a00; }
@@ -235,7 +247,7 @@
   .admin-bloqueio-row { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--slate); margin-bottom:12px; }
   .admin-bloqueio-row textarea { flex:1; min-height:44px; font-family:inherit; font-size:12.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--paper); color:var(--ink); resize:vertical; }
   .admin-itens-scroll { overflow-x: auto; }
-  table.admin-itens { width:100%; min-width:900px; table-layout:fixed; border-collapse:collapse; }
+  table.admin-itens { width:100%; min-width:1130px; table-layout:fixed; border-collapse:collapse; }
   table.admin-itens th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); padding:0 6px 8px; font-family:'IBM Plex Mono',monospace; white-space:nowrap; }
   table.admin-itens td { padding:6px; vertical-align:top; }
   table.admin-itens input, table.admin-itens select { width:100%; font-size:12.5px; padding:6px 7px; border-radius:6px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-family:inherit; }
@@ -280,6 +292,8 @@
     table.itens td.nome { display: block; font-weight: 600; margin-bottom: 6px; }
     table.itens td:not(.nome)::before { content: attr(data-label); font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--slate); text-transform: uppercase; letter-spacing: .04em; }
     .baseline-field, .date-field { width: auto; }
+    table.itens td, table.itens td.nome { width: auto; }
+    .prereq-txt { text-align: right; }
     .admin-shell { flex-direction: column; }
     .admin-lateral { width:auto; border-right:none; border-bottom:1px solid var(--line); }
   }
@@ -363,7 +377,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-11.7</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-11.8</span></div>
   </footer>
 </div>
 
@@ -484,7 +498,7 @@ function traduzErroAuth(msg) {
 }
 
 function avisarSeErro(error, acao) {
-  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})` + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '')); return true; }
+  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})` + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '') + (/pre_requisitos/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-prerequisitos.sql no SQL Editor do Supabase.' : '')); return true; }
   return false;
 }
 
@@ -718,7 +732,7 @@ function renderEtapasCliente() {
         </div>
         ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
         <table class="itens">
-          <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th></tr></thead>
+          <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th><th class="col-prereq">Pré-requisitos</th></tr></thead>
           <tbody>
             ${linhas.map(item => `
               <tr>
@@ -747,6 +761,7 @@ function renderEtapasCliente() {
                 <td data-label="Prazo de Conclusão" class="tabular col-data"><span class="campo-readonly ${item.data_validacao ? '' : 'empty'}">${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}</span></td>
                 <td data-label="Status" class="col-status"><span class="pill status-${item.status}"><span class="dot"></span>${rotuloStatus(item.status)}</span></td>
                 `}
+                <td data-label="Pré-requisitos" class="col-prereq"><div class="prereq-txt ${item.pre_requisitos ? '' : 'vazio'}">${item.pre_requisitos ? escapeHtml(item.pre_requisitos) : '—'}</div></td>
               </tr>
             `).join('')}
           </tbody>
@@ -917,7 +932,7 @@ function gerarPdfCronograma(btn) {
 
     // ── medidas das tabelas ──
     const innerW = CW - 2 * PAD;
-    const fr = [5, 28, 16, 16, 14, 21].map(p => innerW * p / 100);
+    const fr = [7, 36, 26, 20, 21, 31, 33].map(w => w * innerW / 174);
     const colX = [M + PAD]; fr.forEach((w, i) => colX.push(colX[i] + w));
     const LH = 4.0, PADL = 3.4, CHK_H = 5.4;
     const subsDe = item => subsDoItem(item.id);
@@ -931,10 +946,11 @@ function gerarPdfCronograma(btn) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
       mvpSubsDe(item).forEach(s => { extra += doc.splitTextToSize(s.nome, fr[1] - 11).length * 3.7 + 0.9; });
       if (extra) extra += 1.4;
-      return Math.max(5.6, nl * LH + (temCheck ? 1.6 + CHK_H : 0) + extra) + 2 * PADL;
+      const pl = item.pre_requisitos ? doc.splitTextToSize(item.pre_requisitos, fr[6] - 4).length : 0;
+      return Math.max(5.6, pl * 3.7, nl * LH + (temCheck ? 1.6 + CHK_H : 0) + extra) + 2 * PADL;
     };
     const alturaCab = (etapa, cont) => {
-      let h = 8.5 + 9.7;                     // título + linha dos rótulos das colunas (2 linhas)
+      let h = 8.5 + 12.4;                    // título + linha dos rótulos das colunas (até 3 linhas)
       if (!cont && etapa.bloqueada && etapa.nota_bloqueio) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
         h += doc.splitTextToSize(etapa.nota_bloqueio, innerW - 14).length * 3.8 + 6.5 + 4;
@@ -988,8 +1004,8 @@ function gerarPdfCronograma(btn) {
           cy2 += bh + 4;
         } else cy2 += 0.2;
         // rótulos das colunas
-        ['MVP', 'ITEM', 'RESPONSÁVEL', 'TEMPO DE EXECUÇÃO\nPREVISTO', 'PRAZO DE\nCONCLUSÃO', 'STATUS'].forEach((t, i) => t.split('\n').forEach((ln, k) => txt(ln, colX[i] + (i === 1 ? 2 : 2.6), cy2 + 2.6 + k * 2.7, { fam: 'courier', st: 'bold', size: 6, cor: SLATE, cs: 0.1 })));
-        cy2 += 7.1;
+        ['MVP', 'ITEM', 'RESPONSÁVEL', 'TEMPO DE\nEXECUÇÃO\nPREVISTO', 'PRAZO DE\nCONCLUSÃO', 'STATUS', 'PRÉ-REQUISITOS'].forEach((t, i) => t.split('\n').forEach((ln, k) => txt(ln, colX[i] + (i === 1 ? 2 : 2.6), cy2 + 2.6 + k * 2.7, { fam: 'courier', st: 'bold', size: 6, cor: SLATE, cs: 0.1 })));
+        cy2 += 9.8;
         doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, cy2, M + CW - PAD, cy2);
         // linhas
         let ry = cy2;
@@ -1031,6 +1047,11 @@ function gerarPdfCronograma(btn) {
           // status
           const s = ST[item.status] || ST.pendente;
           pill(colX[5] + 2.6, top - 0.4, rotuloStatus(item.status), s.bg, s.fg, { dot: true });
+          // pré-requisitos (última coluna)
+          if (item.pre_requisitos) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...INK);
+            doc.text(doc.splitTextToSize(item.pre_requisitos, fr[6] - 4), colX[6] + 2.6, top + 3.1);
+          } else txt('—', colX[6] + 2.6, top + 3.2, { size: 8, cor: SLATE });
           ry += row.h;
           if (!(seg.ultimo && ri === seg.rows.length - 1)) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, ry, M + CW - PAD, ry); }
         });
@@ -1322,7 +1343,7 @@ function renderEtapasAdmin() {
         </label>
         <div class="admin-itens-scroll">
         <table class="admin-itens">
-          <thead><tr><th class="col-ordem">Ord.</th><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
+          <thead><tr><th class="col-ordem">Ord.</th><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th><th class="col-prereq">Pré-requisitos</th><th class="col-acao"></th></tr></thead>
           <tbody>
             ${linhas.map(item => { const subLinhas = subitens.filter(s => s.item_id === item.id); const aberto = !!adminDetalheAberto[item.id]; return `
               <tr>
@@ -1347,11 +1368,12 @@ function renderEtapasAdmin() {
                     <option value="concluido" ${item.status === 'concluido' ? 'selected' : ''}>Concluído</option>
                   </select>
                 </td>
+                <td class="col-prereq"><textarea rows="2" placeholder="Pré-requisitos..." onchange="salvarCampoItem('${item.id}','pre_requisitos', this.value)">${escapeHtml(item.pre_requisitos || '')}</textarea></td>
                 <td class="col-acao"><button class="admin-mini-btn perigo" onclick="excluirItem('${item.id}')">🗑</button></td>
               </tr>
               ${aberto ? `
               <tr class="admin-detalhe-row">
-                <td colspan="8">
+                <td colspan="9">
                   <div class="admin-detalhe-box">
                     <div class="admin-detalhe-col">
                       <label class="admin-detalhe-label">Escopo / nota livre</label>
