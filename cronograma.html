@@ -148,6 +148,8 @@
   table.itens th.col-mvp { text-align:center; padding-left:0; padding-right:0; }
   table.itens td.col-mvp { text-align:center; padding-left:0; padding-right:0; }
   .mvp-star { color:#F5B301; font-size:17px; line-height:1; }
+  .mvp-star.parcial { opacity:.45; }
+  .mvp-star.mini { font-size:12px; margin-left:2px; }
   .btn-filtro-mvp { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.02em; padding:6px 13px; border-radius:100px; border:1px solid var(--line); background:var(--surface); color:var(--slate); cursor:pointer; white-space:nowrap; }
   .btn-filtro-mvp:hover { border-color:#F5B301; color:#F5B301; }
   .btn-filtro-mvp.ativo { background:#F5B301; border-color:#F5B301; color:#3a2a00; }
@@ -253,13 +255,12 @@
   .admin-subitens-list { margin-bottom:8px; }
   .admin-subitem-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
   .admin-subitem-row input[type=checkbox] { flex-shrink:0; accent-color: var(--green); width:15px; height:15px; }
-  .admin-subitem-grupo { flex:0 0 120px; font-size:11px !important; color:var(--slate) !important; }
+  .admin-subitem-row .admin-mvp-btn, .admin-subitem-add-row .admin-mvp-btn { flex:0 0 auto; padding:3px 7px; font-size:14px; }
   .admin-subitem-nome { flex:1; }
   .admin-subitem-row input[type=text] { font-size:12px; padding:5px 7px; border-radius:5px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-family:inherit; }
   .admin-subitem-add-row { display:flex; gap:6px; }
   .admin-subitem-add-row input { padding:7px 9px; border-radius:6px; border:1px dashed var(--line); background:var(--surface); color:var(--ink); font-size:12px; }
-  .admin-subitem-add-row input:first-child { flex:0 0 120px; }
-  .admin-subitem-add-row input:nth-child(2) { flex:1; }
+  .admin-subitem-add-row input { flex:1; }
   .checklist-grupo { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin:10px 0 4px; }
   .checklist-grupo:first-child { margin-top:0; }
   .checklist-item { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12.5px; }
@@ -627,12 +628,12 @@ function renderChecklist(lista, readonly) {
       if (grupo) html += `<div class="checklist-grupo">${escapeHtml(grupo)}</div>`;
     }
     if (readonly) {
-      html += `<label class="checklist-item"><input type="checkbox" ${s.feito ? 'checked' : ''} disabled><span>${escapeHtml(s.nome)}</span></label>`;
+      html += `<label class="checklist-item"><input type="checkbox" ${s.feito ? 'checked' : ''} disabled><span>${escapeHtml(s.nome)}${s.mvp ? ' <span class="mvp-star mini" title="MVP">★</span>' : ''}</span></label>`;
     } else {
       html += `
         <div class="admin-subitem-row">
           <input type="checkbox" ${s.feito ? 'checked' : ''} onchange="salvarCampoSubitem('${s.id}','feito', this.checked)">
-          <input type="text" class="admin-subitem-grupo" value="${escapeHtml(s.grupo || '')}" placeholder="Grupo (opcional)" onchange="salvarCampoSubitem('${s.id}','grupo', this.value)">
+          <button class="admin-mvp-btn ${s.mvp ? 'on' : ''}" title="${s.mvp ? 'Sub-item do MVP — clique para desmarcar' : 'Marcar como MVP (Produto Mínimo Viável)'}" onclick="alternarMvpSubitem('${s.id}')">${s.mvp ? '★' : '☆'}</button>
           <input type="text" class="admin-subitem-nome" value="${escapeHtml(s.nome)}" onchange="salvarCampoSubitem('${s.id}','nome', this.value)">
           <button class="admin-mini-btn perigo" onclick="excluirSubitem('${s.id}')">🗑</button>
         </div>
@@ -644,10 +645,19 @@ function renderChecklist(lista, readonly) {
 
 // MVP = Produto Mínimo Viável: o admin marca a ★ nos itens que fazem parte dele
 // (coluna cronograma_itens.mvp). O filtro mostra só esses itens — pra apresentação e pro PDF.
-function itensVisiveis() { return filtroMvp ? itens.filter(i => i.mvp) : itens; }
-function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && i.mvp)) : etapas; }
+// Um item entra no MVP se ele mesmo está marcado OU se algum sub-item do checklist dele está.
+function itemNoMvp(i) { return !!i.mvp || subitens.some(s => s.item_id === i.id && s.mvp); }
+// Com o filtro ligado, o checklist mostra só os sub-itens do MVP (se o item não tem nenhum marcado, mostra todos).
+function subsDoItem(itemId) {
+  const todos = subitens.filter(s => s.item_id === itemId);
+  if (!filtroMvp) return todos;
+  const so = todos.filter(s => s.mvp);
+  return so.length ? so : todos;
+}
+function itensVisiveis() { return filtroMvp ? itens.filter(itemNoMvp) : itens; }
+function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && itemNoMvp(i))) : etapas; }
 function atualizarBotoesMvp() {
-  const n = itens.filter(i => i.mvp).length;
+  const n = itens.filter(itemNoMvp).length;
   document.querySelectorAll('.btn-filtro-mvp').forEach(b => {
     b.classList.toggle('ativo', filtroMvp);
     b.textContent = filtroMvp ? `★ Só o MVP (${n}) · ver tudo` : `☆ Só o MVP (${n})`;
@@ -659,6 +669,7 @@ function toggleFiltroMvp() {
   if (!document.getElementById('admin-app').hidden && clienteSelAdmin) renderAdminConteudo();
   atualizarBotoesMvp();
 }
+function alternarMvpSubitem(id) { const s = subitens.find(x => x.id === id); if (s) salvarCampoSubitem(id, 'mvp', !s.mvp); }
 function alternarMvp(id) { const it = itens.find(i => i.id === id); if (it) salvarCampoItem(id, 'mvp', !it.mvp); }
 
 function rotuloStatus(s) { return s === 'concluido' ? 'Concluído' : (s === 'andamento' ? 'Em andamento' : 'Pendente'); }
@@ -708,14 +719,14 @@ function renderEtapasCliente() {
           <tbody>
             ${linhas.map(item => `
               <tr>
-                <td class="col-mvp" data-label="MVP">${item.mvp ? '<span class="mvp-star" title="MVP">★</span>' : ''}</td>
+                <td class="col-mvp" data-label="MVP">${item.mvp ? '<span class="mvp-star" title="MVP">★</span>' : (itemNoMvp(item) ? '<span class="mvp-star parcial" title="Tem sub-itens do MVP">★</span>' : '')}</td>
                 <td class="nome col-item">
                   ${escapeHtml(item.nome)}
                   ${item.escopo ? `
                     <button class="escopo-toggle" onclick="toggleEscopo('${item.id}')">${escopoAberto[item.id] ? '▾ ocultar detalhe' : '▸ ver detalhe'}</button>
                     <div class="escopo-box" ${escopoAberto[item.id] ? '' : 'hidden'}>${escapeHtml(item.escopo)}</div>
                   ` : ''}
-                  ${(() => { const subLinhas = subitens.filter(s => s.item_id === item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
+                  ${(() => { const subLinhas = subsDoItem(item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
                     <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAberto[item.id] ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
                     <div class="escopo-box" ${checklistAberto[item.id] ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
                   `; })()}
@@ -752,7 +763,7 @@ function renderClienteAll() { renderStepper(); renderEtapasCliente(); atualizarB
 function gerarPdfCronograma(btn) {
   const cli = clienteAtual || clienteSelAdmin;
   if (!cli) return;
-  const IT = filtroMvp ? itens.filter(i => i.mvp) : itens;
+  const IT = filtroMvp ? itens.filter(itemNoMvp) : itens;
   const ET = filtroMvp ? etapas.filter(e => IT.some(i => i.etapa_id === e.id)) : etapas;
   if (!(window.jspdf && window.jspdf.jsPDF)) {
     mostrarAviso('PDF indisponível', 'Não consegui carregar o gerador de PDF (verifique a internet e recarregue a página).', '⚠️');
@@ -814,12 +825,12 @@ function gerarPdfCronograma(btn) {
     };
 
     const OURO = [240, 170, 0];
-    const estrela = (cx, cy, R) => {          // estrela de 5 pontas (a fonte padrão do PDF não tem ★)
+    const estrela = (cx, cy, R, cor) => {          // estrela de 5 pontas (a fonte padrão do PDF não tem ★)
       const pts = [];
       for (let i = 0; i < 10; i++) { const ang = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * 0.42 : R; pts.push([cx + rr * Math.cos(ang), cy + rr * Math.sin(ang)]); }
       const seg = []; for (let i = 1; i < pts.length; i++) seg.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
       seg.push([pts[0][0] - pts[9][0], pts[0][1] - pts[9][1]]);
-      doc.setFillColor(...OURO); doc.lines(seg, pts[0][0], pts[0][1], [1, 1], 'F', true);
+      doc.setFillColor(...(cor || OURO)); doc.lines(seg, pts[0][0], pts[0][1], [1, 1], 'F', true);
     };
 
     const agora = new Date();
@@ -903,7 +914,7 @@ function gerarPdfCronograma(btn) {
     const fr = [5, 29, 16, 13, 15, 22].map(p => innerW * p / 100);
     const colX = [M + PAD]; fr.forEach((w, i) => colX.push(colX[i] + w));
     const LH = 4.0, PADL = 3.4, CHK_H = 5.4;
-    const subsDe = item => subitens.filter(s => s.item_id === item.id);
+    const subsDe = item => subsDoItem(item.id);
     const alturaLinha = item => {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
       const nl = doc.splitTextToSize(item.nome, fr[1] - 5).length;
@@ -975,7 +986,7 @@ function gerarPdfCronograma(btn) {
           doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
           const nl = doc.splitTextToSize(item.nome, fr[1] - 5);
           doc.setTextColor(...INK); doc.text(nl, colX[1] + 2, top + 3.1);
-          if (item.mvp) estrela(colX[0] + fr[0] / 2 + 0.6, top + 2.6, 2.1);
+          if (itemNoMvp(item)) estrela(colX[0] + fr[0] / 2 + 0.6, top + 2.6, 2.1, item.mvp ? OURO : [244, 214, 130]);
           const subs = subsDe(item);
           if (subs.length) {
             const feitosSub = subs.filter(s => s.feito).length;
@@ -1266,7 +1277,7 @@ async function salvarNomeEtapaEFechar(id, nome) {
 function renderEtapasAdmin() {
   const wrap = document.getElementById('admin-etapas-lista');
   wrap.innerHTML = etapas.map(etapa => {
-    const linhas = itens.filter(i => i.etapa_id === etapa.id && (!filtroMvp || i.mvp)).sort((a, b) => a.ordem - b.ordem);
+    const linhas = itens.filter(i => i.etapa_id === etapa.id && (!filtroMvp || itemNoMvp(i))).sort((a, b) => a.ordem - b.ordem);
     const colapsada = !!adminEtapaColapsada[etapa.id];
     const pctEtapa = pctConcluido(linhas);
     return `
@@ -1327,7 +1338,7 @@ function renderEtapasAdmin() {
                       <label class="admin-detalhe-label">Checklist (sub-itens com check — só admin marca)</label>
                       <div class="admin-subitens-list">${renderChecklist(subLinhas, false)}</div>
                       <div class="admin-subitem-add-row">
-                        <input type="text" id="novo-sub-grupo-${item.id}" placeholder="Grupo (opcional)...">
+                        <button type="button" class="admin-mvp-btn" id="novo-sub-mvp-${item.id}" title="Marcar como MVP (Produto Mínimo Viável)" onclick="this.classList.toggle('on'); this.textContent = this.classList.contains('on') ? '★' : '☆'">☆</button>
                         <input type="text" id="novo-sub-nome-${item.id}" placeholder="Novo sub-item...">
                         <button class="admin-mini-btn" onclick="withLockAdmin(this, () => criarSubitem('${item.id}'))">+ Adicionar</button>
                       </div>
@@ -1436,18 +1447,19 @@ async function excluirItem(id) {
 function toggleAdminDetalhe(itemId) { adminDetalheAberto[itemId] = !adminDetalheAberto[itemId]; renderEtapasAdmin(); }
 
 async function criarSubitem(itemId) {
-  const grupoInput = document.getElementById(`novo-sub-grupo-${itemId}`);
+  const mvpBtn = document.getElementById(`novo-sub-mvp-${itemId}`);
   const nomeInput = document.getElementById(`novo-sub-nome-${itemId}`);
   const nome = nomeInput.value.trim();
   if (!nome) return;
-  const grupo = grupoInput.value.trim();
+  const mvp = !!(mvpBtn && mvpBtn.classList.contains('on'));
   const daLista = subitens.filter(s => s.item_id === itemId);
   const ordem = daLista.length ? Math.max(...daLista.map(s => s.ordem)) + 1 : 1;
-  const { data, error } = await sb.from('cronograma_item_subitens').insert({ item_id: itemId, nome, grupo, ordem }).select().single();
-  if (error) { alert('Erro ao criar sub-item: ' + error.message); return; }
+  const novo = { item_id: itemId, nome, grupo: '', ordem };
+  if (mvp) novo.mvp = true;      // só manda a coluna quando marcada (não quebra antes do SQL)
+  const { data, error } = await sb.from('cronograma_item_subitens').insert(novo).select().single();
+  if (error) { alert('Erro ao criar sub-item: ' + error.message + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '')); return; }
   subitens.push(data);
   nomeInput.value = '';
-  grupoInput.value = '';
   renderEtapasAdmin();
 }
 
@@ -1455,6 +1467,7 @@ async function salvarCampoSubitem(id, campo, valor) {
   const { error } = await sb.from('cronograma_item_subitens').update({ [campo]: valor }).eq('id', id);
   if (avisarSeErro(error, 'salvar o sub-item')) { renderEtapasAdmin(); return; }
   const s = subitens.find(s => s.id === id); if (s) s[campo] = valor;
+  if (campo === 'mvp') { renderEtapasAdmin(); atualizarBotoesMvp(); }
 }
 
 async function excluirSubitem(id) {
