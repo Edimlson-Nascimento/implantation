@@ -654,6 +654,8 @@ function subsDoItem(itemId) {
   const so = todos.filter(s => s.mvp);
   return so.length ? so : todos;
 }
+// Item com sub-item MVP: o checklist já abre sozinho (a pessoa ainda pode recolher).
+function checklistAbertoEfetivo(id) { const v = checklistAberto[id]; return v !== undefined ? v : subitens.some(s => s.item_id === id && s.mvp); }
 function itensVisiveis() { return filtroMvp ? itens.filter(itemNoMvp) : itens; }
 function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && itemNoMvp(i))) : etapas; }
 function atualizarBotoesMvp() {
@@ -727,8 +729,8 @@ function renderEtapasCliente() {
                     <div class="escopo-box" ${escopoAberto[item.id] ? '' : 'hidden'}>${escapeHtml(item.escopo)}</div>
                   ` : ''}
                   ${(() => { const subLinhas = subsDoItem(item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
-                    <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAberto[item.id] ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
-                    <div class="escopo-box" ${checklistAberto[item.id] ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
+                    <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAbertoEfetivo(item.id) ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
+                    <div class="escopo-box" ${checklistAbertoEfetivo(item.id) ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
                   `; })()}
                 </td>
                 <td data-label="Responsável" class="col-resp"><span class="pill resp-${item.responsavel}">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</span></td>
@@ -915,11 +917,17 @@ function gerarPdfCronograma(btn) {
     const colX = [M + PAD]; fr.forEach((w, i) => colX.push(colX[i] + w));
     const LH = 4.0, PADL = 3.4, CHK_H = 5.4;
     const subsDe = item => subsDoItem(item.id);
+    // sub-itens marcados como MVP aparecem sempre listados embaixo do item (o resto do checklist fica recolhido)
+    const mvpSubsDe = item => subitens.filter(s => s.item_id === item.id && s.mvp);
     const alturaLinha = item => {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
       const nl = doc.splitTextToSize(item.nome, fr[1] - 5).length;
       const temCheck = subsDe(item).length > 0;
-      return Math.max(5.6, nl * LH + (temCheck ? 1.6 + CHK_H : 0)) + 2 * PADL;
+      let extra = 0;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      mvpSubsDe(item).forEach(s => { extra += doc.splitTextToSize(s.nome, fr[1] - 11).length * 3.7 + 0.9; });
+      if (extra) extra += 1.4;
+      return Math.max(5.6, nl * LH + (temCheck ? 1.6 + CHK_H : 0) + extra) + 2 * PADL;
     };
     const alturaCab = (etapa, cont) => {
       let h = 8.5 + 7;                       // título + linha dos rótulos das colunas
@@ -996,6 +1004,17 @@ function gerarPdfCronograma(btn) {
             doc.roundedRect(colX[1] + 2, by, w, CHK_H, CHK_H / 2, CHK_H / 2, 'FD');
             doc.setFillColor(...BLUE); doc.triangle(colX[1] + 4.6, by + 1.5, colX[1] + 4.6, by + CHK_H - 1.5, colX[1] + 6.4, by + CHK_H / 2, 'F');
             txt(label, colX[1] + 7.6, by + CHK_H / 2 + 7.2 * 0.1235, { fam: 'courier', st: 'bold', size: 7.2, cor: BLUE });
+            let sy = by + CHK_H + 2.4;
+            mvpSubsDe(item).forEach(s => {
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+              const sl = doc.splitTextToSize(s.nome, fr[1] - 11);
+              doc.setDrawColor(...SLATE); doc.setLineWidth(0.25);
+              if (s.feito) { doc.setFillColor(...GREEN); doc.roundedRect(colX[1] + 2.4, sy - 0.5, 2.7, 2.7, 0.5, 0.5, 'FD'); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.4); doc.line(colX[1] + 3.0, sy + 0.9, colX[1] + 3.6, sy + 1.6); doc.line(colX[1] + 3.6, sy + 1.6, colX[1] + 4.6, sy + 0.2); }
+              else { doc.setFillColor(...SURFACE); doc.roundedRect(colX[1] + 2.4, sy - 0.5, 2.7, 2.7, 0.5, 0.5, 'FD'); }
+              estrela(colX[1] + 6.7, sy + 0.85, 1.25);
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...INK); doc.text(sl, colX[1] + 8.6, sy + 1.6);
+              sy += sl.length * 3.7 + 0.9;
+            });
           }
           // responsável
           const cor = item.responsavel === 'cliente' ? RESP_CLI : { bg: GREEN_SOFT, fg: GREEN };
@@ -1059,7 +1078,7 @@ function voltarPraAdmin() {
   document.getElementById('btn-sair-app').hidden = false;
 }
 function toggleEscopo(id) { escopoAberto[id] = !escopoAberto[id]; renderEtapasCliente(); }
-function toggleChecklist(id) { checklistAberto[id] = !checklistAberto[id]; renderEtapasCliente(); }
+function toggleChecklist(id) { checklistAberto[id] = !checklistAbertoEfetivo(id); renderEtapasCliente(); }
 
 // As únicas alterações que o cliente pode fazer — status, baseline e data de
 // validação, e só em itens onde ELE é o responsável. Quem decide o
