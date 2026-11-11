@@ -363,7 +363,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-11.6</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-11.7</span></div>
   </footer>
 </div>
 
@@ -718,7 +718,7 @@ function renderEtapasCliente() {
         </div>
         ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
         <table class="itens">
-          <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Data validação</th><th class="col-status">Status</th></tr></thead>
+          <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th></tr></thead>
           <tbody>
             ${linhas.map(item => `
               <tr>
@@ -740,11 +740,11 @@ function renderEtapasCliente() {
                 <td data-label="Responsável" class="col-resp"><span class="pill resp-${item.responsavel}">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</span></td>
                 ${item.responsavel === 'cliente' && !modoPreviewAdmin ? `
                 <td data-label="Tempo de Execução Previsto" class="tabular col-baseline"><input class="baseline-field ${item.baseline ? '' : 'indefinido'}" value="${escapeHtml(item.baseline || '?')}" onchange="editarBaseline('${item.id}', this)"></td>
-                <td data-label="Data validação" class="tabular col-data"><input class="date-field ${item.data_validacao ? '' : 'empty'}" value="${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}" onclick="this.select()" onchange="editarDataValidacao('${item.id}', this)"></td>
+                <td data-label="Prazo de Conclusão" class="tabular col-data"><input class="date-field ${item.data_validacao ? '' : 'empty'}" value="${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}" onclick="this.select()" onchange="editarDataValidacao('${item.id}', this)"></td>
                 <td data-label="Status" class="col-status"><button class="pill status-${item.status}" onclick="alternarStatus('${item.id}')"><span class="dot"></span>${rotuloStatus(item.status)}</button></td>
                 ` : `
                 <td data-label="Tempo de Execução Previsto" class="tabular col-baseline"><span class="campo-readonly ${item.baseline ? '' : 'indefinido'}">${escapeHtml(item.baseline || '?')}</span></td>
-                <td data-label="Data validação" class="tabular col-data"><span class="campo-readonly ${item.data_validacao ? '' : 'empty'}">${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}</span></td>
+                <td data-label="Prazo de Conclusão" class="tabular col-data"><span class="campo-readonly ${item.data_validacao ? '' : 'empty'}">${item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa'}</span></td>
                 <td data-label="Status" class="col-status"><span class="pill status-${item.status}"><span class="dot"></span>${rotuloStatus(item.status)}</span></td>
                 `}
               </tr>
@@ -869,7 +869,7 @@ function gerarPdfCronograma(btn) {
     }
     y += 6;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
-    const desc = doc.splitTextToSize('Cada etapa abaixo é um bloco de trabalho da implantação. Acompanhe o status, o tempo de execução previsto e a data de validação de cada item — a Intelipulse atualiza o cronograma em tempo real.', 128);
+    const desc = doc.splitTextToSize('Cada etapa abaixo é um bloco de trabalho da implantação. Acompanhe o status, o tempo de execução previsto e o prazo de conclusão de cada item — a Intelipulse atualiza o cronograma em tempo real.', 128);
     doc.setTextColor(...SLATE); doc.text(desc, M, y);
     y += desc.length * 4.6 + 6;
 
@@ -988,7 +988,7 @@ function gerarPdfCronograma(btn) {
           cy2 += bh + 4;
         } else cy2 += 0.2;
         // rótulos das colunas
-        ['MVP', 'ITEM', 'RESPONSÁVEL', 'TEMPO DE EXECUÇÃO\nPREVISTO', 'DATA VALIDAÇÃO', 'STATUS'].forEach((t, i) => t.split('\n').forEach((ln, k) => txt(ln, colX[i] + (i === 1 ? 2 : 2.6), cy2 + 2.6 + k * 2.7, { fam: 'courier', st: 'bold', size: 6, cor: SLATE, cs: 0.1 })));
+        ['MVP', 'ITEM', 'RESPONSÁVEL', 'TEMPO DE EXECUÇÃO\nPREVISTO', 'PRAZO DE\nCONCLUSÃO', 'STATUS'].forEach((t, i) => t.split('\n').forEach((ln, k) => txt(ln, colX[i] + (i === 1 ? 2 : 2.6), cy2 + 2.6 + k * 2.7, { fam: 'courier', st: 'bold', size: 6, cor: SLATE, cs: 0.1 })));
         cy2 += 7.1;
         doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, cy2, M + CW - PAD, cy2);
         // linhas
@@ -1322,7 +1322,7 @@ function renderEtapasAdmin() {
         </label>
         <div class="admin-itens-scroll">
         <table class="admin-itens">
-          <thead><tr><th class="col-ordem">Ord.</th><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Data validação</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
+          <thead><tr><th class="col-ordem">Ord.</th><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
           <tbody>
             ${linhas.map(item => { const subLinhas = subitens.filter(s => s.item_id === item.id); const aberto = !!adminDetalheAberto[item.id]; return `
               <tr>
