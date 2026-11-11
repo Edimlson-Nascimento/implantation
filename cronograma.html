@@ -113,7 +113,8 @@
   .etapa-count { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--slate); }
 
   table.itens { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  table.itens .col-item { width: 38%; }
+  table.itens .col-mvp { width: 6%; text-align: center; }
+  table.itens .col-item { width: 32%; }
   table.itens .col-resp { width: 16%; }
   table.itens .col-baseline { width: 15%; }
   table.itens .col-data { width: 17%; }
@@ -144,6 +145,16 @@
   .pill.resp-intelipulse { background: var(--green-soft); color: var(--green); }
   :root:not([data-theme="light"]) .pill.resp-cliente { background: #241B3D; color: #B79DF0; }
 
+  table.itens th.col-mvp { text-align:center; padding-left:0; padding-right:0; }
+  table.itens td.col-mvp { text-align:center; padding-left:0; padding-right:0; }
+  .mvp-star { color:#F5B301; font-size:17px; line-height:1; }
+  .btn-filtro-mvp { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.02em; padding:6px 13px; border-radius:100px; border:1px solid var(--line); background:var(--surface); color:var(--slate); cursor:pointer; white-space:nowrap; }
+  .btn-filtro-mvp:hover { border-color:#F5B301; color:#F5B301; }
+  .btn-filtro-mvp.ativo { background:#F5B301; border-color:#F5B301; color:#3a2a00; }
+  table.admin-itens .col-mvp { width:46px; text-align:center; }
+  .admin-mvp-btn { background:none; border:1px solid var(--line); border-radius:6px; font-size:16px; line-height:1; padding:5px 8px; cursor:pointer; color:var(--slate); }
+  .admin-mvp-btn:hover { border-color:#F5B301; color:#F5B301; }
+  .admin-mvp-btn.on { color:#F5B301; border-color:#F5B301; background:rgba(245,179,1,.14); }
   .baseline-field { background:none; border:1px dashed var(--line); border-radius:8px; padding:6px 9px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); width:110px; }
   .baseline-field.indefinido { color: var(--slate); font-style: italic; }
   .date-field { background:none; border:1px dashed var(--line); border-radius:8px; padding:6px 9px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); width:128px; cursor:pointer; }
@@ -339,6 +350,7 @@
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <h1 style="margin:0;">Onde está o seu projeto</h1>
         <span id="progresso-geral-cliente"></span>
+        <button class="btn-filtro-mvp" onclick="toggleFiltroMvp()" title="MVP — Produto Mínimo Viável: mostra só os itens marcados como MVP"></button>
       </div>
       <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
     </div>
@@ -407,7 +419,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
    Mesmo projeto Supabase do painel de gestão interno ("implantation") —
@@ -470,7 +481,7 @@ function traduzErroAuth(msg) {
 }
 
 function avisarSeErro(error, acao) {
-  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})`); return true; }
+  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})` + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '')); return true; }
   return false;
 }
 
@@ -508,6 +519,7 @@ let adminDetalheAberto = {};
 let adminEtapaColapsada = {};
 let adminEtapaRenomeando = {};
 let modoPreviewAdmin = false;
+let filtroMvp = false;     // filtro "Só MVP" (vale para a visão do cliente, o admin e o PDF)
 
 /* ── LOGIN ── */
 async function fazerLogin() {
@@ -630,11 +642,30 @@ function renderChecklist(lista, readonly) {
   return html;
 }
 
+// MVP = Produto Mínimo Viável: o admin marca a ★ nos itens que fazem parte dele
+// (coluna cronograma_itens.mvp). O filtro mostra só esses itens — pra apresentação e pro PDF.
+function itensVisiveis() { return filtroMvp ? itens.filter(i => i.mvp) : itens; }
+function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && i.mvp)) : etapas; }
+function atualizarBotoesMvp() {
+  const n = itens.filter(i => i.mvp).length;
+  document.querySelectorAll('.btn-filtro-mvp').forEach(b => {
+    b.classList.toggle('ativo', filtroMvp);
+    b.textContent = filtroMvp ? `★ Só o MVP (${n}) · ver tudo` : `☆ Só o MVP (${n})`;
+  });
+}
+function toggleFiltroMvp() {
+  filtroMvp = !filtroMvp;
+  if (!document.getElementById('app').hidden) renderClienteAll();
+  if (!document.getElementById('admin-app').hidden && clienteSelAdmin) renderAdminConteudo();
+  atualizarBotoesMvp();
+}
+function alternarMvp(id) { const it = itens.find(i => i.id === id); if (it) salvarCampoItem(id, 'mvp', !it.mvp); }
+
 function rotuloStatus(s) { return s === 'concluido' ? 'Concluído' : (s === 'andamento' ? 'Em andamento' : 'Pendente'); }
 
 function renderStepper() {
-  document.getElementById('stepper').innerHTML = etapas.map((e, i) => {
-    const itensDaEtapa = itens.filter(it => it.etapa_id === e.id);
+  document.getElementById('stepper').innerHTML = etapasVisiveis().map((e, i) => {
+    const itensDaEtapa = itensVisiveis().filter(it => it.etapa_id === e.id);
     const todasConcluidas = itensDaEtapa.length > 0 && itensDaEtapa.every(it => it.status === 'concluido');
     const algumConcluido = itensDaEtapa.some(it => it.status === 'concluido' || it.status === 'andamento');
     let cls = 'pendente', tag = 'Pendente';
@@ -656,12 +687,12 @@ function renderEtapasCliente() {
   const wrap = document.getElementById('etapas-wrap');
   const badgeGeral = document.getElementById('progresso-geral-cliente');
   if (badgeGeral) {
-    const pctGeral = pctConcluido(itens);
-    badgeGeral.innerHTML = itens.length ? `<span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>` : '';
+    const pctGeral = pctConcluido(itensVisiveis());
+    badgeGeral.innerHTML = itensVisiveis().length ? `<span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>` : '';
   }
-  if (!etapas.length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">Nenhuma etapa cadastrada ainda.</p></div>`; return; }
-  wrap.innerHTML = etapas.map(etapa => {
-    const linhas = itens.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
+  if (!etapasVisiveis().length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">${filtroMvp ? 'Nenhum item marcado como MVP ainda.' : 'Nenhuma etapa cadastrada ainda.'}</p></div>`; return; }
+  wrap.innerHTML = etapasVisiveis().map(etapa => {
+    const linhas = itensVisiveis().filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
     const feitos = linhas.filter(i => i.status === 'concluido').length;
     const pctEtapa = pctConcluido(linhas);
     return `
@@ -673,10 +704,11 @@ function renderEtapasCliente() {
         </div>
         ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
         <table class="itens">
-          <thead><tr><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Baseline</th><th class="col-data">Data validação</th><th class="col-status">Status</th></tr></thead>
+          <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Baseline</th><th class="col-data">Data validação</th><th class="col-status">Status</th></tr></thead>
           <tbody>
             ${linhas.map(item => `
               <tr>
+                <td class="col-mvp" data-label="MVP">${item.mvp ? '<span class="mvp-star" title="MVP">★</span>' : ''}</td>
                 <td class="nome col-item">
                   ${escapeHtml(item.nome)}
                   ${item.escopo ? `
@@ -707,19 +739,22 @@ function renderEtapasCliente() {
   }).join('');
 }
 
-function renderClienteAll() { renderStepper(); renderEtapasCliente(); }
+function renderClienteAll() { renderStepper(); renderEtapasCliente(); atualizarBotoesMvp(); }
 
 /* ── PDF DO CRONOGRAMA ──
-   Gera um PDF próprio (A4, fundo branco, texto em vetor) com o que o cliente
-   vê na tela: % geral, resumo por etapa e uma tabela por etapa (item,
-   responsável, baseline, data de validação, status), com escopo e checklist
-   embaixo do nome do item. Serve para o cliente (login dele) e para o admin
-   (tela do admin ou "Visão do Cliente") — lê só os arrays já carregados
-   (etapas/itens/subitens), não consulta nem grava nada no banco. */
+   Reproduz em PDF (A4, texto vetorial) a tela da visão do cliente, no tema que
+   estiver ativo (claro ou escuro): cabeçalho Intelipulse, título com o % geral,
+   stepper das etapas e um cartão por etapa com a tabela de itens (responsável,
+   baseline, data de validação, status). O checklist NÃO é expandido: aparece só
+   como a etiqueta "ver checklist (feitos/total)", em destaque. Serve para o
+   cliente e para o admin (tela do admin ou "Visão do Cliente"); lê só os arrays
+   já carregados (etapas/itens/subitens), não consulta nem grava nada no banco. */
 function gerarPdfCronograma(btn) {
   const cli = clienteAtual || clienteSelAdmin;
   if (!cli) return;
-  if (!(window.jspdf && window.jspdf.jsPDF) || typeof window.jspdf.jsPDF.API.autoTable !== 'function') {
+  const IT = filtroMvp ? itens.filter(i => i.mvp) : itens;
+  const ET = filtroMvp ? etapas.filter(e => IT.some(i => i.etapa_id === e.id)) : etapas;
+  if (!(window.jspdf && window.jspdf.jsPDF)) {
     mostrarAviso('PDF indisponível', 'Não consegui carregar o gerador de PDF (verifique a internet e recarregue a página).', '⚠️');
     return;
   }
@@ -728,138 +763,255 @@ function gerarPdfCronograma(btn) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-    const M = 14;                                   // margem lateral
-    const NAVY = [11, 36, 71], LIME = [92, 143, 22], SLATE = [82, 93, 110], LINE = [217, 223, 232];
-    const COR_STATUS = { concluido: [22, 120, 60], andamento: [30, 90, 200], pendente: [150, 100, 10] };
+    const W = 210, H = 297, M = 12, CW = W - 2 * M, PAD = 6, LIM = H - 16;
+
+    // ── cores do tema ativo (as mesmas variáveis CSS da tela) ──
+    const cs = getComputedStyle(document.documentElement);
+    const lerCor = n => {
+      const v = cs.getPropertyValue(n).trim();
+      let m = v.match(/^#([0-9a-f]{6})$/i);
+      if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16), 1];
+      m = v.match(/rgba?\(([^)]+)\)/);
+      if (m) { const p = m[1].split(',').map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; }
+      return [128, 128, 128, 1];
+    };
+    const rgb = c => c.slice(0, 3);
+    const sobre = (c, base) => [0, 1, 2].map(i => Math.round(c[i] * c[3] + base[i] * (1 - c[3])));
+    const PAPER = rgb(lerCor('--paper')), SURFACE = rgb(lerCor('--surface')), INK = rgb(lerCor('--ink')), SLATE = rgb(lerCor('--slate'));
+    const LINE = sobre(lerCor('--line'), SURFACE);
+    const GREEN = rgb(lerCor('--green')), GREEN_SOFT = rgb(lerCor('--green-soft')), AMBER = rgb(lerCor('--amber')), AMBER_SOFT = rgb(lerCor('--amber-soft'));
+    const RED = rgb(lerCor('--red')), RED_SOFT = rgb(lerCor('--red-soft')), BLUE = rgb(lerCor('--blue')), BLUE_SOFT = rgb(lerCor('--blue-soft'));
+    const LIME = rgb(lerCor('--lime')), NAVY_DEEP = rgb(lerCor('--navy-deep'));
+    const escuro = (PAPER[0] * 0.3 + PAPER[1] * 0.59 + PAPER[2] * 0.11) < 128;
+    const RESP_CLI = escuro ? { bg: [36, 27, 61], fg: [183, 157, 240] } : { bg: [239, 234, 251], fg: [107, 70, 193] };
+    const ST = {
+      pendente: { bg: AMBER_SOFT, fg: AMBER }, andamento: { bg: BLUE_SOFT, fg: BLUE }, concluido: { bg: GREEN_SOFT, fg: GREEN },
+    };
+
+    // ── helpers de desenho ──
+    const fundo = () => { doc.setFillColor(...PAPER); doc.rect(0, 0, W, H, 'F'); };
+    const txt = (s, x, y, o = {}) => {
+      doc.setFont(o.fam || 'helvetica', o.st || 'normal'); doc.setFontSize(o.size || 9); doc.setTextColor(...(o.cor || INK));
+      if (o.cs && doc.setCharSpace) doc.setCharSpace(o.cs);
+      doc.text(s, x, y, { align: o.al || 'left' });
+      if (o.cs && doc.setCharSpace) doc.setCharSpace(0);
+    };
+    const larg = (s, fam, st, size) => { doc.setFont(fam, st); doc.setFontSize(size); return doc.getTextWidth(s); };
+    const pill = (x, yTop, s, bg, fg, o = {}) => {
+      const size = o.size || 7.2, h = o.h || 5.4, fam = 'courier', st = o.st || 'bold';
+      const w = larg(s, fam, st, size) + (o.dot ? 4.4 : 0) + 6;
+      doc.setFillColor(...bg); doc.roundedRect(x, yTop, w, h, h / 2, h / 2, 'F');
+      let tx = x + 3;
+      if (o.dot) { doc.setFillColor(...fg); doc.circle(x + 3.5, yTop + h / 2, 0.75, 'F'); tx = x + 6.1; }
+      txt(s, tx, yTop + h / 2 + size * 0.1235, { fam, st, size, cor: fg });
+      return w;
+    };
+    const pctCores = p => p >= 80 ? [GREEN_SOFT, GREEN] : (p >= 40 ? [AMBER_SOFT, AMBER] : [RED_SOFT, RED]);
+    const cortar = (s, max, fam, st, size) => {
+      if (larg(s, fam, st, size) <= max) return s;
+      while (s.length > 1 && larg(s + '…', fam, st, size) > max) s = s.slice(0, -1);
+      return s + '…';
+    };
+
+    const OURO = [240, 170, 0];
+    const estrela = (cx, cy, R) => {          // estrela de 5 pontas (a fonte padrão do PDF não tem ★)
+      const pts = [];
+      for (let i = 0; i < 10; i++) { const ang = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * 0.42 : R; pts.push([cx + rr * Math.cos(ang), cy + rr * Math.sin(ang)]); }
+      const seg = []; for (let i = 1; i < pts.length; i++) seg.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
+      seg.push([pts[0][0] - pts[9][0], pts[0][1] - pts[9][1]]);
+      doc.setFillColor(...OURO); doc.lines(seg, pts[0][0], pts[0][1], [1, 1], 'F', true);
+    };
+
     const agora = new Date();
     const dataHora = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const pctGeral = pctConcluido(itens);
+    const pctGeral = pctConcluido(IT);
 
-    // Cabeçalho (só na 1ª página)
-    doc.setFillColor(...NAVY); doc.rect(0, 0, W, 30, 'F');
+    // ── página 1: cabeçalho, título, stepper ──
+    fundo();
+    doc.setFillColor(...NAVY_DEEP); doc.rect(0, 0, W, 16, 'F');
     doc.setFillColor(...LIME);
-    doc.rect(M, 12, 1.4, 3, 'F'); doc.rect(M + 2.2, 10, 1.4, 5, 'F'); doc.rect(M + 4.4, 8, 1.4, 7, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text('intelipulse', M + 8.5, 14.5);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(190, 200, 215);
-    doc.text('CRONOGRAMA DE PROJETO', M, 23);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
-    doc.text(String(cli.nome).toUpperCase(), M + doc.getTextWidth('CRONOGRAMA DE PROJETO  ·  ') + 0.5, 23);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(190, 200, 215);
-    doc.text('Gerado em ' + dataHora, W - M, 14.5, { align: 'right' });
+    doc.rect(M, 9.3, 0.9, 1.8, 'F'); doc.rect(M + 1.5, 8.2, 0.9, 2.9, 'F'); doc.rect(M + 3, 7.1, 0.9, 4, 'F');
+    txt('intelipulse', M + 6, 10.6, { st: 'bold', size: 10.5, cor: [255, 255, 255] });
+    doc.setDrawColor(70, 84, 106); doc.setLineWidth(0.25); doc.line(M + 29, 5.8, M + 29, 10.8 + 0.2);
+    txt('CRONOGRAMA DE PROJETO  ·', M + 33, 10.5, { fam: 'courier', size: 7.4, cor: [176, 186, 200], cs: 0.2 });
+    const wRot = larg('CRONOGRAMA DE PROJETO  ·', 'courier', 'normal', 7.4) + 24 * 0.2;
+    txt(String(cli.nome).toUpperCase(), M + 33 + wRot + 2, 10.5, { fam: 'courier', st: 'bold', size: 7.4, cor: [255, 255, 255], cs: 0.2 });
 
-    // Título + % geral
-    let y = 42;
-    doc.setTextColor(...NAVY); doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-    doc.text('Onde está o seu projeto', M, y);
-    const feitosGeral = itens.filter(i => i.status === 'concluido').length;
-    doc.setFontSize(11); doc.setTextColor(...LIME);
-    doc.text(pctGeral + '% concluído', W - M, y, { align: 'right' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...SLATE);
-    doc.text(feitosGeral + ' de ' + itens.length + ' itens concluídos  ·  ' + etapas.length + ' etapas', M, y + 6);
-    // barra de progresso geral
-    doc.setFillColor(...LINE); doc.roundedRect(M, y + 10, W - 2 * M, 2.6, 1.3, 1.3, 'F');
-    if (pctGeral > 0) { doc.setFillColor(...LIME); doc.roundedRect(M, y + 10, (W - 2 * M) * pctGeral / 100, 2.6, 1.3, 1.3, 'F'); }
-    y += 20;
+    let y = 28;
+    txt('ACOMPANHAMENTO EM TEMPO REAL', M, y, { fam: 'courier', st: 'bold', size: 7, cor: GREEN, cs: 0.35 });
+    if (filtroMvp) {
+      const wE = larg('ACOMPANHAMENTO EM TEMPO REAL', 'courier', 'bold', 7) + 28 * 0.35;
+      const wP = pill(M + wE + 5, y - 4.3, 'MVP · PRODUTO MÍNIMO VIÁVEL', [253, 240, 200], [130, 85, 0], { size: 6.8, h: 5.2 });
+      estrela(M + wE + 5 + wP + 4, y - 1.7, 2);
+    }
+    y += 9;
+    txt('Onde está o seu projeto', M, y, { st: 'bold', size: 19, cor: INK });
+    if (IT.length) {
+      const [pbg, pfg] = pctCores(pctGeral);
+      pill(M + larg('Onde está o seu projeto', 'helvetica', 'bold', 19) + 4, y - 5.2, pctGeral + '% concluído', pbg, pfg, { size: 8, h: 6.6 });
+    }
+    y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    const desc = doc.splitTextToSize('Cada etapa abaixo é um bloco de trabalho da implantação. Acompanhe o status, a baseline e a data de validação de cada item — a Intelipulse atualiza o cronograma em tempo real.', 128);
+    doc.setTextColor(...SLATE); doc.text(desc, M, y);
+    y += desc.length * 4.6 + 6;
 
-    // Resumo por etapa
-    const statusEtapa = e => {
-      const li = itens.filter(it => it.etapa_id === e.id);
-      if (e.bloqueada) return 'Bloqueada';
-      if (li.length && li.every(it => it.status === 'concluido')) return 'Concluída';
-      if (li.some(it => it.status === 'concluido' || it.status === 'andamento')) return 'Em andamento';
-      return 'Pendente';
+    // stepper
+    const n = ET.length || 1, sw = CW / n, r = 3.4, cy = y + r + 1.2;
+    const infoEtapa = e => {
+      const li = IT.filter(it => it.etapa_id === e.id);
+      const todas = li.length > 0 && li.every(it => it.status === 'concluido');
+      const algum = li.some(it => it.status === 'concluido' || it.status === 'andamento');
+      let cls = 'pendente', tag = 'PENDENTE';
+      if (algum) { cls = 'current'; tag = 'EM ANDAMENTO'; }
+      if (todas) { cls = 'done'; tag = 'CONCLUÍDA'; }
+      if (e.bloqueada) { cls = 'bloqueada'; tag = 'BLOQUEADA'; }
+      return { cls, tag };
     };
-    doc.autoTable({
-      startY: y,
-      head: [['#', 'Etapa', 'Situação', 'Itens concluídos', '%']],
-      body: etapas.map((e, i) => {
-        const li = itens.filter(it => it.etapa_id === e.id);
-        return [String(i + 1), e.nome, statusEtapa(e), li.filter(it => it.status === 'concluido').length + ' / ' + li.length, li.length ? pctConcluido(li) + '%' : '—'];
-      }),
-      theme: 'plain', margin: { left: M, right: M },
-      styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.2, textColor: [30, 41, 59], lineColor: LINE, lineWidth: { bottom: 0.2 } },
-      headStyles: { textColor: SLATE, fontStyle: 'bold', fontSize: 8, lineColor: [150, 160, 175], lineWidth: { bottom: 0.4 } },
-      columnStyles: { 0: { cellWidth: 8 }, 2: { cellWidth: 32 }, 3: { cellWidth: 34 }, 4: { cellWidth: 16, halign: 'right' } },
-      didParseCell: d => {
-        if (d.section === 'body' && d.column.index === 2) {
-          const t = d.cell.raw;
-          d.cell.styles.fontStyle = 'bold';
-          d.cell.styles.textColor = t === 'Concluída' ? COR_STATUS.concluido : t === 'Em andamento' ? COR_STATUS.andamento : t === 'Bloqueada' ? [190, 40, 40] : COR_STATUS.pendente;
-        }
-      },
+    doc.setLineWidth(0.5);
+    ET.forEach((e, i) => {
+      if (!i) return;
+      const { cls } = infoEtapa(e);
+      doc.setDrawColor(...(cls === 'done' ? GREEN : LINE));
+      doc.line(M + sw * (i - 0.5), cy, M + sw * (i + 0.5), cy);
     });
-    y = doc.lastAutoTable.finalY + 10;
-
-    // Uma tabela por etapa
-    etapas.forEach((etapa, idx) => {
-      const linhas = itens.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
-      const feitos = linhas.filter(i => i.status === 'concluido').length;
-      if (y > H - 55) { doc.addPage(); y = 18; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...NAVY);
-      doc.text((idx + 1) + '. ' + etapa.nome, M, y);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...SLATE);
-      doc.text(feitos + '/' + linhas.length + ' concluídos' + (linhas.length ? '  ·  ' + pctConcluido(linhas) + '%' : ''), W - M, y, { align: 'right' });
-      y += 3;
-      if (etapa.bloqueada && etapa.nota_bloqueio) {
-        const txt = doc.splitTextToSize('Etapa bloqueada: ' + etapa.nota_bloqueio, W - 2 * M - 6);
-        const h = txt.length * 4.2 + 4;
-        doc.setFillColor(253, 236, 236); doc.roundedRect(M, y + 1, W - 2 * M, h, 1.5, 1.5, 'F');
-        doc.setFontSize(8.5); doc.setTextColor(160, 30, 30); doc.text(txt, M + 3, y + 5.2);
-        y += h + 3;
+    let maxLin = 1;
+    ET.forEach((e, i) => {
+      const { cls, tag } = infoEtapa(e);
+      const cx = M + sw * (i + 0.5);
+      if (cls === 'current') { doc.setFillColor(...GREEN_SOFT); doc.circle(cx, cy, r + 1.3, 'F'); }
+      const corBorda = cls === 'done' || cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : LINE);
+      doc.setFillColor(...(cls === 'done' ? GREEN : SURFACE)); doc.setDrawColor(...corBorda); doc.setLineWidth(0.5);
+      doc.circle(cx, cy, r, 'FD');
+      if (cls === 'done') {
+        doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.55);
+        doc.line(cx - 1.4, cy + 0.1, cx - 0.4, cy + 1.2); doc.line(cx - 0.4, cy + 1.2, cx + 1.5, cy - 1.1);
+      } else {
+        txt(String(i + 1), cx, cy + 0.95, { fam: 'courier', st: 'bold', size: 7, cor: cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : SLATE), al: 'center' });
       }
-      // Cada item vira 1 linha principal; escopo/checklist, quando existem, vão numa 2ª linha cinza (colSpan 5)
-      const corpo = [];
-      linhas.forEach(item => {
-        corpo.push({ tipo: 'item', item, row: [item.nome, item.responsavel === 'cliente' ? cli.nome : 'Intelipulse', item.baseline || '?', item.data_validacao ? fmtDateBR(item.data_validacao) : '—', rotuloStatus(item.status)] });
-        const subs = subitens.filter(s => s.item_id === item.id);
-        const partes = [];
-        if (item.escopo) partes.push(item.escopo);
-        let grupoAtual = null;
-        subs.forEach(s => {
-          if ((s.grupo || '') !== grupoAtual) { grupoAtual = s.grupo || ''; if (grupoAtual) partes.push(grupoAtual + ':'); }
-          partes.push((s.feito ? '[x] ' : '[  ] ') + s.nome);
-        });
-        if (partes.length) corpo.push({ tipo: 'detalhe', item, row: [{ content: partes.join('\n'), colSpan: 5 }] });
-      });
-      doc.autoTable({
-        startY: y,
-        head: [['Item', 'Responsável', 'Baseline', 'Data validação', 'Status']],
-        body: corpo.map(c => c.row),
-        theme: 'plain', margin: { left: M, right: M, bottom: 16 },
-        styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 2.4, bottom: 2.4, left: 2, right: 2 }, textColor: [30, 41, 59], lineColor: LINE, lineWidth: { bottom: 0.2 }, valign: 'top' },
-        headStyles: { fillColor: [241, 244, 249], textColor: SLATE, fontStyle: 'bold', fontSize: 8, lineWidth: 0 },
-        columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 28 }, 2: { cellWidth: 22 }, 3: { cellWidth: 25 }, 4: { cellWidth: 31 } },
-        rowPageBreak: 'avoid',
-        didParseCell: d => {
-          if (d.section !== 'body') return;
-          const c = corpo[d.row.index];
-          if (c.tipo === 'detalhe') {
-            d.cell.styles.fontSize = 8; d.cell.styles.textColor = SLATE;
-            d.cell.styles.fillColor = [248, 250, 252];
-            d.cell.styles.cellPadding = { top: 1.6, bottom: 2.2, left: 6, right: 2 };
-            return;
-          }
-          if (d.column.index === 0) d.cell.styles.fontStyle = 'bold';
-          if (d.column.index === 4) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.textColor = COR_STATUS[c.item.status] || COR_STATUS.pendente; }
-        },
-      });
-      y = doc.lastAutoTable.finalY + 10;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      const linhas = doc.splitTextToSize(e.nome, Math.min(sw - 4, 34));
+      maxLin = Math.max(maxLin, linhas.length);
+      const ly = cy + r + 5;
+      doc.setTextColor(...(cls === 'pendente' ? SLATE : INK)); doc.text(linhas, cx, ly, { align: 'center' });
+      txt(tag, cx, ly + linhas.length * 3.5 + 0.8, { fam: 'courier', st: 'bold', size: 6.2, cor: cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : SLATE), al: 'center' });
+    });
+    y = cy + r + 5 + maxLin * 3.5 + 1 + 8;
+
+    // ── medidas das tabelas ──
+    const innerW = CW - 2 * PAD;
+    const fr = [5, 29, 16, 13, 15, 22].map(p => innerW * p / 100);
+    const colX = [M + PAD]; fr.forEach((w, i) => colX.push(colX[i] + w));
+    const LH = 4.0, PADL = 3.4, CHK_H = 5.4;
+    const subsDe = item => subitens.filter(s => s.item_id === item.id);
+    const alturaLinha = item => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
+      const nl = doc.splitTextToSize(item.nome, fr[1] - 5).length;
+      const temCheck = subsDe(item).length > 0;
+      return Math.max(5.6, nl * LH + (temCheck ? 1.6 + CHK_H : 0)) + 2 * PADL;
+    };
+    const alturaCab = (etapa, cont) => {
+      let h = 8.5 + 7;                       // título + linha dos rótulos das colunas
+      if (!cont && etapa.bloqueada && etapa.nota_bloqueio) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        h += doc.splitTextToSize(etapa.nota_bloqueio, innerW - 14).length * 3.8 + 6.5 + 4;
+      }
+      return h;
+    };
+
+    // ── 1ª passada: reparte as ET/linhas pelas páginas ──
+    const paginas = [[]]; let yy = y; const TOPO = 14;
+    ET.forEach(etapa => {
+      const linhas = IT.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
+      const rows = linhas.map(item => ({ item, h: alturaLinha(item) }));
+      let i = 0, cont = false;
+      do {
+        const cab = alturaCab(etapa, cont);
+        const primeira = rows[i] ? rows[i].h : 8;
+        if (yy + PAD + cab + primeira + PAD > LIM && yy > TOPO) { paginas.push([]); yy = TOPO; }
+        const seg = { etapa, cont, y: yy, cab, rows: [], total: linhas.length };
+        let h = PAD + cab;
+        while (i < rows.length && yy + h + rows[i].h + PAD <= LIM) { seg.rows.push(rows[i]); h += rows[i].h; i++; }
+        if (!seg.rows.length && i < rows.length) { seg.rows.push(rows[i]); h += rows[i].h; i++; }
+        seg.h = h + PAD; seg.ultimo = i >= rows.length;
+        paginas[paginas.length - 1].push(seg);
+        yy += seg.h + 6; cont = true;
+        if (i < rows.length) { paginas.push([]); yy = TOPO; }
+      } while (i < rows.length);
     });
 
-    // Rodapé com número de página
+    // ── 2ª passada: desenha ──
+    paginas.forEach((segs, pi) => {
+      if (pi > 0) { doc.addPage(); fundo(); }
+      segs.forEach(seg => {
+        const { etapa } = seg;
+        const todas = IT.filter(i => i.etapa_id === etapa.id);
+        const feitos = todas.filter(i => i.status === 'concluido').length, pct = pctConcluido(todas);
+        doc.setFillColor(...SURFACE); doc.setDrawColor(...LINE); doc.setLineWidth(0.25);
+        doc.roundedRect(M, seg.y, CW, seg.h, 3.5, 3.5, 'FD');
+        let cy2 = seg.y + PAD + 4.6;
+        txt(etapa.nome, M + PAD, cy2, { st: 'bold', size: 11.5, cor: INK });
+        if (seg.cont) txt('(continuação)', M + PAD + larg(etapa.nome, 'helvetica', 'bold', 11.5) + 2, cy2, { size: 7.5, cor: SLATE });
+        let xd = M + CW - PAD;
+        if (todas.length) { const [pbg, pfg] = pctCores(pct); const w = larg(pct + '%', 'courier', 'bold', 7) + 6; pill(xd - w, cy2 - 4, pct + '%', pbg, pfg, { size: 7, h: 4.8 }); xd -= w + 3; }
+        txt(feitos + '/' + todas.length + ' concluídos', xd, cy2 - 0.2, { fam: 'courier', size: 7.2, cor: SLATE, al: 'right' });
+        cy2 += 3.9;
+        if (!seg.cont && etapa.bloqueada && etapa.nota_bloqueio) {
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+          const nl = doc.splitTextToSize(etapa.nota_bloqueio, innerW - 14), bh = nl.length * 3.8 + 6.5;
+          doc.setFillColor(...RED_SOFT); doc.roundedRect(M + PAD, cy2, innerW, bh, 2.2, 2.2, 'F');
+          doc.setDrawColor(...RED); doc.setLineWidth(0.35); doc.circle(M + PAD + 4.4, cy2 + bh / 2, 1.5, 'S'); doc.line(M + PAD + 3.4, cy2 + bh / 2 + 1, M + PAD + 5.4, cy2 + bh / 2 - 1);
+          doc.setTextColor(...RED); doc.text(nl, M + PAD + 9, cy2 + 4.6);
+          cy2 += bh + 4;
+        } else cy2 += 0.2;
+        // rótulos das colunas
+        ['MVP', 'ITEM', 'RESPONSÁVEL', 'BASELINE', 'DATA VALIDAÇÃO', 'STATUS'].forEach((t, i) => txt(t, colX[i] + (i === 1 ? 2 : 2.6), cy2 + 2.6, { fam: 'courier', st: 'bold', size: 6.2, cor: SLATE, cs: 0.2 }));
+        cy2 += 4.4;
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, cy2, M + CW - PAD, cy2);
+        // linhas
+        let ry = cy2;
+        seg.rows.forEach((row, ri) => {
+          const item = row.item, top = ry + PADL;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
+          const nl = doc.splitTextToSize(item.nome, fr[1] - 5);
+          doc.setTextColor(...INK); doc.text(nl, colX[1] + 2, top + 3.1);
+          if (item.mvp) estrela(colX[0] + fr[0] / 2 + 0.6, top + 2.6, 2.1);
+          const subs = subsDe(item);
+          if (subs.length) {
+            const feitosSub = subs.filter(s => s.feito).length;
+            const by = top + nl.length * LH + 1.6, label = 'ver checklist (' + feitosSub + '/' + subs.length + ')';
+            const w = larg(label, 'courier', 'bold', 7.2) + 8;
+            doc.setFillColor(...BLUE_SOFT); doc.setDrawColor(...BLUE); doc.setLineWidth(0.25);
+            doc.roundedRect(colX[1] + 2, by, w, CHK_H, CHK_H / 2, CHK_H / 2, 'FD');
+            doc.setFillColor(...BLUE); doc.triangle(colX[1] + 4.6, by + 1.5, colX[1] + 4.6, by + CHK_H - 1.5, colX[1] + 6.4, by + CHK_H / 2, 'F');
+            txt(label, colX[1] + 7.6, by + CHK_H / 2 + 7.2 * 0.1235, { fam: 'courier', st: 'bold', size: 7.2, cor: BLUE });
+          }
+          // responsável
+          const cor = item.responsavel === 'cliente' ? RESP_CLI : { bg: GREEN_SOFT, fg: GREEN };
+          const nomeResp = cortar(item.responsavel === 'cliente' ? cli.nome : 'Intelipulse', fr[2] - 8, 'courier', 'bold', 7.2);
+          pill(colX[2] + 2.6, top - 0.4, nomeResp, cor.bg, cor.fg);
+          // baseline e data
+          const vazioB = !item.baseline, vazioD = !item.data_validacao;
+          txt(item.baseline || '?', colX[3] + 2.6, top + 3.2, { fam: 'courier', st: vazioB ? 'italic' : 'normal', size: 7.8, cor: SLATE });
+          txt(item.data_validacao ? fmtDateBR(item.data_validacao) : 'dd/mm/aaaa', colX[4] + 2.6, top + 3.2, { fam: 'courier', st: vazioD ? 'italic' : 'normal', size: 7.8, cor: SLATE });
+          // status
+          const s = ST[item.status] || ST.pendente;
+          pill(colX[5] + 2.6, top - 0.4, rotuloStatus(item.status), s.bg, s.fg, { dot: true });
+          ry += row.h;
+          if (!(seg.ultimo && ri === seg.rows.length - 1)) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, ry, M + CW - PAD, ry); }
+        });
+      });
+    });
+
+    // rodapé em todas as páginas
     const total = doc.internal.getNumberOfPages();
     for (let p = 1; p <= total; p++) {
       doc.setPage(p);
-      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, H - 11, W - M, H - 11);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...SLATE);
-      doc.text('Intelipulse · Cronograma de Projeto · ' + cli.nome, M, H - 6.5);
-      doc.text('Página ' + p + ' de ' + total, W - M, H - 6.5, { align: 'right' });
+      txt('Precisa de ajuda? Fale com o time de implantação da Intelipulse.', M, H - 7, { size: 7.4, cor: SLATE });
+      txt('Gerado em ' + dataHora + '  ·  Página ' + p + ' de ' + total, W - M, H - 7, { fam: 'courier', size: 6.8, cor: SLATE, al: 'right' });
     }
 
-    const slug = slugify(cli.nome) || 'cliente';
-    doc.save('Cronograma-' + slug + '-' + agora.toISOString().slice(0, 10) + '.pdf');
+    doc.save('Cronograma-' + (slugify(cli.nome) || 'cliente') + (filtroMvp ? '-MVP' : '') + '-' + agora.toISOString().slice(0, 10) + '.pdf');
   } catch (e) {
     console.error(e);
     mostrarAviso('Não consegui gerar o PDF', 'Tente de novo. Se continuar, avise o time de implantação.', '⚠️');
@@ -1068,6 +1220,7 @@ function renderAdminConteudo() {
         <span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-filtro-mvp" onclick="toggleFiltroMvp()" title="MVP — Produto Mínimo Viável: mostra só os itens marcados como MVP"></button>
         <button class="admin-mini-btn" onclick="gerarPdfCronograma(this)">📄 Baixar PDF</button>
         <button class="admin-mini-btn" onclick="abrirVisaoClientePreview()">👁 Visão do Cliente</button>
       </div>
@@ -1082,6 +1235,7 @@ function renderAdminConteudo() {
   `;
   renderEtapasAdmin();
   renderAvAdminStatus();
+  atualizarBotoesMvp();
 }
 
 function todasEtapasColapsadas() {
@@ -1112,7 +1266,7 @@ async function salvarNomeEtapaEFechar(id, nome) {
 function renderEtapasAdmin() {
   const wrap = document.getElementById('admin-etapas-lista');
   wrap.innerHTML = etapas.map(etapa => {
-    const linhas = itens.filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
+    const linhas = itens.filter(i => i.etapa_id === etapa.id && (!filtroMvp || i.mvp)).sort((a, b) => a.ordem - b.ordem);
     const colapsada = !!adminEtapaColapsada[etapa.id];
     const pctEtapa = pctConcluido(linhas);
     return `
@@ -1134,11 +1288,12 @@ function renderEtapasAdmin() {
         </label>
         <div class="admin-itens-scroll">
         <table class="admin-itens">
-          <thead><tr><th class="col-ordem">Ord.</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Baseline</th><th class="col-data">Data validação</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
+          <thead><tr><th class="col-ordem">Ord.</th><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-nome">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Baseline</th><th class="col-data">Data validação</th><th class="col-status">Status</th><th class="col-acao"></th></tr></thead>
           <tbody>
             ${linhas.map(item => { const subLinhas = subitens.filter(s => s.item_id === item.id); const aberto = !!adminDetalheAberto[item.id]; return `
               <tr>
                 <td class="col-ordem"><input type="number" min="1" value="${item.ordem}" onchange="moverItemParaPosicao('${item.id}', isNaN(this.valueAsNumber) ? ${item.ordem} : this.valueAsNumber)" onkeydown="if(event.key==='Enter') this.blur()"></td>
+                <td class="col-mvp"><button class="admin-mvp-btn ${item.mvp ? 'on' : ''}" title="${item.mvp ? 'Item do MVP — clique para desmarcar' : 'Marcar como MVP (Produto Mínimo Viável)'}" onclick="alternarMvp('${item.id}')">${item.mvp ? '★' : '☆'}</button></td>
                 <td class="col-nome">
                   <input type="text" value="${escapeHtml(item.nome)}" onchange="salvarCampoItem('${item.id}','nome', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
                   <button class="admin-detalhe-toggle" onclick="toggleAdminDetalhe('${item.id}')">${aberto ? '▾ ocultar detalhes' : `▸ escopo / checklist${subLinhas.length ? ` (${subLinhas.filter(s=>s.feito).length}/${subLinhas.length})` : ''}`}</button>
@@ -1162,7 +1317,7 @@ function renderEtapasAdmin() {
               </tr>
               ${aberto ? `
               <tr class="admin-detalhe-row">
-                <td colspan="7">
+                <td colspan="8">
                   <div class="admin-detalhe-box">
                     <div class="admin-detalhe-col">
                       <label class="admin-detalhe-label">Escopo / nota livre</label>
@@ -1245,7 +1400,7 @@ async function salvarCampoItem(id, campo, valor) {
   const { error } = await sb.from('cronograma_itens').update({ [campo]: valor }).eq('id', id);
   if (avisarSeErro(error, 'salvar o item')) { renderAdminConteudo(); return; }
   const item = itens.find(i => i.id === id); if (item) item[campo] = valor;
-  if (campo === 'status') renderAdminConteudo();
+  if (campo === 'status' || campo === 'mvp') { renderAdminConteudo(); atualizarBotoesMvp(); }
 }
 
 async function moverItemParaPosicao(id, posicaoDigitada) {
