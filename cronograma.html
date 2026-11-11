@@ -150,6 +150,7 @@
   .mvp-star { color:#F5B301; font-size:17px; line-height:1; }
   .mvp-star.parcial { opacity:.45; }
   .mvp-star.mini { font-size:12px; margin-left:2px; }
+  .mvp-subs { margin-top:8px; padding-left:2px; }
   .btn-filtro-mvp { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.02em; padding:6px 13px; border-radius:100px; border:1px solid var(--line); background:var(--surface); color:var(--slate); cursor:pointer; white-space:nowrap; }
   .btn-filtro-mvp:hover { border-color:#F5B301; color:#F5B301; }
   .btn-filtro-mvp.ativo { background:#F5B301; border-color:#F5B301; color:#3a2a00; }
@@ -654,8 +655,7 @@ function subsDoItem(itemId) {
   const so = todos.filter(s => s.mvp);
   return so.length ? so : todos;
 }
-// Item com sub-item MVP: o checklist já abre sozinho (a pessoa ainda pode recolher).
-function checklistAbertoEfetivo(id) { const v = checklistAberto[id]; return v !== undefined ? v : subitens.some(s => s.item_id === id && s.mvp); }
+function checklistAbertoEfetivo(id) { return !!checklistAberto[id]; }
 function itensVisiveis() { return filtroMvp ? itens.filter(itemNoMvp) : itens; }
 function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && itemNoMvp(i))) : etapas; }
 function atualizarBotoesMvp() {
@@ -731,6 +731,9 @@ function renderEtapasCliente() {
                   ${(() => { const subLinhas = subsDoItem(item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
                     <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAbertoEfetivo(item.id) ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
                     <div class="escopo-box" ${checklistAbertoEfetivo(item.id) ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
+                  `; })()}
+                  ${(() => { const ms = subitens.filter(s => s.item_id === item.id && s.mvp); if (!ms.length || checklistAbertoEfetivo(item.id)) return ''; return `
+                    <div class="mvp-subs" title="Sub-itens do checklist marcados como MVP">${ms.map(s => `<label class="checklist-item"><input type="checkbox" ${s.feito ? 'checked' : ''} disabled><span class="mvp-star mini">★</span><span>${escapeHtml(s.nome)}</span></label>`).join('')}</div>
                   `; })()}
                 </td>
                 <td data-label="Responsável" class="col-resp"><span class="pill resp-${item.responsavel}">${item.responsavel === 'cliente' ? escapeHtml(clienteAtual.nome) : 'Intelipulse'}</span></td>
