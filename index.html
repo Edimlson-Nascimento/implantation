@@ -9396,6 +9396,8 @@ function scrumBaixarPDF() {
   .bk-ana-meta b { color: var(--text-main); }
   .bk-ana-meta .ruim { display: inline-block; margin-top: 3px; padding: 2px 9px; border-radius: 999px; background: rgba(239,68,68,.14); color: #F87171; font-weight: 700; }
   .bk-ana-meta .bom { display: inline-block; margin-top: 3px; padding: 2px 9px; border-radius: 999px; background: rgba(34,197,94,.14); color: #22C55E; font-weight: 700; }
+  .bk-ana-meta .clic { cursor: pointer; }
+  .bk-ana-meta .clic:hover { filter: brightness(1.25); text-decoration: underline; }
   .bk-ana-sec { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gray-text); margin: 0 0 7px; display: flex; align-items: center; gap: 8px; }
   .bk-ana-sec::after { content: ''; flex: 1; height: 1px; background: var(--border-light, rgba(127,127,127,.25)); }
   .bk-ana-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -9480,7 +9482,7 @@ function bkItensTicketsTodos() {
     return {
       grupo: classe === 'base' ? 'atendimento' : classe,
       cliente: id === 1 ? 'Intelipulse' : (cli ? cli.nome : (emp ? emp.empresa : 'Empresa ' + id)),
-      rotulo: '#' + (t.numero || t.id), titulo: t.titulo || '', dias: diasDesde(t.criado_em),
+      rotulo: '#' + (t.numero || t.id), titulo: t.titulo || '', dias: diasDesde(t.criado_em), criado: t.criado_em ? dataLocalISO(t.criado_em) : '',
       situacao: t.grupo === 'dev' ? 'Fila de desenvolvimento' : (bkSemNumero(t.status) || '—'),
       pessoa: BK_EQUIPE.includes(t.pessoa) ? t.pessoa : (bkEquipePorNome(t.responsavel_nome) || (t.responsavel_nome ? bkNomeCurto(t.responsavel_nome) : (t.pessoa || 'Sem responsável'))), impedido: false
     };
@@ -9488,7 +9490,7 @@ function bkItensTicketsTodos() {
 }
 function bkItensAtividades() {
   return atividades.filter(a => !a.cancelado && a.coluna !== 'concluida' && bkAtivMinha(a)).map(a => ({
-    grupo: bkGrupoAtividade(a), cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0,
+    grupo: bkGrupoAtividade(a), cliente: a.clienteNome || '—', rotulo: '', titulo: a.titulo || '', dias: a.criadoEm ? diasDesde(a.criadoEm) : 0, criado: a.criadoEm ? dataLocalISO(a.criadoEm) : '',
     situacao: raiaNomeCurto(a.coluna), pessoa: a.responsavel || '—', impedido: !!a.impedidoDesde
   }));
 }
@@ -9654,7 +9656,7 @@ function bkTip(titulo, o, estados, rotuloFechado) {
 const bkRegistro = {};                                        // itens de cada cartão, para abrir a lista ao clicar numa linha
 function bkAbrirLista(li) {
   const d = li.dataset;
-  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => d.c === 'todos' || (d.c === 'grupo' ? i.grupo === d.v : (d.c === 'sit' ? i.situacao : i.pessoa) === d.v)).sort((a, b) => b.dias - a.dias);
+  const itens = (bkRegistro[d.t + ':' + d.g] || []).filter(i => d.c === 'todos' || (d.c === 'velhos' ? i.dias > 15 : (d.c === 'grupo' ? i.grupo === d.v : (d.c === 'sit' ? i.situacao : i.pessoa) === d.v))).sort((a, b) => b.dias - a.dias);
   const g = BK_GRUPOS.find(x => x.k === d.g);
   bkFecharTip();
   const fundo = document.createElement('div');
@@ -9662,11 +9664,11 @@ function bkAbrirLista(li) {
   fundo.id = 'bk-modal-fundo';
   fundo.onclick = ev => { if (ev.target === fundo) bkFecharTip(); };
   const unidade = d.t === 'atividade' ? 'atividade' : 'ticket';
-  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'grupo' ? 'Tickets de ' + escapeHtml(d.g) + ' · ' + escapeHtml(BK_GRUPO_CURTO[d.v] || d.v) : (d.c === 'todos' ? 'Tickets em aberto de ' : (d.c === 'sit' ? 'Situação: ' : 'Responsável: ')) + escapeHtml(d.v)) + '</b>'
+  fundo.innerHTML = '<div class="bk-modal larga"><div class="bk-modal-topo"><div><b>' + (d.c === 'velhos' ? 'Há mais de 15 dias · ' + escapeHtml(d.v) : d.c === 'grupo' ? 'Tickets de ' + escapeHtml(d.g) + ' · ' + escapeHtml(BK_GRUPO_CURTO[d.v] || d.v) : (d.c === 'todos' ? 'Tickets em aberto de ' : (d.c === 'sit' ? 'Situação: ' : 'Responsável: ')) + escapeHtml(d.v)) + '</b>'
     + '<small>' + (g ? escapeHtml(g.nome) + ' · ' : '') + itens.length + ' ' + unidade + (itens.length === 1 ? '' : 's') + '</small></div>'
     + '<button type="button" onclick="bkFecharTip()" title="Fechar">×</button></div>'
-    + '<div class="bk-modal-lista">' + itens.map(i => '<div class="bk-it"><div>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(i.cliente) + (i.titulo ? ' — ' + escapeHtml(i.titulo) : '')
-      + '<small>' + escapeHtml(d.c === 'sit' ? i.pessoa : i.situacao) + '</small></div><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></div>').join('') + '</div></div>';
+    + '<div class="bk-modal-lista">' + (itens.length ? itens.map(i => '<div class="bk-it"><div>' + (i.rotulo ? '<b>' + escapeHtml(i.rotulo) + '</b> ' : '') + escapeHtml(i.cliente) + (i.titulo ? ' — ' + escapeHtml(i.titulo) : '')
+      + '<small>' + escapeHtml(d.c === 'sit' ? i.pessoa : i.situacao) + (i.criado ? ' · criado em ' + formatDate(i.criado) : '') + '</small></div><em class="' + (i.dias > 30 ? 'velho' : '') + '">' + i.dias + 'd</em></div>').join('') : '<div class="bk-it"><div>Nenhum ' + unidade + ' nesta lista.</div></div>') + '</div></div>';
   document.body.appendChild(fundo);
 }
 function bkFecharTip() { const f = document.getElementById('bk-modal-fundo'); if (f) f.remove(); }
@@ -10112,10 +10114,10 @@ function bkAnalistasHtml() {
       + '<div class="bk-ana-banner"><span class="bk-ana-av">' + inicialDe(nome) + '</span><div class="bk-ana-nome"><b>' + escapeHtml(nome) + '</b><small>' + (nome === 'Gilson' ? 'Gestor' : 'Analista de implantação') + '</small></div><span class="bk-ana-share" title="Parte dos tickets em aberto da equipe">' + (nome === 'Gilson' ? 'Gestor' : pct + '% dos abertos') + '</span></div>'
       + '<div class="bk-ana-corpo">'
       + '<div class="bk-ana-topo">'
-      + '<div class="bk-ring' + (r.total ? ' clic' : '') + '" style="background:' + fundo + '"' + (r.total ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"' : '') + '><div class="bk-ring-in"><b>' + r.total + '</b><small>abertos</small></div></div>'
-      + '<div class="bk-ana-leg">' + BK_GRUPOS.map(g => { const n = itens.filter(i => i.grupo === g.k).length; return '<span class="bk-ana-chip' + (n ? ' clic' : ' zero') + '"' + (n ? ' title="Ver os tickets" data-t="ana" data-g="' + nome + '" data-c="grupo" data-v="' + g.k + '" onclick="bkAbrirLista(this)"' : '') + '><i style="background:' + g.cor + '"></i>' + BK_GRUPO_CURTO[g.k] + '<b>' + n + '</b></span>'; }).join('') + '</div>'
+      + '<div class="bk-ring clic" style="background:' + fundo + '" title="Ver os tickets e as datas" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)"><div class="bk-ring-in"><b>' + r.total + '</b><small>abertos</small></div></div>'
+      + '<div class="bk-ana-leg">' + BK_GRUPOS.map(g => { const n = itens.filter(i => i.grupo === g.k).length; return '<span class="bk-ana-chip clic' + (n ? '' : ' zero') + '" title="Ver os tickets e as datas" data-t="ana" data-g="' + nome + '" data-c="grupo" data-v="' + g.k + '" onclick="bkAbrirLista(this)"><i style="background:' + g.cor + '"></i>' + BK_GRUPO_CURTO[g.k] + '<b>' + n + '</b></span>'; }).join('') + '</div>'
       + '</div>'
-      + '<div class="bk-ana-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim">⚠ ' + r.velhos15 + ' há mais de 15 dias</span>' : '<span class="bom">✓ nenhum há mais de 15 dias</span>') : '<span class="bom">✓ nenhum ticket em aberto</span>') + '</div>'
+      + '<div class="bk-ana-meta">' + (r.total ? 'Idade média <b>' + bkMedio(r.medio) + '</b> · mais antigo <b>' + bkDias(r.maisAntigo) + '</b><br>' + (r.velhos15 ? '<span class="ruim clic" title="Ver os tickets e as datas" data-t="ana" data-g="' + nome + '" data-c="velhos" data-v="' + nome + '" onclick="bkAbrirLista(this)">⚠ ' + r.velhos15 + ' há mais de 15 dias</span>' : '<span class="bom clic" title="Ver os tickets e as datas" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)">✓ nenhum há mais de 15 dias</span>') : '<span class="bom clic" title="Ver os tickets e as datas" data-t="ana" data-g="' + nome + '" data-c="todos" data-v="' + nome + '" onclick="bkAbrirLista(this)">✓ nenhum ticket em aberto</span>') + '</div>'
       + '<div><div class="bk-ana-sec">Criados no ERP</div><div class="bk-ana-tiles">' + tile(d.semana, 'esta semana', max('semana')) + tile(d.mes, 'este mês', max('mes')) + tile(d.ano, 'este ano', max('ano')) + '</div></div>'
       + '<div><div class="bk-ana-sec">Média este ano</div><div class="bk-ana-tiles dois">' + tile(mediaSem === null ? null : num(mediaSem), 'por semana', refMedSem) + tile(mediaMes === null ? null : num(mediaMes), 'por mês', refMedMes) + '</div></div>'
       + '</div></div>';
