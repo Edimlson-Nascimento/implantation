@@ -434,7 +434,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.13</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.14</span></div>
   </footer>
 </div>
 
@@ -462,7 +462,7 @@
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
       <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
-      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.13</div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.14</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
@@ -1024,52 +1024,46 @@ function gerarPdfCronograma(btn) {
     doc.setTextColor(...SLATE); doc.text(desc, M, y);
     y += desc.length * 4.6 + 6;
 
-    // stepper — com mais de 6 etapas quebra em linhas de 5, para os rótulos caberem sem partir palavras
-    const r = 3.4;
-    const POR_LINHA = ET.length > 6 ? 5 : (ET.length || 1), sw = CW / POR_LINHA;
-    const infoEtapa = e => {
-      const li = IT.filter(it => it.etapa_id === e.id);
-      const todas = li.length > 0 && li.every(it => it.status === 'concluido');
-      const algum = li.some(it => it.status === 'concluido' || it.status === 'andamento');
-      let cls = 'pendente', tag = 'PENDENTE';
-      if (algum) { cls = 'current'; tag = 'EM ANDAMENTO'; }
-      if (todas) { cls = 'done'; tag = 'CONCLUÍDA'; }
-      if (e.bloqueada) { cls = 'bloqueada'; tag = 'BLOQUEADA'; }
-      return { cls, tag };
-    };
-    for (let ini = 0; ini < ET.length; ini += POR_LINHA) {
-      const grupo = ET.slice(ini, ini + POR_LINHA), cy = y + r + 1.2;
-      doc.setLineWidth(0.5);
-      grupo.forEach((e, k) => {
-        if (!k) return;
-        const { cls } = infoEtapa(e);
-        doc.setDrawColor(...(cls === 'done' ? GREEN : LINE));
-        doc.line(M + sw * (k - 0.5), cy, M + sw * (k + 0.5), cy);
-      });
-      let maxLin = 1;
-      grupo.forEach((e, k) => {
-        const i = ini + k, { cls, tag } = infoEtapa(e);
-        const cx = M + sw * (k + 0.5);
-        if (cls === 'current') { doc.setFillColor(...GREEN_SOFT); doc.circle(cx, cy, r + 1.3, 'F'); }
-        const corBorda = cls === 'done' || cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : LINE);
-        doc.setFillColor(...(cls === 'done' ? GREEN : SURFACE)); doc.setDrawColor(...corBorda); doc.setLineWidth(0.5);
-        doc.circle(cx, cy, r, 'FD');
-        if (cls === 'done') {
-          doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.55);
-          doc.line(cx - 1.4, cy + 0.1, cx - 0.4, cy + 1.2); doc.line(cx - 0.4, cy + 1.2, cx + 1.5, cy - 1.1);
-        } else {
-          txt(String(i + 1), cx, cy + 0.95, { fam: 'courier', st: 'bold', size: 7, cor: cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : SLATE), al: 'center' });
-        }
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-        const linhas = doc.splitTextToSize(e.nome, Math.min(sw - 4, 34));
-        maxLin = Math.max(maxLin, linhas.length);
-        const ly = cy + r + 5;
-        doc.setTextColor(...(cls === 'pendente' ? SLATE : INK)); doc.text(linhas, cx, ly, { align: 'center' });
-        txt(tag, cx, ly + linhas.length * 3.5 + 0.8, { fam: 'courier', st: 'bold', size: 6.2, cor: cls === 'current' ? GREEN : (cls === 'bloqueada' ? RED : SLATE), al: 'center' });
-      });
-      y = cy + r + 5 + maxLin * 3.5 + 5;
+    // faixa de resumo (mesma linguagem da tela): números grandes + barra de progresso
+    {
+      const itsC = IT.filter(i => !i.cabecalho), totG = itsC.length;
+      if (totG) {
+        const nC = s => itsC.filter(i => i.status === s).length;
+        const feitosG = nC('concluido'), andG = nC('andamento'), pendG = nC('pendente');
+        const abCliG = itsC.filter(i => i.responsavel === 'cliente' && i.status !== 'concluido').length;
+        const abIntG = itsC.filter(i => i.responsavel !== 'cliente' && i.status !== 'concluido').length;
+        const etFeitasG = ET.filter(e => { const li = itsC.filter(i => i.etapa_id === e.id); return !e.bloqueada && li.length && li.every(i => i.status === 'concluido'); }).length;
+        const SH = 32;
+        doc.setFillColor(8, 40, 82); doc.roundedRect(M, y, CW, SH, 3.5, 3.5, 'F');
+        const nums = [[pctGeral + '%', 'DO PROJETO CONCLUÍDO', [166, 226, 46]], [feitosG + ' / ' + totG, 'ITENS CONCLUÍDOS', [94, 234, 212]], [etFeitasG + ' / ' + ET.length, 'ETAPAS CONCLUÍDAS', [94, 234, 212]],
+          [String(andG), 'EM ANDAMENTO', [127, 178, 245]], [String(abCliG), 'EM ABERTO DO CLIENTE', [196, 181, 253]], [String(abIntG), 'EM ABERTO DA INTELIPULSE', [166, 226, 46]]];
+        const cw = (CW - 2 * PAD) / 6;
+        nums.forEach(([v, l, c], k) => {
+          const x0 = M + PAD + cw * k;
+          txt(v, x0, y + 10.8, { st: 'bold', size: 15, cor: c });
+          doc.setFont('courier', 'bold'); doc.setFontSize(5.4);
+          doc.splitTextToSize(l, cw - 2).forEach((ln, j) => txt(ln, x0, y + 14.6 + j * 2.6, { fam: 'courier', st: 'bold', size: 5.4, cor: [200, 212, 230] }));
+        });
+        const bx = M + PAD, bw = CW - 2 * PAD, by = y + 22.2, bh = 2.2;
+        doc.setFillColor(58, 84, 124); doc.roundedRect(bx, by, bw, bh, bh / 2, bh / 2, 'F');
+        let ax = bx;
+        [[feitosG, [34, 197, 94]], [andG, [59, 130, 246]], [pendG, [118, 138, 172]]].forEach(([v, c], k) => {
+          if (!v) return; const w = bw * v / totG;
+          doc.setFillColor(...c);
+          if (k === 0) { doc.roundedRect(ax, by, Math.max(w, bh), bh, bh / 2, bh / 2, 'F'); } else doc.rect(ax, by, w, bh, 'F');
+          ax += w;
+        });
+        let lx = bx;
+        [['Concluídos', feitosG, [34, 197, 94]], ['Em andamento', andG, [59, 130, 246]], ['Pendentes', pendG, [118, 138, 172]]].forEach(([nome, v, c]) => {
+          doc.setFillColor(...c); doc.circle(lx + 1, y + 28.4, 0.9, 'F');
+          txt(nome, lx + 3, y + 29.1, { size: 7.2, cor: [226, 232, 244] });
+          const wN = larg(nome, 'helvetica', 'normal', 7.2);
+          txt(String(v), lx + 3.8 + wN, y + 29.1, { st: 'bold', size: 7.2, cor: [255, 255, 255] });
+          lx += 3.8 + wN + larg(String(v), 'helvetica', 'bold', 7.2) + 7;
+        });
+        y += SH + 8;
+      }
     }
-    y += 4;
 
     // ── medidas das tabelas ──
     const innerW = CW - 2 * PAD;
@@ -1077,7 +1071,7 @@ function gerarPdfCronograma(btn) {
     const FR_N = [7, 36, 26, 20, 21, 31, 33].map(w => w * innerW / 174);
     const FR_C = [7, 62, 28, 24, 24, 29, 0].map(w => w * innerW / 174);   // etapa com títulos de grupo: sem coluna Pré-requisitos
     let fr = FR_N, colX = [], wTitulo = 0, wPreCab = 0;
-    const GAPCAB = 3;
+    const GAPCAB = 3, BH = 14;
     const setCols = etapa => {
       fr = cabEtapas.has(etapa.id) ? FR_C : FR_N;
       colX = [M + PAD]; fr.forEach((w, i) => colX.push(colX[i] + w));
@@ -1110,7 +1104,7 @@ function gerarPdfCronograma(btn) {
       return Math.max(5.6, pl * 3.7, nl * LH + (temCheck ? 1.6 + CHK_H : 0) + extra) + 2 * PADL;
     };
     const alturaCab = (etapa, cont) => {
-      let h = 8.5 + 12.4;                    // título + linha dos rótulos das colunas (até 3 linhas)
+      let h = BH + 3.5 - PAD + 12.4;         // banner + linha dos rótulos das colunas (até 3 linhas)
       if (!cont && etapa.bloqueada && etapa.nota_bloqueio) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
         h += doc.splitTextToSize(etapa.nota_bloqueio, innerW - 14).length * 3.8 + 6.5 + 4;
@@ -1150,13 +1144,35 @@ function gerarPdfCronograma(btn) {
         const feitos = todas.filter(i => i.status === 'concluido').length, pct = pctConcluido(todas);
         doc.setFillColor(...SURFACE); doc.setDrawColor(...LINE); doc.setLineWidth(0.25);
         doc.roundedRect(M, seg.y, CW, seg.h, 3.5, 3.5, 'FD');
-        let cy2 = seg.y + PAD + 4.6;
-        txt(etapa.nome, M + PAD, cy2, { st: 'bold', size: 11.5, cor: INK });
-        if (seg.cont) txt('(continuação)', M + PAD + larg(etapa.nome, 'helvetica', 'bold', 11.5) + 2, cy2, { size: 7.5, cor: SLATE });
-        let xd = M + CW - PAD;
-        if (todas.length) { const [pbg, pfg] = pctCores(pct); const w = larg(pct + '%', 'courier', 'bold', 7) + 6; pill(xd - w, cy2 - 4, pct + '%', pbg, pfg, { size: 7, h: 4.8 }); xd -= w + 3; }
-        txt(feitos + '/' + todas.length + ' concluídos', xd, cy2 - 0.2, { fam: 'courier', size: 7.2, cor: SLATE, al: 'right' });
-        cy2 += 3.9;
+        // banner colorido pela situação da etapa
+        let clsE = 'pendente', tagE = 'Pendente';
+        if (todas.some(i => i.status === 'concluido' || i.status === 'andamento')) { clsE = 'andamento'; tagE = 'Em andamento'; }
+        if (todas.length && feitos === todas.length) { clsE = 'concluida'; tagE = 'Concluída'; }
+        if (etapa.bloqueada) { clsE = 'bloqueada'; tagE = 'Bloqueada'; }
+        const BC = { concluida: [22, 140, 70], andamento: [37, 99, 224], pendente: [56, 70, 105], bloqueada: [190, 45, 35] }[clsE];
+        const claro = (f) => BC.map(c => Math.round(c + (255 - c) * f));
+        doc.setFillColor(...BC); doc.roundedRect(M, seg.y, CW, BH, 3.5, 3.5, 'F'); doc.rect(M, seg.y + 3.5, CW, BH - 3.5, 'F');
+        const acx = M + PAD + 3.8, acy = seg.y + BH / 2;
+        doc.setFillColor(...claro(0.18)); doc.setDrawColor(...claro(0.7)); doc.setLineWidth(0.45); doc.circle(acx, acy, 3.8, 'FD');
+        if (clsE === 'concluida') { doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.6); doc.line(acx - 1.5, acy + 0.1, acx - 0.5, acy + 1.3); doc.line(acx - 0.5, acy + 1.3, acx + 1.6, acy - 1.2); }
+        else txt(String(ET.indexOf(etapa) + 1), acx, acy + 1.2, { st: 'bold', size: 8.5, cor: [255, 255, 255], al: 'center' });
+        const nx = M + PAD + 10;
+        txt(etapa.nome, nx, seg.y + 6, { st: 'bold', size: 11.5, cor: [255, 255, 255] });
+        if (seg.cont) txt('(continuação)', nx + larg(etapa.nome, 'helvetica', 'bold', 11.5) + 2, seg.y + 6, { size: 7.5, cor: claro(0.75) });
+        const abC = todas.filter(i => i.responsavel === 'cliente' && i.status !== 'concluido').length, abI = todas.filter(i => i.responsavel !== 'cliente' && i.status !== 'concluido').length;
+        txt(feitos + ' de ' + todas.length + ' itens concluídos' + ((abC || abI) ? ' · em aberto: ' + abC + ' do cliente, ' + abI + ' da Intelipulse' : ''), nx, seg.y + 10.6, { size: 7.4, cor: claro(0.82) });
+        let xr = M + CW - PAD;
+        if (todas.length) {
+          const rcx = xr - 4.6, rr = 4.2;
+          doc.setDrawColor(...claro(0.4)); doc.setLineWidth(0.9); doc.circle(rcx, acy, rr, 'S');
+          doc.setDrawColor(255, 255, 255);
+          for (let a = 0; a < pct * 3.6; a += 4) { const a0 = (-90 + a) * Math.PI / 180, a1 = (-90 + Math.min(a + 4.4, pct * 3.6)) * Math.PI / 180; doc.line(rcx + rr * Math.cos(a0), acy + rr * Math.sin(a0), rcx + rr * Math.cos(a1), acy + rr * Math.sin(a1)); }
+          txt(pct + '%', rcx, acy + 0.95, { fam: 'courier', st: 'bold', size: 5.8, cor: [255, 255, 255], al: 'center' });
+          xr -= 12;
+        }
+        const wChip = larg(tagE, 'courier', 'bold', 6.8) + 6;
+        pill(xr - wChip, acy - 2.7, tagE, claro(0.22), [255, 255, 255], { size: 6.8, h: 5.4 });
+        let cy2 = seg.y + BH + 3.5;
         if (!seg.cont && etapa.bloqueada && etapa.nota_bloqueio) {
           doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
           const nl = doc.splitTextToSize(etapa.nota_bloqueio, innerW - 14), bh = nl.length * 3.8 + 6.5;
