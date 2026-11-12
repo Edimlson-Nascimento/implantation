@@ -391,7 +391,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.5</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.6</span></div>
   </footer>
 </div>
 
@@ -418,7 +418,8 @@
         <input type="text" id="admin-duplicar-novo-nome" placeholder="Nome do novo cliente...">
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
-      <div class="admin-novo-cliente" id="admin-config-etapas" hidden></div>
+      <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.6</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
@@ -1463,9 +1464,11 @@ async function salvarNomeEtapa(id, nome) {
 function renderAdminConfigEtapas() {
   const el = document.getElementById('admin-config-etapas');
   if (!el) return;
-  if (!clienteSelAdmin || !etapas.length) { el.hidden = true; el.innerHTML = ''; return; }
+  if (!clienteSelAdmin || !etapas.length) {
+    el.innerHTML = `<label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">${clienteSelAdmin ? 'Este cliente ainda não tem etapas.' : 'Selecione um cliente para escolher quais etapas aparecem.'}</p>`;
+    return;
+  }
   const ocultas = etapas.filter(e => e.oculta).length;
-  el.hidden = false;
   el.innerHTML = `
     <label class="admin-duplicar-label">⚙ Configurações · etapas de ${escapeHtml(clienteSelAdmin.nome)}</label>
     <p class="admin-config-dica">Marque as etapas que devem aparecer. As desmarcadas somem desta tela, da Visão do Cliente e do PDF, e voltam quando você marcar de novo.</p>
