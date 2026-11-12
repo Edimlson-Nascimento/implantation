@@ -287,6 +287,11 @@
   .checklist-grupo { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--slate); margin:10px 0 4px; }
   .checklist-grupo:first-child { margin-top:0; }
   .checklist-item { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12.5px; }
+  @media (min-width: 641px) {
+    /* checklist do cliente: cada item numa linha so (a caixa avanca sobre as colunas vazias ao lado) */
+    .checklist-box { width:max-content; max-width:min(680px, 92vw); position:relative; z-index:1; }
+    .checklist-box .checklist-item span, .mvp-subs .checklist-item span { white-space:nowrap; }
+  }
   .checklist-item input[type=checkbox] { accent-color: var(--green); width:14px; height:14px; flex-shrink:0; }
   .admin-add-item-row { display:flex; gap:6px; margin-top:10px; }
   .admin-add-item-row input { flex:1; padding:8px 10px; border-radius:7px; border:1px dashed var(--line); background:var(--paper); color:var(--ink); font-size:12.5px; }
@@ -386,7 +391,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.4</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.5</span></div>
   </footer>
 </div>
 
@@ -758,7 +763,7 @@ function renderEtapasCliente() {
                   ` : ''}
                   ${(() => { const subLinhas = subsDoItem(item.id); if (!subLinhas.length) return ''; const feitos = subLinhas.filter(s => s.feito).length; return `
                     <button class="escopo-toggle" onclick="toggleChecklist('${item.id}')">${checklistAbertoEfetivo(item.id) ? '▾ ocultar checklist' : `▸ ver checklist (${feitos}/${subLinhas.length})`}</button>
-                    <div class="escopo-box" ${checklistAbertoEfetivo(item.id) ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
+                    <div class="escopo-box checklist-box" ${checklistAbertoEfetivo(item.id) ? '' : 'hidden'}>${renderChecklist(subLinhas, true)}</div>
                   `; })()}
                   ${(() => { const ms = subitens.filter(s => s.item_id === item.id && s.mvp); if (!ms.length || checklistAbertoEfetivo(item.id)) return ''; return `
                     <div class="mvp-subs" title="Sub-itens do checklist marcados como MVP">${ms.map(s => `<label class="checklist-item"><input type="checkbox" ${s.feito ? 'checked' : ''} disabled><span class="mvp-star mini">★</span><span>${escapeHtml(s.nome)}</span></label>`).join('')}</div>
