@@ -111,6 +111,35 @@
   .etapa-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
   .etapa-head h2 { margin: 0 auto 0 0; font-size: 16px; font-weight: 700; }
   .etapa-count { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--slate); }
+  /* faixa de resumo (mesma linguagem do painel de gestão) */
+  .resumo-cli { background: linear-gradient(135deg, #0B2447 0%, #063A5E 100%); color: #fff; border-radius: 16px; padding: 22px 26px 18px; margin: 0 0 26px; box-shadow: 0 6px 22px rgba(3, 12, 30, .28); }
+  .resumo-cli-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px 22px; }
+  .resumo-cli-num b { display: block; font-size: 34px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .resumo-cli-num b small { font-size: 16px; font-weight: 600; opacity: .7; margin-left: 3px; letter-spacing: 0; }
+  .resumo-cli-num span { display: block; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.74); }
+  .resumo-cli-bar { display: flex; height: 9px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.14); margin-top: 20px; }
+  .resumo-cli-bar i { display: block; height: 100%; }
+  .resumo-cli-leg { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 11px; font-size: 12.5px; color: rgba(255,255,255,.88); }
+  .resumo-cli-leg em { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+  .resumo-cli-leg strong { font-variant-numeric: tabular-nums; margin-left: 3px; }
+  /* cartão da etapa com banner colorido */
+  .etapa-card.etapa-card-v2 { padding: 0; overflow: hidden; box-shadow: 0 4px 18px rgba(3, 12, 30, .16); }
+  .etapa-banner { display: flex; align-items: center; gap: 14px; padding: 16px 22px; color: #fff; flex-wrap: wrap; }
+  .etapa-banner.concluida { background: linear-gradient(135deg, #15803D, #22A455); }
+  .etapa-banner.andamento { background: linear-gradient(135deg, #1D4ED8, #2F6FE0); }
+  .etapa-banner.pendente { background: linear-gradient(135deg, #2D3A55, #46557A); }
+  .etapa-banner.bloqueada { background: linear-gradient(135deg, #B42318, #DC4437); }
+  .etapa-avatar { width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(255,255,255,.55); background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex-shrink: 0; }
+  .etapa-banner-txt { flex: 1; min-width: 200px; }
+  .etapa-banner-txt h2 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+  .etapa-banner-txt p { margin: 3px 0 0; font-size: 12.5px; color: rgba(255,255,255,.86); }
+  .etapa-chip { background: rgba(255,255,255,.2); border-radius: 99px; padding: 6px 13px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .etapa-anel { position: relative; width: 54px; height: 54px; flex-shrink: 0; }
+  .etapa-anel .ring { position: absolute; inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px)); }
+  .etapa-anel b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .etapa-corpo { padding: 6px 26px 12px; }
+  .etapa-card-v2 .aviso-bloqueio { margin: 14px 0 4px; }
+  @media (max-width: 640px) { .etapa-corpo { padding: 6px 14px 10px; } .etapa-banner { padding: 14px; } .resumo-cli { padding: 18px 16px 14px; } .resumo-cli-num b { font-size: 28px; } }
 
   table.itens { width: 100%; table-layout: fixed; border-collapse: collapse; }
   table.itens .col-mvp { width: 4%; text-align: center; }
@@ -399,12 +428,13 @@
       <p>Cada etapa abaixo é um bloco de trabalho da implantação. Clique num status, numa data ou no responsável de qualquer item pra atualizar — a Intelipulse vê a mudança na hora.</p>
     </div>
     <div id="avaliacao-wrap"></div>
+    <div id="resumo-cliente"></div>
     <div class="stepper" id="stepper" hidden></div>
     <div id="etapas-wrap"></div>
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.12</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.13</span></div>
   </footer>
 </div>
 
@@ -432,7 +462,7 @@
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
       <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
-      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.12</div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.13</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
@@ -732,6 +762,52 @@ function alternarMvp(id) { const it = itens.find(i => i.id === id); if (it) salv
 
 function rotuloStatus(s) { return s === 'concluido' ? 'Concluído' : (s === 'andamento' ? 'Em andamento' : 'Pendente'); }
 
+// Situação e números de uma etapa (mesma regra do stepper), usados no banner do cartão
+function etapaInfoV2(e) {
+  const its = itensVisiveis().filter(i => i.etapa_id === e.id && !i.cabecalho);
+  const feitos = its.filter(i => i.status === 'concluido').length;
+  const alg = its.some(i => i.status === 'concluido' || i.status === 'andamento');
+  let cls = 'pendente', tag = 'Pendente';
+  if (alg) { cls = 'andamento'; tag = 'Em andamento'; }
+  if (its.length && feitos === its.length) { cls = 'concluida'; tag = 'Concluída'; }
+  if (e.bloqueada) { cls = 'bloqueada'; tag = 'Bloqueada'; }
+  return { cls, tag, feitos, total: its.length, pct: pctConcluido(its),
+    abCli: its.filter(i => i.responsavel === 'cliente' && i.status !== 'concluido').length,
+    abInt: its.filter(i => i.responsavel !== 'cliente' && i.status !== 'concluido').length };
+}
+
+function renderResumoCliente() {
+  const el = document.getElementById('resumo-cliente');
+  if (!el) return;
+  const its = itensVisiveis().filter(i => !i.cabecalho);
+  if (!its.length) { el.innerHTML = ''; return; }
+  const n = s => its.filter(i => i.status === s).length;
+  const feitos = n('concluido'), andam = n('andamento'), pend = n('pendente'), total = its.length;
+  const pct = pctConcluido(its);
+  const abCli = its.filter(i => i.responsavel === 'cliente' && i.status !== 'concluido').length;
+  const abInt = its.filter(i => i.responsavel !== 'cliente' && i.status !== 'concluido').length;
+  const et = etapasVisiveis();
+  const etFeitas = et.filter(e => etapaInfoV2(e).cls === 'concluida').length;
+  const seg = (v, cor) => v ? `<i style="width:${v / total * 100}%;background:${cor}"></i>` : '';
+  el.innerHTML = `
+    <div class="resumo-cli">
+      <div class="resumo-cli-nums">
+        <div class="resumo-cli-num"><b style="color:#A6E22E">${pct}<small>%</small></b><span>do projeto concluído</span></div>
+        <div class="resumo-cli-num"><b style="color:#5EEAD4">${feitos}<small>/ ${total}</small></b><span>itens concluídos</span></div>
+        <div class="resumo-cli-num"><b style="color:#5EEAD4">${etFeitas}<small>/ ${et.length}</small></b><span>etapas concluídas</span></div>
+        <div class="resumo-cli-num"><b style="color:#7FB2F5">${andam}</b><span>em andamento</span></div>
+        <div class="resumo-cli-num"><b style="color:#C4B5FD">${abCli}</b><span>em aberto do cliente</span></div>
+        <div class="resumo-cli-num"><b style="color:#A6E22E">${abInt}</b><span>em aberto da Intelipulse</span></div>
+      </div>
+      <div class="resumo-cli-bar">${seg(feitos, '#22C55E')}${seg(andam, '#3B82F6')}${seg(pend, 'rgba(255,255,255,.28)')}</div>
+      <div class="resumo-cli-leg">
+        <span><em style="background:#22C55E"></em>Concluídos<strong>${feitos}</strong></span>
+        <span><em style="background:#3B82F6"></em>Em andamento<strong>${andam}</strong></span>
+        <span><em style="background:rgba(255,255,255,.4)"></em>Pendentes<strong>${pend}</strong></span>
+      </div>
+    </div>`;
+}
+
 function renderStepper() {
   document.getElementById('stepper').innerHTML = etapasVisiveis().map((e, i) => {
     const itensDaEtapa = itensVisiveis().filter(it => it.etapa_id === e.id && !it.cabecalho);
@@ -759,8 +835,10 @@ function renderEtapasCliente() {
     const pctGeral = pctConcluido(itensVisiveis());
     badgeGeral.innerHTML = itensVisiveis().length ? `<span class="pct-badge pct-geral ${pctClasse(pctGeral)}">${pctGeral}% concluído</span>` : '';
   }
+  renderResumoCliente();
   if (!etapasVisiveis().length) { wrap.innerHTML = `<div class="etapa-card"><p style="color:var(--slate);margin:0;">${filtroMvp ? 'Nenhum item marcado como MVP ainda.' : 'Nenhuma etapa cadastrada ainda.'}</p></div>`; return; }
-  wrap.innerHTML = etapasVisiveis().map(etapa => {
+  wrap.innerHTML = etapasVisiveis().map((etapa, idxEtapa) => {
+    const inf = etapaInfoV2(etapa);
     const linhas = itensVisiveis().filter(i => i.etapa_id === etapa.id).sort((a, b) => a.ordem - b.ordem);
     const contaveis = linhas.filter(i => !i.cabecalho);
     const feitos = contaveis.filter(i => i.status === 'concluido').length;
@@ -769,12 +847,17 @@ function renderEtapasCliente() {
     const filhoSet = new Set(); let dentroGrupo = false;
     linhas.forEach(i => { if (i.cabecalho) dentroGrupo = true; else if (dentroGrupo) filhoSet.add(i.id); });
     return `
-      <div class="etapa-card">
-        <div class="etapa-head">
-          <h2>${escapeHtml(etapa.nome)}</h2>
-          <span class="etapa-count tabular">${feitos}/${contaveis.length} concluídos</span>
-          ${contaveis.length ? `<span class="pct-badge ${pctClasse(pctEtapa)}" style="font-size:11.5px; padding:3px 10px;">${pctEtapa}%</span>` : ''}
+      <div class="etapa-card etapa-card-v2">
+        <div class="etapa-banner ${inf.cls}">
+          <div class="etapa-avatar">${inf.cls === 'concluida' ? '✓' : idxEtapa + 1}</div>
+          <div class="etapa-banner-txt">
+            <h2>${escapeHtml(etapa.nome)}</h2>
+            <p>${feitos} de ${contaveis.length} itens concluídos${(inf.abCli || inf.abInt) ? ` · em aberto: ${inf.abCli} do cliente, ${inf.abInt} da Intelipulse` : ''}</p>
+          </div>
+          <span class="etapa-chip">${inf.tag}</span>
+          ${contaveis.length ? `<div class="etapa-anel" title="${pctEtapa}% da etapa concluída"><div class="ring" style="background:conic-gradient(#fff ${pctEtapa}%, rgba(255,255,255,.28) 0)"></div><b>${pctEtapa}%</b></div>` : ''}
         </div>
+        <div class="etapa-corpo">
         ${etapa.bloqueada && etapa.nota_bloqueio ? `<div class="aviso-bloqueio"><span class="ic">🚫</span><span>${escapeHtml(etapa.nota_bloqueio)}</span></div>` : ''}
         <table class="itens${temCab ? ' tem-cab' : ''}">
           <thead><tr><th class="col-mvp" title="MVP — Produto Mínimo Viável">MVP</th><th class="col-item">Item</th><th class="col-resp">Responsável</th><th class="col-baseline">Tempo de Execução Previsto</th><th class="col-data">Prazo de Conclusão</th><th class="col-status">Status</th>${temCab ? '' : '<th class="col-prereq">Pré-requisitos</th>'}</tr></thead>
@@ -818,12 +901,13 @@ function renderEtapasCliente() {
             `).join('')}
           </tbody>
         </table>
+        </div>
       </div>
     `;
   }).join('');
 }
 
-function renderClienteAll() { renderStepper(); renderEtapasCliente(); atualizarBotoesMvp(); }
+function renderClienteAll() { renderResumoCliente(); renderStepper(); renderEtapasCliente(); atualizarBotoesMvp(); }
 
 /* ── PDF DO CRONOGRAMA ──
    Reproduz em PDF (A4, texto vetorial) a tela da visão do cliente, no tema que
