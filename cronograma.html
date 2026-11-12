@@ -124,7 +124,8 @@
   table.itens td { padding: 13px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
   table.itens tr:last-child > td { border-bottom: none; }
   table.itens td.nome { font-weight: 500; }
-  table.itens tr.linha-cab > td { background: var(--paper); border-bottom: 1px solid var(--line); }
+  table.itens tr.linha-cab > td { background: var(--paper); border-bottom: 1px solid var(--line); border-top: 14px solid var(--surface); padding-top: 14px; padding-bottom: 14px; }
+  table.itens tr.linha-cab:first-child > td { border-top: none; }
   table.itens tr.linha-cab > td.nome { font-weight: 700; font-size: 14.5px; }
   table.itens td.nome.filho { padding-left: 26px; font-weight: 400; }
   .admin-itens tr.admin-linha-cab > td { background: var(--paper); }
@@ -396,7 +397,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.7</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.8</span></div>
   </footer>
 </div>
 
@@ -424,7 +425,7 @@
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
       <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
-      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.7</div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.8</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
@@ -774,8 +775,8 @@ function renderEtapasCliente() {
             ${linhas.map(item => item.cabecalho ? `
               <tr class="linha-cab">
                 <td class="col-mvp" data-label=""></td>
-                <td class="nome col-item" colspan="5">${escapeHtml(item.nome)}</td>
-                <td data-label="Pré-requisitos" class="col-prereq"><div class="prereq-txt ${item.pre_requisitos ? '' : 'vazio'}">${item.pre_requisitos ? escapeHtml(item.pre_requisitos) : '—'}</div></td>
+                <td class="nome col-item" colspan="2">${escapeHtml(item.nome)}</td>
+                <td data-label="Pré-requisitos" class="col-prereq" colspan="4"><div class="prereq-txt ${item.pre_requisitos ? '' : 'vazio'}">${item.pre_requisitos ? escapeHtml(item.pre_requisitos) : '—'}</div></td>
               </tr>
             ` : `
               <tr>
@@ -989,14 +990,14 @@ function gerarPdfCronograma(btn) {
     // itens que ficam sob um título de grupo (recuados) e largura útil de um título (do Item até o Status)
     const filhoPdf = new Set();
     ET.forEach(et => { let g = false; IT.filter(i => i.etapa_id === et.id).sort((a, b) => a.ordem - b.ordem).forEach(i => { if (i.cabecalho) g = true; else if (g) filhoPdf.add(i.id); }); });
-    const wTitulo = fr[1] + fr[2] + fr[3] + fr[4] + fr[5] - 6;
+    const wTitulo = fr[1] + fr[2] - 6, wPreCab = fr[3] + fr[4] + fr[5] + fr[6] - 5, GAPCAB = 3;
     const alturaLinha = item => {
       if (item.cabecalho) {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(9.4);
         const nlc = doc.splitTextToSize(item.nome, wTitulo).length;
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-        const plc = item.pre_requisitos ? doc.splitTextToSize(item.pre_requisitos, fr[6] - 4).length : 0;
-        return Math.max(5.6, plc * 3.7, nlc * 4.2) + 2 * PADL;
+        const plc = item.pre_requisitos ? doc.splitTextToSize(item.pre_requisitos, wPreCab).length : 0;
+        return Math.max(5.6, plc * 3.7, nlc * 4.2) + 2 * PADL + GAPCAB;
       }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
       const nl = doc.splitTextToSize(item.nome, fr[1] - 5 - (filhoPdf.has(item.id) ? 3 : 0)).length;
@@ -1071,11 +1072,11 @@ function gerarPdfCronograma(btn) {
         seg.rows.forEach((row, ri) => {
           const item = row.item, top = ry + PADL;
           if (item.cabecalho) {   // título de grupo: só o nome (largo) e os pré-requisitos
-            doc.setFillColor(...PAPER); doc.rect(M + PAD, ry, CW - 2 * PAD, row.h, 'F');
+            doc.setFillColor(...PAPER); doc.rect(M + PAD, ry + GAPCAB, CW - 2 * PAD, row.h - GAPCAB, 'F');
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9.4); doc.setTextColor(...INK);
-            doc.text(doc.splitTextToSize(item.nome, wTitulo), colX[1] + 2, top + 3.3);
-            if (item.pre_requisitos) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(doc.splitTextToSize(item.pre_requisitos, fr[6] - 4), colX[6] + 2.6, top + 3.1); }
-            else txt('—', colX[6] + 2.6, top + 3.2, { size: 8, cor: SLATE });
+            doc.text(doc.splitTextToSize(item.nome, wTitulo), colX[1] + 2, top + GAPCAB + 3.3);
+            if (item.pre_requisitos) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(doc.splitTextToSize(item.pre_requisitos, wPreCab), colX[3] + 2.6, top + GAPCAB + 3.1); }
+            else txt('—', colX[3] + 2.6, top + GAPCAB + 3.2, { size: 8, cor: SLATE });
             ry += row.h;
             if (!(seg.ultimo && ri === seg.rows.length - 1)) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, ry, M + CW - PAD, ry); }
             return;
