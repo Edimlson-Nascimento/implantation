@@ -164,7 +164,7 @@
   table.itens tr.linha-cab > td:last-child { border-radius: 0 12px 12px 0; }
   table.itens tr.cab-gap > td { height: 14px; padding: 0; border: none; background: transparent; }
   table.itens tr.linha-cab > td.nome { font-weight: 700; font-size: 14.5px; }
-  table.itens td.nome.filho { padding-left: 26px; font-weight: 400; }
+  table.itens td.nome.filho { font-weight: 400; }
   @media (max-width: 640px) { table.itens td.cab-label { display: none; } table.itens tr.cab-gap { display: none; } }
   .admin-itens tr.admin-linha-cab > td { background: var(--paper); }
   .admin-cab-info { font-size: 11.5px; color: var(--slate); font-style: italic; vertical-align: middle; }
@@ -436,7 +436,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.15</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.16</span></div>
   </footer>
 </div>
 
@@ -464,7 +464,7 @@
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
       <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
-      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.15</div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.16</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
@@ -1096,7 +1096,7 @@ function gerarPdfCronograma(btn) {
         return Math.max(5.6, plc * 3.7, nlc * 4.2) + 2 * PADL + GAPCAB;
       }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
-      const nl = doc.splitTextToSize(item.nome, fr[1] - 5 - (filhoPdf.has(item.id) ? 3 : 0)).length;
+      const nl = doc.splitTextToSize(item.nome, fr[1] - 5).length;
       const temCheck = subsDe(item).length > 0;
       let extra = 0;
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
@@ -1202,7 +1202,7 @@ function gerarPdfCronograma(btn) {
             if (!(seg.ultimo && ri === seg.rows.length - 1)) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M + PAD, ry, M + CW - PAD, ry); }
             return;
           }
-          const recuo = filhoPdf.has(item.id) ? 3 : 0;
+          const recuo = 0;
           doc.setFont('helvetica', 'bold'); doc.setFontSize(8.8);
           const nl = doc.splitTextToSize(item.nome, fr[1] - 5 - recuo);
           doc.setTextColor(...INK); doc.text(nl, colX[1] + 2 + recuo, top + 3.1);
