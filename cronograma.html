@@ -230,6 +230,8 @@
   .admin-etapa-topo { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
   .admin-etapa-topo input[type=text] { font-size:15px; font-weight:700; border:none; background:none; color:var(--ink); padding:4px 0; flex:1; min-width:160px; }
   .admin-etapa-topo input[type=text]:focus-visible { outline:1px solid var(--line); border-radius:4px; }
+  .admin-etapa-card.oculta { opacity:.62; border-style:dashed; }
+  .admin-oculta-tag { margin-left:10px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600; color:var(--amber); background:var(--amber-soft); padding:2px 9px; border-radius:100px; white-space:nowrap; }
   .admin-etapa-nome-toggle { font-size:15px; font-weight:700; color:var(--ink); cursor:pointer; flex:1; user-select:none; }
   .admin-etapa-nome-toggle:hover { color: var(--focus); }
   .admin-etapa-count { font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:500; color:var(--slate); margin-left:4px; }
@@ -377,7 +379,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.1</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.2</span></div>
   </footer>
 </div>
 
@@ -498,7 +500,7 @@ function traduzErroAuth(msg) {
 }
 
 function avisarSeErro(error, acao) {
-  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})` + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '') + (/pre_requisitos/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-prerequisitos.sql no SQL Editor do Supabase.' : '')); return true; }
+  if (error) { alert(`Erro ao ${acao}. Tente sair e logar de novo.\n\n(${error.message})` + (/mvp/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-mvp.sql no SQL Editor do Supabase.' : '') + (/pre_requisitos/i.test(error.message || '') ? '\n\nFalta rodar o arquivo migracao-cronograma-prerequisitos.sql no SQL Editor do Supabase.' : '') + (/oculta/i.test(error.message || '') ? '\n\nFalta rodar o arquivo ocultar-cronograma-antigo-karnekeijo.sql (ou: alter table public.cronograma_etapas add column if not exists oculta boolean not null default false;) no SQL Editor do Supabase.' : '')); return true; }
   return false;
 }
 
@@ -671,10 +673,13 @@ function subsDoItem(itemId) {
   return so.length ? so : todos;
 }
 function checklistAbertoEfetivo(id) { return !!checklistAberto[id]; }
-function itensVisiveis() { return filtroMvp ? itens.filter(itemNoMvp) : itens; }
-function etapasVisiveis() { return filtroMvp ? etapas.filter(e => itens.some(i => i.etapa_id === e.id && itemNoMvp(i))) : etapas; }
+// Etapa "oculta" (coluna cronograma_etapas.oculta): some da Visão do Cliente, do PDF e dos percentuais; no admin continua aparecendo (esmaecida) para poder voltar.
+function etapasAtivas() { return etapas.filter(e => !e.oculta); }
+function itensAtivos() { const ocultas = new Set(etapas.filter(e => e.oculta).map(e => e.id)); return itens.filter(i => !ocultas.has(i.etapa_id)); }
+function itensVisiveis() { return filtroMvp ? itensAtivos().filter(itemNoMvp) : itensAtivos(); }
+function etapasVisiveis() { const it = itensAtivos(); return filtroMvp ? etapasAtivas().filter(e => it.some(i => i.etapa_id === e.id && itemNoMvp(i))) : etapasAtivas(); }
 function atualizarBotoesMvp() {
-  const n = itens.filter(itemNoMvp).length;
+  const n = itensAtivos().filter(itemNoMvp).length;
   document.querySelectorAll('.btn-filtro-mvp').forEach(b => {
     b.classList.toggle('ativo', filtroMvp);
     b.textContent = filtroMvp ? `★ Só o MVP (${n}) · ver tudo` : `☆ Só o MVP (${n})`;
@@ -784,8 +789,8 @@ function renderClienteAll() { renderStepper(); renderEtapasCliente(); atualizarB
 function gerarPdfCronograma(btn) {
   const cli = clienteAtual || clienteSelAdmin;
   if (!cli) return;
-  const IT = filtroMvp ? itens.filter(itemNoMvp) : itens;
-  const ET = filtroMvp ? etapas.filter(e => IT.some(i => i.etapa_id === e.id)) : etapas;
+  const IT = filtroMvp ? itensAtivos().filter(itemNoMvp) : itensAtivos();
+  const ET = filtroMvp ? etapasAtivas().filter(e => IT.some(i => i.etapa_id === e.id)) : etapasAtivas();
   if (!(window.jspdf && window.jspdf.jsPDF)) {
     mostrarAviso('PDF indisponível', 'Não consegui carregar o gerador de PDF (verifique a internet e recarregue a página).', '⚠️');
     return;
@@ -1272,7 +1277,7 @@ function renderAdminConteudo() {
   const el = document.getElementById('admin-conteudo');
   if (!clienteSelAdmin) { el.innerHTML = `<p style="color:var(--slate);">Selecione um cliente.</p>`; return; }
 
-  const pctGeral = pctConcluido(itens);
+  const pctGeral = pctConcluido(itensAtivos());
   el.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -1330,12 +1335,12 @@ function renderEtapasAdmin() {
     const colapsada = !!adminEtapaColapsada[etapa.id];
     const pctEtapa = pctConcluido(linhas);
     return `
-      <div class="admin-etapa-card">
+      <div class="admin-etapa-card${etapa.oculta ? ' oculta' : ''}">
         <div class="admin-etapa-topo">
           ${adminEtapaRenomeando[etapa.id] ? `
             <input type="text" id="etapa-input-${etapa.id}" value="${escapeHtml(etapa.nome)}" onblur="salvarNomeEtapaEFechar('${etapa.id}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
           ` : `
-            <span class="admin-etapa-nome-toggle" onclick="toggleAdminEtapa('${etapa.id}')">${colapsada ? '▸' : '▾'} ${escapeHtml(etapa.nome)}<span class="admin-etapa-count">(${linhas.length})</span>${linhas.length ? `<span class="admin-etapa-count pct-badge ${pctClasse(pctEtapa)}">${pctEtapa}%</span>` : ''}</span>
+            <span class="admin-etapa-nome-toggle" onclick="toggleAdminEtapa('${etapa.id}')">${colapsada ? '▸' : '▾'} ${escapeHtml(etapa.nome)}<span class="admin-etapa-count">(${linhas.length})</span>${linhas.length ? `<span class="admin-etapa-count pct-badge ${pctClasse(pctEtapa)}">${pctEtapa}%</span>` : ''}${etapa.oculta ? '<span class="admin-oculta-tag" title="Esta etapa não aparece para o cliente nem no PDF">🙈 oculta do cliente e do PDF</span>' : ''}</span>
             <button class="admin-mini-btn" onclick="iniciarRenomearEtapa('${etapa.id}')" title="Renomear etapa">✏️</button>
           `}
           <button class="admin-mini-btn perigo" onclick="excluirEtapa('${etapa.id}')">🗑 Excluir etapa</button>
@@ -1345,6 +1350,10 @@ function renderEtapasAdmin() {
           <input type="checkbox" ${etapa.bloqueada ? 'checked' : ''} onchange="salvarBloqueioEtapa('${etapa.id}', this.checked, document.getElementById('nota-${etapa.id}').value)">
           Etapa bloqueada
           <textarea id="nota-${etapa.id}" placeholder="Motivo do bloqueio (aparece pro cliente)..." onchange="salvarBloqueioEtapa('${etapa.id}', document.getElementById('check-${etapa.id}')?.checked ?? ${etapa.bloqueada}, this.value)">${escapeHtml(etapa.nota_bloqueio || '')}</textarea>
+        </label>
+        <label class="admin-bloqueio-row">
+          <input type="checkbox" ${etapa.oculta ? 'checked' : ''} onchange="salvarOcultaEtapa('${etapa.id}', this.checked)">
+          Ocultar esta etapa do cliente e do PDF <span style="font-size:11.5px;">(continua aqui no admin; desmarque para voltar)</span>
         </label>
         <div class="admin-itens-scroll">
         <table class="admin-itens">
@@ -1428,6 +1437,13 @@ async function salvarNomeEtapa(id, nome) {
   const { error } = await sb.from('cronograma_etapas').update({ nome }).eq('id', id);
   if (avisarSeErro(error, 'salvar o nome da etapa')) { renderAdminConteudo(); return; }
   const e = etapas.find(e => e.id === id); if (e) e.nome = nome;
+}
+
+async function salvarOcultaEtapa(id, oculta) {
+  const { error } = await sb.from('cronograma_etapas').update({ oculta }).eq('id', id);
+  if (avisarSeErro(error, 'ocultar/mostrar a etapa')) { renderAdminConteudo(); return; }
+  const e = etapas.find(e => e.id === id); if (e) e.oculta = oculta;
+  renderAdminConteudo();
 }
 
 async function salvarBloqueioEtapa(id, bloqueada, nota) {
