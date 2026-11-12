@@ -109,7 +109,7 @@
   .aviso-bloqueio { display:flex; gap:10px; align-items:flex-start; background: var(--red-soft); color: var(--red); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height:1.5; margin-bottom: 20px; }
   .aviso-bloqueio .ic { font-size:16px; flex-shrink:0; }
   .etapa-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
-  .etapa-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .etapa-head h2 { margin: 0 auto 0 0; font-size: 16px; font-weight: 700; }
   .etapa-count { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--slate); }
 
   table.itens { width: 100%; table-layout: fixed; border-collapse: collapse; }
@@ -125,12 +125,12 @@
   table.itens.tem-cab .col-baseline { width: 15%; }
   table.itens.tem-cab .col-data { width: 15%; }
   table.itens.tem-cab .col-status { width: 14%; }
-  table.itens td.cab-label { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); padding-top: 18px; }
+  table.itens td.cab-label { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
   table.itens th { text-align: left; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); padding: 0 10px 10px; border-bottom: 1px solid var(--line); }
   table.itens td { padding: 13px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
   table.itens tr:last-child > td { border-bottom: none; }
   table.itens td.nome { font-weight: 500; }
-  table.itens tr.linha-cab > td { background: var(--paper); border-bottom: 1px solid var(--line); border-top: 14px solid var(--surface); padding-top: 14px; padding-bottom: 14px; }
+  table.itens tr.linha-cab > td { background: var(--paper); border-bottom: 1px solid var(--line); border-top: 14px solid var(--surface); padding-top: 14px; padding-bottom: 14px; vertical-align: middle; }
   table.itens tr.linha-cab:first-child > td { border-top: none; }
   table.itens tr.linha-cab > td.nome { font-weight: 700; font-size: 14.5px; }
   table.itens td.nome.filho { padding-left: 26px; font-weight: 400; }
@@ -404,7 +404,7 @@
   </main>
   <footer class="foot">
     <div class="note">Precisa de ajuda? Fale com o time de implantação da Intelipulse.</div>
-    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.10</span></div>
+    <div class="sync"><span class="led"></span><span id="sync-label">conectado</span><span id="versao-build" style="opacity:.55;margin-left:8px;" title="Versão da página (para conferir se o navegador carregou a mais nova)">· v2026-11-12.11</span></div>
   </footer>
 </div>
 
@@ -432,7 +432,7 @@
         <button class="btn-primario full" style="padding:8px;font-size:12.5px;" onclick="withLockAdmin(this, duplicarCliente)">📋 Duplicar cronograma</button>
       </div>
       <div class="admin-novo-cliente" id="admin-config-etapas"><label class="admin-duplicar-label">⚙ Configurações · etapas</label><p class="admin-config-dica">Selecione um cliente para escolher quais etapas aparecem.</p></div>
-      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.10</div>
+      <div class="admin-config-dica" style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;">versão v2026-11-12.11</div>
     </aside>
     <div class="admin-conteudo" id="admin-conteudo">
       <p style="color:var(--slate);">Selecione um cliente na lateral pra ver/editar o cronograma dele.</p>
