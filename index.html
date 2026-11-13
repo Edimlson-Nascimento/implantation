@@ -1967,24 +1967,24 @@
 
 <!-- ══ MODAL ATIVIDADE ══ -->
 <div class="modal-overlay" id="atividade-modal-overlay">
-  <div class="modal-box" style="max-width:480px;">
+  <div class="modal-box at-modal">
     <h2 id="atividade-modal-title">Nova Atividade</h2>
-    <div id="atividade-modal-criado" style="font-size:12px;color:var(--gray-text);margin:-8px 0 12px;"></div>
-    <div class="form-grid">
-      <div class="form-field full">
+    <div id="atividade-modal-criado" style="font-size:12px;color:var(--gray-text);margin:-8px 0 10px;"></div>
+    <div class="form-grid at-grid">
+      <div class="form-field s2">
         <label>Cliente</label>
         <input type="text" id="at-cliente-nome" list="lista-clientes-nomes" placeholder="Buscar cliente...">
-      </div>
-      <div class="form-field full">
-        <label>Descrição</label>
-        <div class="ortografia-wrap">
-          <div class="ortografia-overlay" id="at-titulo-overlay" aria-hidden="true"></div>
-          <textarea id="at-titulo" spellcheck="false" oninput="atualizarDestaqueOrtografico('at-titulo','at-titulo-overlay')" onscroll="sincronizarScrollOrtografico('at-titulo','at-titulo-overlay')" style="width:100%;min-height:130px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
-        </div>
       </div>
       <div class="form-field"><label>Criado por</label><select id="at-criado-por"></select></div>
       <div class="form-field"><label>Responsável</label><select id="at-responsavel"></select></div>
       <div class="form-field full">
+        <label>Descrição</label>
+        <div class="ortografia-wrap">
+          <div class="ortografia-overlay" id="at-titulo-overlay" aria-hidden="true"></div>
+          <textarea id="at-titulo" spellcheck="false" oninput="atualizarDestaqueOrtografico('at-titulo','at-titulo-overlay')" onscroll="sincronizarScrollOrtografico('at-titulo','at-titulo-overlay')" style="width:100%;min-height:84px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="form-field s2">
         <label>Participantes (se foi feito em conjunto)</label>
         <div class="checklist-inline" id="at-participantes-list"></div>
       </div>
@@ -1996,21 +1996,30 @@
           <option value="concluida">Concluído</option>
         </select>
       </div>
-      <div class="form-field"><label>Prazo (data combinada)</label><input type="date" id="at-prazo"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Vazio: ao concluir, grava a data de conclusão.</small></div>
-      <div class="form-field"><label>Data de criação</label><input type="date" id="at-criado-em"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Altere se a atividade foi feita em dias anteriores.</small></div>
-      <div class="form-field" id="at-concluido-em-field" style="display:none;"><label>Concluído em</label><input type="date" id="at-concluido-em"><small style="display:block;font-size:11px;color:var(--gray-text);margin-top:4px;">Vazio: usa a data de hoje.</small></div>
-      <div class="form-field full">
-        <div class="at-checkins">
-          <label class="at-check"><input type="checkbox" id="at-sprint" onchange="atSprintMudou()"><span><b>Planejado na sprint</b><small id="at-sprint-info">Marque para entrar no previsto × entregue da semana.</small></span></label>
+      <div class="form-field"><label>Prazo combinado</label><input type="date" id="at-prazo" title="Vazio: ao concluir, grava a data de conclusão."></div>
+      <div class="form-field"><label>Data de criação</label><input type="date" id="at-criado-em" title="Altere se a atividade foi feita em dias anteriores."></div>
+      <div class="form-field" id="at-concluido-em-field" style="display:none;"><label>Concluído em</label><input type="date" id="at-concluido-em" title="Vazio: usa a data de hoje."></div>
+      <div class="form-field s2"><label>Prioridade (etiqueta)</label><div class="label-swatches" id="at-label-swatches"></div><div id="at-label-nome" class="at-label-nome"></div></div>
+      <div class="form-field s2">
+        <div class="at-box">
           <label class="at-check"><input type="checkbox" id="at-impedido" onchange="atImpedidoMudou()"><span><b>Impedido / aguardando cliente</b><small>O tempo parado é contado até desmarcar.</small></span></label>
+          <input type="text" id="at-impedido-motivo" placeholder="Motivo (ex.: aguardando acesso do cliente)" style="display:none;">
         </div>
-        <input type="text" id="at-impedido-motivo" placeholder="Motivo (ex.: aguardando acesso do cliente)" style="display:none;">
+      </div>
+      <div class="form-field s2">
+        <div class="at-box" id="at-oc-box">
+          <label class="at-check"><input type="checkbox" id="at-oc-pv" onchange="atOcMudou(true)"><span><b>Ocorrência da Digitação de pedido</b><small>Aparece na tela de Ocorrências do módulo.</small></span></label>
+          <div class="at-oc-campos" id="at-oc-campos" style="display:none;">
+            <div><span class="at-mini">Quem é o problema</span><select id="at-oc-origem"></select></div>
+            <div><span class="at-mini">Nº do ticket</span><input type="text" id="at-oc-ticket" placeholder="#"></div>
+            <label class="at-check at-pend"><input type="checkbox" id="at-oc-pend"><span><b>Pendência</b></span></label>
+          </div>
+        </div>
       </div>
       <div class="form-field full" id="at-resolucao-field" style="display:none;">
         <label>Resolução (o que foi feito)</label>
-        <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:90px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
+        <textarea id="at-resolucao" placeholder="Descreva o que foi feito para concluir esta atividade..." style="width:100%;min-height:70px;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--border-light);resize:vertical;"></textarea>
       </div>
-      <div class="form-field full"><label>Prioridade (etiqueta)</label><div class="label-swatches" id="at-label-swatches"></div><div id="at-label-nome" class="at-label-nome"></div></div>
     </div>
     <div class="modal-section">
       <h3>Imagens</h3>
@@ -2699,6 +2708,7 @@ async function loadState() {
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
       sprintSemana: a.sprint_semana || null, impedidoDesde: a.impedido_desde || null, impedidoTotalMin: a.impedido_total_min || 0, impedidoMotivo: a.impedido_motivo || '',
+      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia,
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -6853,11 +6863,10 @@ function impedidoMinAtual(a) {
 let editingSprintReplanejar = false;
 function atPreencherCheckins(a) {
   editingSprintReplanejar = false;
-  document.getElementById('at-sprint').checked = !!a.sprintSemana;
   document.getElementById('at-impedido').checked = !!a.impedidoDesde;
   document.getElementById('at-impedido-motivo').value = a.impedidoMotivo || '';
-  atSprintMudou();
   atImpedidoMudou();
+  if (typeof atOcPreencher === 'function') atOcPreencher(a);
 }
 function atSprintMudou() {
   const info = document.getElementById('at-sprint-info');
@@ -6948,6 +6957,7 @@ function renderAtividadeCard(a) {
       ${(p => p ? `<span class="kc-prazo ${p.classe}" title="${p.title}">${p.texto}</span>` : '')(prazoAtividadeInfo(a))}
       ${a.impedidoDesde ? `<span class="kc-impedido" title="Impedido: ${escapeHtml(a.impedidoMotivo || 'aguardando retorno')}">Impedido ${formatarDuracaoMin(impedidoMinAtual(a))}</span>` : ''}
       ${a.sprintSemana ? `<span class="kc-sprint" title="Planejado na sprint da semana de ${formatDate(a.sprintSemana)}">Sprint</span>` : ''}
+      ${a.ocPv ? `<span class="kc-oc" title="Ocorrência da Digitação de pedido${a.ocTicket ? ' · ticket ' + escapeHtml(a.ocTicket) : ''}">Ocorrência${a.ocPendencia ? ' · pend.' : ''}</span>` : ''}
     </div>
     <div class="kc-footer">
       <span class="kc-pessoa">${avatarHtml(a.responsavel)}${escapeHtml(a.responsavel)}</span>
@@ -7198,10 +7208,8 @@ async function saveAtividade(silent) {
   if (novoCriadoEm) payload.created_at = novoCriadoEm;
   if (prazo || (anterior && anterior.prazo)) payload.prazo = prazo;
   // Planejado na sprint e Impedido (colunas novas: só vão no payload quando há o que gravar)
-  const sprintMarcado = document.getElementById('at-sprint').checked;
   const impedidoMarcado = document.getElementById('at-impedido').checked && coluna !== 'concluida';
-  let sprintSemana = null;
-  if (sprintMarcado) sprintSemana = (anterior && anterior.sprintSemana && !editingSprintReplanejar) ? anterior.sprintSemana : segundaDe(todayStr());
+  let sprintSemana = anterior ? (anterior.sprintSemana || null) : null;   // o check saiu do modal: o que já estava planejado continua
   let impedidoDesde = anterior ? (anterior.impedidoDesde || null) : null;
   let impedidoTotalMin = anterior ? (anterior.impedidoTotalMin || 0) : 0;
   if (impedidoDesde && !impedidoMarcado) {
@@ -7214,6 +7222,11 @@ async function saveAtividade(silent) {
   if (sprintSemana || impedidoDesde || impedidoTotalMin || (anterior && (anterior.sprintSemana || anterior.impedidoDesde || anterior.impedidoTotalMin || anterior.impedidoMotivo))) {
     Object.assign(payload, { sprint_semana: sprintSemana, impedido_desde: impedidoDesde, impedido_total_min: impedidoTotalMin, impedido_motivo: impedidoMotivo });
   }
+  const ocMarcado = document.getElementById('at-oc-pv').checked;
+  const ocOrigem = ocMarcado ? document.getElementById('at-oc-origem').value : '';
+  const ocTicket = ocMarcado ? document.getElementById('at-oc-ticket').value.trim() : '';
+  const ocPendencia = ocMarcado && coluna !== 'concluida' ? document.getElementById('at-oc-pend').checked : false;
+  if (ocMarcado || (anterior && anterior.ocPv)) Object.assign(payload, { ocorrencia_pv: ocMarcado, ocorrencia_origem: ocOrigem, ocorrencia_ticket: ocTicket, ocorrencia_pendencia: ocPendencia });
   if (coluna === 'concluida') {
     payload.concluido_em = concluidoEmInput || ((anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr());
     if (payload.concluido_em < criadoEmInput) { alert('A data de conclusão não pode ser anterior à data de criação.'); return; }
@@ -7227,18 +7240,19 @@ async function saveAtividade(silent) {
   if (isNew) {
     payload.ordem = atividades.length ? Math.max(...atividades.map(a => a.ordem || 0)) + 1 : 1;
     const { data: row, error } = await sb.from('atividades').insert(payload).select().single();
-    if (error) { alert('Erro ao criar atividade: ' + error.message + (/prazo|sprint_semana|impedido/i.test(error.message) ? '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.' : '')); return; }
+    if (error) { alert('Erro ao criar atividade: ' + error.message + dicaColunasAtividade(error.message)); return; }
     atividadeSalva = {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
-      criadoEm: row.created_at, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo
+      criadoEm: row.created_at, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo,
+      ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
-    if (error) { alert('Erro ao salvar atividade: ' + error.message + (/prazo|sprint_semana|impedido/i.test(error.message) ? '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.' : '')); return; }
-    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo });
+    if (error) { alert('Erro ao salvar atividade: ' + error.message + dicaColunasAtividade(error.message)); return; }
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo, ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia });
     if (novoCriadoEm) anterior.criadoEm = novoCriadoEm;
     atividadeSalva = anterior;
   }
@@ -10390,10 +10404,11 @@ function pvCelulaHtml(r, k) {
 function renderPedidoVenda() {
   const el = document.getElementById('pv-conteudo');
   if (!el) return;
+  if (pvAba === 'ocorrencias') { el.innerHTML = pvAbasHtml() + ocTelaHtml(); return; }
   if (pvDados === null) {
     if (!pvCarregando) pvCarregar();
     if (typeof garantirLicencasErp === 'function') garantirLicencasErp();   // só para sugerir (★) quem tem o módulo no ERP
-    el.innerHTML = '<div class="pv-vazio">Carregando…</div>';
+    el.innerHTML = pvAbasHtml() + '<div class="pv-vazio">Carregando…</div>';
     return;
   }
   const linhas = pvLinhas();
@@ -10416,7 +10431,7 @@ function renderPedidoVenda() {
           + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + pvPctTd(r) + '</tr>').join('')
       + '</tbody></table>'
     : '<div class="pv-vazio">Nenhum cliente neste módulo ainda. Use "Adicionar cliente" para começar.</div>';
-  el.innerHTML = '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Módulo de Digitação de pedido</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
+  el.innerHTML = pvAbasHtml() + '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Módulo de Digitação de pedido</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
     + '<div class="pv-acoes"><select id="pv-add-sel" onchange="pvAdicionar(this.value)" title="Adicionar um cliente ao módulo"><option value="">+ Adicionar cliente…</option>'
     + disponiveis.map(c => '<option value="' + c.id + '">' + (pvTemModuloErp(c) ? '★ ' : '') + escapeHtml(c.nome) + (c.codigo ? ' (#' + escapeHtml(c.codigo) + ')' : '') + '</option>').join('') + '</select>'
     + (pvSortCol ? '<button class="btn btn-sm" onclick="pvOrdenar(null)" title="Voltar à ordem que você arrastou">↺ Ordem manual</button>' : '')
@@ -10810,6 +10825,320 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   pendRedesenhar(c, geral);
   if (!geral && typeof renderClientes === 'function' && activeTab === 'clientes') { try { renderClientes(); } catch (e) {} }
   if (typeof renderStats === 'function') { try { renderStats(); } catch (e) {} }
+}
+</script>
+<style id="oc-pv-css">
+  /* ── Modal de atividade mais largo e compacto ── */
+  #atividade-modal-overlay .modal-box.at-modal { max-width: 920px; padding: 22px 26px 20px; }
+  #atividade-modal-overlay .modal-box h2 { margin-bottom: 14px; }
+  #atividade-modal-overlay .at-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px 14px; }
+  #atividade-modal-overlay .at-grid > .s2 { grid-column: span 2; }
+  #atividade-modal-overlay .at-grid > .full { grid-column: 1 / -1; }
+  #atividade-modal-overlay .form-field input, #atividade-modal-overlay .form-field select { padding: 7px 10px; font-size: 13px; }
+  #atividade-modal-overlay .modal-section { margin-top: 14px; }
+  .at-box { display: flex; flex-direction: column; gap: 9px; height: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--white); }
+  .at-box > .at-check { border: 0; padding: 0; background: none; border-radius: 0; }
+  .at-box > input[type=text] { width: 100%; box-sizing: border-box; }
+  .at-oc-campos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px 10px; align-items: end; }
+  .at-oc-campos > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .at-oc-campos select, .at-oc-campos input[type=text] { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-light); }
+  .at-oc-campos .at-pend { grid-column: 1 / -1; border: 0; padding: 0; background: none; }
+  .at-mini { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); }
+  @media (max-width: 760px) { #atividade-modal-overlay .at-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { #atividade-modal-overlay .at-grid { grid-template-columns: 1fr; } #atividade-modal-overlay .at-grid > .s2 { grid-column: 1 / -1; } .at-oc-campos { grid-template-columns: 1fr; } }
+  .kc-oc { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; color: #7C3AED; background: rgba(124, 58, 237, .14); }
+  #view-atividades .kc-oc { font-size: 10.5px; padding: 1px 7px; }
+
+  /* ── Sub-abas e tela de Ocorrências (Digitação de pedido) ── */
+  .pv-abas { display: flex; gap: 8px; margin: 0 0 16px; }
+  .pv-aba { font-family: inherit; font-size: 13.5px; font-weight: 700; padding: 9px 18px; border-radius: 999px; cursor: pointer; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
+  .pv-aba:hover { border-color: var(--navy); }
+  .pv-aba.on { background: var(--navy); border-color: var(--navy); color: var(--on-navy, #fff); }
+  .pv-aba-n { display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 6px; border-radius: 999px; font-size: 11.5px; text-align: center; background: rgba(245, 158, 11, .25); color: inherit; }
+  .oc-barra { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 0 0 14px; }
+  .oc-barra select, .oc-barra input[type=date] { font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
+  .oc-barra label.oc-ck { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-main); cursor: pointer; }
+  .oc-barra .oc-esp { flex: 1; }
+  .oc-grupo { margin: 0 0 14px; border: 1px solid var(--border-light); border-radius: 14px; background: var(--white); overflow: hidden; }
+  .oc-grupo-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 11px 16px; background: rgba(127, 127, 127, .09); }
+  .oc-grupo-topo b { font-size: 15px; }
+  .oc-grupo-topo small { color: var(--gray-text); font-size: 12px; }
+  .oc-sel { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .oc-sel.ab { background: rgba(245, 158, 11, .2); color: #B45309; }
+  .oc-sel.sem { background: rgba(124, 58, 237, .15); color: #7C3AED; }
+  .oc-sel.pri { background: rgba(220, 38, 38, .15); color: var(--red); }
+  .oc-tab { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .oc-tab th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); padding: 8px 10px; border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+  .oc-tab th.c, .oc-tab td.c { text-align: center; width: 70px; }
+  .oc-tab td { padding: 9px 10px; border-bottom: 1px solid rgba(127, 127, 127, .15); vertical-align: top; }
+  .oc-tab tr:last-child td { border-bottom: 0; }
+  .oc-tab td.d { width: 74px; white-space: nowrap; color: var(--gray-text); }
+  .oc-tab td.d small { display: block; font-size: 11px; }
+  .oc-tab td.q { width: 190px; } .oc-tab td.k { width: 120px; }
+  .oc-tab td.q select, .oc-tab td.k input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
+  .oc-tab input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; }
+  .oc-txt { cursor: pointer; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .oc-txt:hover { color: var(--navy); }
+  .oc-quem { display: block; margin-top: 2px; font-size: 11.5px; color: var(--gray-text); }
+  .oc-res { display: block; margin-top: 3px; font-size: 12px; color: #15803D; white-space: pre-wrap; }
+  .oc-tab tr.pri td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+  .oc-tab tr.pri .oc-txt { font-weight: 700; }
+  .oc-tab tr.pend td.d small { color: #B45309; }
+  .oc-tab tr.res { opacity: .68; }
+  .oc-vazio { padding: 26px; text-align: center; color: var(--gray-text); border: 1px dashed var(--border-light); border-radius: 14px; }
+  .oc-aviso { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; background: rgba(245, 158, 11, .15); color: var(--text-main); }
+  .oc-scroll { overflow-x: auto; }
+  .oc-scroll .oc-tab { min-width: 820px; }
+  .oc-tab td:nth-child(2) { min-width: 240px; }
+</style>
+<script>
+/* ── Ocorrências da Digitação de pedido (2026-11-13) ──
+   Uma ocorrência é uma ATIVIDADE marcada no modal ("Ocorrência da Digitação de pedido"). A tela de Ocorrências só lê e edita essas atividades.
+   Colunas novas em `atividades`: ocorrencia_pv, ocorrencia_origem, ocorrencia_ticket, ocorrencia_pendencia (migracao-ocorrencias-pv.sql).
+   Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Quem é o problema são os campos novos. */
+const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
+let pvAba = 'andamento';
+let ocFiltro = { modo: 'hoje', data: '', cliente: '', origem: '', semTicket: false };
+let atOcManual = false, ocResolvendoId = null;
+
+function dicaColunasAtividade(msg) {
+  msg = msg || '';
+  if (/ocorrencia_/i.test(msg)) return '\n\nFalta criar as colunas das ocorrências. Rode o arquivo migracao-ocorrencias-pv.sql no SQL Editor do Supabase (projeto implantation).';
+  if (/prazo|sprint_semana|impedido/i.test(msg)) return '\n\nFalta criar colunas novas no banco. Rode o SQL das colunas de atividades (prazo, sprint_semana, impedido_desde, impedido_total_min, impedido_motivo) que está no supabase-schema.sql.';
+  return '';
+}
+
+// ── bloco "Ocorrência" dentro do modal da atividade ──
+function atOcPreencher(a) {
+  atOcManual = false;
+  const sel = document.getElementById('at-oc-origem');
+  if (!sel) return;
+  const lista = (a.ocOrigem && !OC_ORIGENS.includes(a.ocOrigem)) ? OC_ORIGENS.concat([a.ocOrigem]) : OC_ORIGENS;
+  sel.innerHTML = '<option value="">Selecione…</option>' + lista.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('');
+  sel.value = a.ocOrigem || '';
+  document.getElementById('at-oc-pv').checked = !!a.ocPv;
+  document.getElementById('at-oc-ticket').value = a.ocTicket || '';
+  document.getElementById('at-oc-pend').checked = !!a.ocPendencia;
+  atOcMudou(false);
+  if (pvDados === null && !pvCarregando && typeof pvCarregar === 'function') pvCarregar();   // para saber quais clientes estão no módulo
+}
+function atOcMudou(manual) {
+  if (manual) atOcManual = true;
+  const campos = document.getElementById('at-oc-campos');
+  if (campos) campos.style.display = document.getElementById('at-oc-pv').checked ? '' : 'none';
+}
+function atClienteNoModulo(nome) {
+  const n = String(nome || '').trim().toLowerCase();
+  if (!n || !Array.isArray(pvDados)) return false;
+  const c = state.clients.find(x => String(x.nome).toLowerCase() === n);
+  return !!c && pvDados.some(r => r.cliente_id === c.id);
+}
+// atividade NOVA: ao escolher um cliente que está no módulo, o check já vem marcado (dá para desmarcar)
+function atOcClienteMudou() {
+  if (editingAtividadeId || atOcManual) return;
+  document.getElementById('at-oc-pv').checked = atClienteNoModulo(document.getElementById('at-cliente-nome').value);
+  atOcMudou(false);
+}
+document.getElementById('at-cliente-nome').addEventListener('input', atOcClienteMudou);
+document.getElementById('at-cliente-nome').addEventListener('change', atOcClienteMudou);
+
+// ── sub-abas ──
+function ocTodas() { return atividades.filter(a => a.ocPv && !a.cancelado); }
+function pvSetAba(a) { pvAba = a; renderPedidoVenda(); }
+function pvAbasHtml() {
+  const n = ocTodas().filter(a => a.coluna !== 'concluida').length;
+  return '<div class="pv-abas">'
+    + '<button type="button" class="pv-aba' + (pvAba === 'andamento' ? ' on' : '') + '" onclick="pvSetAba(\'andamento\')">Andamento do módulo</button>'
+    + '<button type="button" class="pv-aba' + (pvAba === 'ocorrencias' ? ' on' : '') + '" onclick="pvSetAba(\'ocorrencias\')">Ocorrências' + (n ? '<span class="pv-aba-n">' + n + '</span>' : '') + '</button></div>';
+}
+
+// ── filtros ──
+function ocPassaPeriodo(a) {
+  const hoje = todayStr(), ab = a.coluna !== 'concluida';
+  const cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
+  const conc = a.concluidoEm || '';
+  if (ocFiltro.modo === 'abertas') return ab;
+  if (ocFiltro.modo === 'hoje') return ab || cri === hoje || conc === hoje;
+  if (ocFiltro.modo === '7d') { const lim = addDays(hoje, -6); return ab || cri >= lim || conc >= lim; }
+  if (ocFiltro.modo === 'dia') return !!ocFiltro.data && (cri === ocFiltro.data || conc === ocFiltro.data);
+  return true;
+}
+function ocListaFiltrada() {
+  return ocTodas().filter(ocPassaPeriodo)
+    .filter(a => !ocFiltro.cliente || a.clienteNome === ocFiltro.cliente)
+    .filter(a => !ocFiltro.origem || (a.ocOrigem || '') === ocFiltro.origem)
+    .filter(a => !ocFiltro.semTicket || !String(a.ocTicket || '').trim());
+}
+function ocFiltroSet(campo, valor) {
+  ocFiltro[campo] = valor;
+  if (campo === 'modo' && valor === 'dia' && !ocFiltro.data) ocFiltro.data = todayStr();
+  renderPedidoVenda();
+}
+function ocPrioridade(a) { return a.label === 'red' || a.label === 'orange'; }
+function ocClienteObj(nome) { const n = String(nome || '').toLowerCase(); return state.clients.find(c => String(c.nome).toLowerCase() === n) || null; }
+
+function ocLinhaHtml(a) {
+  const res = a.coluna === 'concluida', pri = ocPrioridade(a), pend = !!a.ocPendencia && !res;
+  const cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
+  const dias = a.criadoEm ? diasDesde(a.criadoEm) : 0;
+  const idade = res ? 'resolvida' : (dias === 0 ? 'hoje' : 'há ' + dias + 'd');
+  const id = escapeHtml(a.id);
+  const lista = (a.ocOrigem && !OC_ORIGENS.includes(a.ocOrigem)) ? OC_ORIGENS.concat([a.ocOrigem]) : OC_ORIGENS;
+  const opcoes = '<option value="">—</option>' + lista.map(o => '<option value="' + escapeHtml(o) + '"' + (a.ocOrigem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('');
+  return '<tr class="' + (pri ? 'pri ' : '') + (pend ? 'pend ' : '') + (res ? 'res' : '') + '">'
+    + '<td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '<small>' + idade + '</small></td>'
+    + '<td><div class="oc-txt" onclick="openAtividadeModal(\'' + id + '\')" title="Abrir a atividade">' + escapeHtml(a.titulo) + '</div><span class="oc-quem">' + escapeHtml(a.responsavel || '') + '</span>'
+      + (res && a.resolucao ? '<span class="oc-res">✔ ' + escapeHtml(a.resolucao) + '</span>' : '') + '</td>'
+    + '<td class="c"><input type="checkbox" ' + (pri ? 'checked' : '') + ' onclick="event.preventDefault(); ocPrior(\'' + id + '\', ' + (!pri) + ')" title="Prioridade (marca a etiqueta Alta Urgência)"></td>'
+    + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
+    + '<td class="c"><input type="checkbox" ' + (res ? 'checked' : '') + ' onclick="event.preventDefault(); ocResolverClick(\'' + id + '\')" title="' + (res ? 'Resolvida — clique para reabrir' : 'Marcar como resolvida') + '"></td>'
+    + '<td class="q"><select onchange="ocSetOrigem(\'' + id + '\', this.value)">' + opcoes + '</select></td>'
+    + '<td class="k"><input type="text" value="' + escapeHtml(a.ocTicket || '') + '" placeholder="sem ticket" onchange="ocSetTicket(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></td></tr>';
+}
+
+function ocTelaHtml() {
+  const todas = ocTodas();
+  const lista = ocListaFiltrada();
+  const clientes = [...new Set(todas.map(a => a.clienteNome).filter(Boolean))].sort((x, y) => x.localeCompare(y));
+  const grupos = new Map();
+  lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
+  const chaves = [...grupos.keys()].sort((x, y) => {
+    const cx = ocClienteObj(x), cy = ocClienteObj(y);
+    return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
+  });
+  const modos = [['hoje', 'Hoje + em aberto'], ['abertas', 'Só em aberto'], ['7d', 'Últimos 7 dias'], ['dia', 'Dia específico…'], ['todas', 'Todas']];
+  const barra = '<div class="oc-barra">'
+    + '<select onchange="ocFiltroSet(\'modo\', this.value)" title="Período">' + modos.map(([v, n]) => '<option value="' + v + '"' + (ocFiltro.modo === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'
+    + (ocFiltro.modo === 'dia' ? '<input type="date" value="' + escapeHtml(ocFiltro.data) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'data\', this.value)">' : '')
+    + '<select onchange="ocFiltroSet(\'cliente\', this.value)" title="Cliente"><option value="">Todos os clientes</option>' + clientes.map(c => '<option value="' + escapeHtml(c) + '"' + (ocFiltro.cliente === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select>'
+    + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Quem é o problema"><option value="">Quem é o problema: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
+    + '<label class="oc-ck"><input type="checkbox" ' + (ocFiltro.semTicket ? 'checked' : '') + ' onchange="ocFiltroSet(\'semTicket\', this.checked)"> só sem ticket</label>'
+    + '<span class="oc-esp"></span>'
+    + '<button class="btn btn-sm" onclick="ocNova()">+ Nova ocorrência</button>'
+    + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia as ocorrências sem ticket (do filtro atual), por cliente">📋 Copiar p/ tickets</button></div>';
+  let corpo;
+  if (!chaves.length) {
+    corpo = '<div class="oc-vazio">' + (todas.length ? 'Nenhuma ocorrência neste filtro.' : 'Ainda não há ocorrências. Abra uma atividade e marque <b>Ocorrência da Digitação de pedido</b>, ou use <b>+ Nova ocorrência</b>.') + '</div>';
+  } else {
+    corpo = chaves.map(k => {
+      const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
+      const ab = arr.filter(a => a.coluna !== 'concluida'), sem = arr.filter(a => !String(a.ocTicket || '').trim()).length, pri = ab.filter(ocPrioridade).length;
+      const c = ocClienteObj(k);
+      return '<div class="oc-grupo"><div class="oc-grupo-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '')
+        + '<span class="oc-sel ab">' + ab.length + ' em aberto</span>' + (sem ? '<span class="oc-sel sem">' + sem + ' sem ticket</span>' : '') + (pri ? '<span class="oc-sel pri">' + pri + ' prioridade</span>' : '') + '</div>'
+        + '<div class="oc-scroll"><table class="oc-tab"><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Quem é o problema</th><th>Ticket</th></tr></thead><tbody>'
+        + arr.map(ocLinhaHtml).join('') + '</tbody></table></div></div>';
+    }).join('');
+  }
+  return '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Ocorrências da Digitação de pedido</h2><p class="bk-sub" style="margin:0;">As ocorrências são atividades marcadas como "Ocorrência da Digitação de pedido". O que não foi resolvido continua aparecendo nos dias seguintes.</p></div></div>' + barra + corpo;
+}
+
+// ── gravação ──
+async function ocGravar(id, campos, local) {
+  const a = atividades.find(x => x.id === id);
+  if (!a) return false;
+  const { error } = await sb.from('atividades').update(campos).eq('id', id);
+  if (error) { alert('Não consegui salvar: ' + error.message + dicaColunasAtividade(error.message)); renderPedidoVenda(); return false; }
+  Object.assign(a, local);
+  renderPedidoVenda();
+  if (typeof renderStats === 'function') { try { renderStats(); } catch (e) {} }
+  return true;
+}
+function ocPrior(id, ligar) {
+  const a = atividades.find(x => x.id === id); if (!a) return;
+  const label = ligar ? (ocPrioridade(a) ? a.label : 'orange') : null;
+  ocGravar(id, { label }, { label });
+}
+function ocPend(id, ligar) { ocGravar(id, { ocorrencia_pendencia: ligar }, { ocPendencia: ligar }); }
+function ocSetOrigem(id, v) { ocGravar(id, { ocorrencia_origem: v }, { ocOrigem: v }); }
+function ocSetTicket(id, v) {
+  v = String(v || '').trim();
+  const a = atividades.find(x => x.id === id);
+  if (a && (a.ocTicket || '') === v) return;
+  ocGravar(id, { ocorrencia_ticket: v }, { ocTicket: v });
+}
+
+// Resolvido = Concluído (a resolução é obrigatória, como no resto das atividades)
+function ocResolverClick(id) {
+  const a = atividades.find(x => x.id === id); if (!a) return;
+  if (a.coluna === 'concluida') {
+    const aberta = (KANBAN_COLUMNS.find(c => c.id !== 'concluida') || { id: 'afazer' }).id;
+    ocGravar(id, { coluna: aberta, concluido_em: null }, { coluna: aberta, concluidoEm: null });
+    return;
+  }
+  ocAbrirResolucao(a);
+}
+function ocResOverlay() {
+  let el = document.getElementById('oc-res-overlay');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'oc-res-overlay'; el.className = 'pst-overlay';
+  el.addEventListener('mousedown', ev => { if (ev.target === el) ocFecharResolucao(); });
+  el.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { ev.stopPropagation(); ocFecharResolucao(); }
+    else if (ev.key === 'Enter' && !ev.shiftKey && ev.target && ev.target.id === 'oc-res-txt') { ev.preventDefault(); ocConfirmarResolucao(); }
+  });
+  document.body.appendChild(el);
+  return el;
+}
+function ocAbrirResolucao(a) {
+  ocResolvendoId = a.id;
+  const el = ocResOverlay();
+  el.innerHTML = '<div class="pst-box" role="dialog" aria-modal="true"><h3>Resolver ocorrência</h3><p class="pst-item">' + escapeHtml(a.titulo) + '</p>'
+    + '<label for="oc-res-txt">O que foi feito?</label><textarea id="oc-res-txt" placeholder="Descreva a solução (Enter confirma, Shift+Enter pula linha)">' + escapeHtml(a.resolucao || '') + '</textarea>'
+    + '<div class="pst-erro" id="oc-res-erro"></div>'
+    + '<div class="pst-acoes linha"><button type="button" class="pst-btn" onclick="ocFecharResolucao()">Cancelar</button><button type="button" class="pst-btn ok" onclick="ocConfirmarResolucao()">Resolver</button></div></div>';
+  el.classList.add('open');
+  const ta = document.getElementById('oc-res-txt'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function ocFecharResolucao() { const el = document.getElementById('oc-res-overlay'); if (el) el.classList.remove('open'); ocResolvendoId = null; }
+async function ocConfirmarResolucao() {
+  const id = ocResolvendoId;
+  const ta = document.getElementById('oc-res-txt');
+  const txt = ta ? ta.value.trim() : '';
+  if (!txt) { const er = document.getElementById('oc-res-erro'); if (er) er.textContent = 'Escreva o que foi feito para resolver.'; if (ta) ta.focus(); return; }
+  const a = atividades.find(x => x.id === id);
+  ocFecharResolucao();
+  if (!a) return;
+  const hoje = todayStr();
+  const campos = { coluna: 'concluida', resolucao: txt, concluido_em: hoje };
+  const local = { coluna: 'concluida', resolucao: txt, concluidoEm: hoje };
+  if (!a.prazo) { campos.prazo = hoje; local.prazo = hoje; }                       // sem prazo: o prazo vira a data de conclusão (regra das atividades)
+  if (a.ocPendencia) { campos.ocorrencia_pendencia = false; local.ocPendencia = false; }
+  if (a.impedidoDesde) {                                                          // concluir encerra o impedimento
+    const min = (a.impedidoTotalMin || 0) + Math.max(0, Math.round((Date.now() - new Date(a.impedidoDesde).getTime()) / 60000));
+    Object.assign(campos, { impedido_desde: null, impedido_total_min: min }); Object.assign(local, { impedidoDesde: null, impedidoTotalMin: min });
+  }
+  if (await ocGravar(id, campos, local)) await registrarHistoricoDeAtividade(a);
+}
+
+// ── criar e copiar ──
+function ocNova() {
+  novaAtividade('afazer');
+  atOcManual = true;
+  document.getElementById('at-oc-pv').checked = true;
+  atOcMudou(false);
+  if (ocFiltro.cliente) document.getElementById('at-cliente-nome').value = ocFiltro.cliente;
+}
+function ocCopiarTickets() {
+  const lista = ocListaFiltrada().filter(a => !String(a.ocTicket || '').trim());
+  if (!lista.length) { alert('Nenhuma ocorrência sem ticket neste filtro.'); return; }
+  const grupos = new Map();
+  lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
+  let texto = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n';
+  [...grupos.keys()].sort((x, y) => x.localeCompare(y)).forEach(k => {
+    texto += '\n🏢 ' + k + '\n';
+    grupos.get(k).forEach(a => {
+      const etq = [];
+      if (ocPrioridade(a)) etq.push('PRIORIDADE');
+      if (a.ocPendencia) etq.push('pendência');
+      if (a.coluna === 'concluida') etq.push('resolvido');
+      texto += '• ' + a.titulo.replace(/\s*\n\s*/g, ' ') + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
+      if (a.coluna === 'concluida' && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
+    });
+  });
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Copiado! ' + lista.length + ' ocorrência(s) sem ticket.'), () => promptFallbackCopy(texto));
+  else promptFallbackCopy(texto);
 }
 </script>
 </body>
