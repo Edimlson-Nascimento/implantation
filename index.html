@@ -10902,7 +10902,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
    Uma ocorrência é uma ATIVIDADE marcada no modal ("Ocorrência da Digitação de pedido"). A tela de Ocorrências só lê e edita essas atividades.
    Colunas novas em `atividades`: ocorrencia_pv, ocorrencia_origem, ocorrencia_ticket, ocorrencia_pendencia (migracao-ocorrencias-pv.sql).
    Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Quem é o problema são os campos novos. */
-const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
+const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Gilson', 'Emilio', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
 let pvAba = 'andamento';
 let ocFiltro = { modo: 'hoje', data: '', cliente: '', origem: '', semTicket: false };
 let atOcManual = false, ocResolvendoId = null;
