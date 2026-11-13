@@ -10845,8 +10845,13 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .at-oc-campos select, .at-oc-campos input[type=text] { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-light); }
   .at-oc-campos .at-pend { grid-column: 1 / -1; border: 0; padding: 0; background: none; }
   .at-mini { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); }
-  @media (max-width: 760px) { #atividade-modal-overlay .at-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } #atividade-modal-overlay .at-grid > #at-criado-em-field { grid-column: auto; } }
-  @media (max-width: 520px) { #atividade-modal-overlay .at-grid { grid-template-columns: 1fr; } #atividade-modal-overlay .at-grid > .s2 { grid-column: 1 / -1; } #atividade-modal-overlay .at-grid > #at-criado-em-field { grid-column: auto; } .at-oc-campos { grid-template-columns: 1fr; } }
+  /* celular/janela estreita: modal estreito como antes, em 2 colunas (campos curtos lado a lado, os longos ocupam a linha toda) */
+  @media (max-width: 760px) {
+    #atividade-modal-overlay .modal-box.at-modal { max-width: 480px; padding: 20px 16px 16px; }
+    #atividade-modal-overlay .at-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 12px; }
+    #atividade-modal-overlay .at-grid > #at-criado-em-field { grid-column: auto; }
+  }
+  @media (max-width: 520px) { .at-oc-campos { grid-template-columns: 1fr; } }
   .kc-oc { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; color: #7C3AED; background: rgba(124, 58, 237, .14); }
   #view-atividades .kc-oc { font-size: 10.5px; padding: 1px 7px; }
 
