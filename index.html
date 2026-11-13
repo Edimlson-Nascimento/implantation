@@ -2639,7 +2639,7 @@ async function loadState() {
     proximoContato: c.proximo_contato,
     contatos: contatos.filter(ct => ct.cliente_id === c.id).map(ct => ({ id: ct.id, nome: ct.nome, telefone: ct.telefone || '', cargo: ct.cargo || '', principal: !!ct.principal })),
     pendencias: pendencias.filter(p => p.cliente_id === c.id)
-      .map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito, mostrarLamina: p.mostrar_lamina !== false, ordem: p.ordem ?? null }))
+      .map(p => ({ id: p.id, texto: p.texto, responsavel: p.responsavel, feito: p.feito, mostrarLamina: p.mostrar_lamina !== false, ordem: p.ordem ?? null, naoFeito: !!p.nao_realizado, motivoNaoFeito: p.motivo_nao_realizado || '' }))
       .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity)),
     historico: historico.filter(h => h.cliente_id === c.id).map(h => ({ id: h.id, data: h.data, texto: h.texto }))
   }));
@@ -3671,17 +3671,7 @@ function renderPendList(c) {
   ['cliente','rscrm'].forEach(tipo => {
     const container = document.getElementById('pend-list-' + tipo);
     const items = c.pendencias.filter(p => p.responsavel === tipo);
-    container.innerHTML = items.length ? items.map(p => `
-      <div class="pend-item ${p.feito ? 'done' : ''}" draggable="true" data-id="${p.id}">
-        <span class="pend-drag-handle" title="Arrastar para reordenar">⠿</span>
-        <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendencia('${p.id}')">
-        <span>${escapeHtml(p.texto)}</span>
-        ${p.mostrarLamina ? '' : '<span class="lamina-off-tag">fora da lâmina</span>'}
-        <span class="lamina-toggle" onclick="toggleLaminaPendencia('${p.id}')" title="${p.mostrarLamina ? 'Vai pra lâmina — clique pra tirar' : 'Não vai pra lâmina — clique pra incluir'}">🖼</span>
-        <span class="edit" onclick="editarPendencia('${p.id}')" title="Editar">✎</span>
-        <span class="del" onclick="removePendencia('${p.id}')">✕</span>
-      </div>
-    `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+    container.innerHTML = items.length ? items.map(p => pendItemHtml(c, p, false)).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
     tornarPendListaSortable(container, c, () => renderPendList(c));
   });
 }
@@ -3798,12 +3788,13 @@ function pnBannerHtml(c) {
 function pnAnelHtml(c) {
   const ab = c.pendencias.filter(p => !p.feito);
   const nc = ab.filter(p => p.responsavel === 'cliente').length, nr = ab.filter(p => p.responsavel === 'rscrm').length, tot = nc + nr;
-  const feitas = c.pendencias.length - ab.length;
+  const feitasCli = c.pendencias.filter(p => p.feito && p.responsavel === 'cliente').length;
+  const feitasInt = c.pendencias.filter(p => p.feito && p.responsavel === 'rscrm').length;
   const ang = tot ? nc / tot * 360 : 0;
   const fundo = tot ? 'conic-gradient(#F59E0B 0deg ' + ang + 'deg, #2F80ED ' + ang + 'deg 360deg)' : 'rgba(34,197,94,.55)';
   const chip = (cor, rot, n) => '<span class="bk-ana-chip' + (n ? '' : ' zero') + '"><i style="background:' + cor + '"></i>' + rot + '<b>' + n + '</b></span>';
   return '<div class="bk-ring pn-ring" style="background:' + fundo + '"><div class="bk-ring-in"><b>' + tot + '</b><small>' + (tot === 1 ? 'aberta' : 'abertas') + '</small></div></div>'
-    + '<div class="bk-ana-leg">' + chip('#F59E0B', 'Do cliente', nc) + chip('#2F80ED', 'Da Intelipulse', nr) + chip('#22C55E', 'Concluídas', feitas) + '</div>';
+    + '<div class="bk-ana-leg">' + chip('#F59E0B', 'Do cliente', nc) + chip('#2F80ED', 'Da Intelipulse', nr) + chip('#22C55E', 'Concluído Cliente', feitasCli) + chip('#14B8A6', 'Concluído Intelipulse', feitasInt) + '</div>';
 }
 function pnTilesHtml(c) {
   const impl = (c.fase || 'implantacao') === 'implantacao';
@@ -3968,17 +3959,7 @@ function renderPendListGeral(c) {
     const container = document.getElementById(`pgeral-list-${tipo}-${c.id}`);
     if (!container) return;
     const items = c.pendencias.filter(p => p.responsavel === tipo);
-    container.innerHTML = items.length ? items.map(p => `
-      <div class="pend-item ${p.feito ? 'done' : ''}" draggable="true" data-id="${p.id}">
-        <span class="pend-drag-handle" title="Arrastar para reordenar">⠿</span>
-        <input type="checkbox" ${p.feito ? 'checked' : ''} onchange="togglePendenciaGeral('${c.id}','${p.id}')">
-        <span>${escapeHtml(p.texto)}</span>
-        ${p.mostrarLamina ? '' : '<span class="lamina-off-tag">fora da lâmina</span>'}
-        <span class="lamina-toggle" onclick="toggleLaminaPendenciaGeral('${c.id}','${p.id}')" title="${p.mostrarLamina ? 'Vai pra lâmina — clique pra tirar' : 'Não vai pra lâmina — clique pra incluir'}">🖼</span>
-        <span class="edit" onclick="editarPendenciaGeral('${c.id}','${p.id}')" title="Editar">✎</span>
-        <span class="del" onclick="removePendenciaGeral('${c.id}','${p.id}')">✕</span>
-      </div>
-    `).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
+    container.innerHTML = items.length ? items.map(p => pendItemHtml(c, p, true)).join('') : `<div style="font-size:12.5px;color:var(--gray-text);">Nenhuma pendência.</div>`;
     tornarPendListaSortable(container, c, () => renderPendListGeral(c));
   });
 
@@ -4013,9 +3994,9 @@ function copiarPendenciasCliente(clienteId) {
 
   let texto = `📋 Pendências — ${c.nome}\n\n`;
   texto += `⚠ Do Cliente:\n`;
-  texto += doCliente.length ? doCliente.map(p => `- ${p.texto}`).join('\n') : 'Nenhuma pendência.';
+  texto += doCliente.length ? doCliente.map(p => `- ${p.texto}${pendNaoFeitoTexto(p)}`).join('\n') : 'Nenhuma pendência.';
   texto += `\n\n🔧 Da Intelipulse:\n`;
-  texto += daIntelipulse.length ? daIntelipulse.map(p => `- ${p.texto}`).join('\n') : 'Nenhuma pendência.';
+  texto += daIntelipulse.length ? daIntelipulse.map(p => `- ${p.texto}${pendNaoFeitoTexto(p)}`).join('\n') : 'Nenhuma pendência.';
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(texto).then(
@@ -4817,11 +4798,11 @@ function renderLamina() {
         }
         if (pendDoCliente.length) {
           html += `<div class="lamina-secao-label">⚠ Pendências do Cliente</div>`;
-          pendDoCliente.forEach(p => { html += `<div class="lam-item pend-cliente">${escapeHtml(p.texto)}</div>`; });
+          pendDoCliente.forEach(p => { html += `<div class="lam-item pend-cliente">${escapeHtml(p.texto)}${pendNaoFeitoLamina(p)}</div>`; });
         }
         if (pendIntelipulse.length) {
           html += `<div class="lamina-secao-label">🔧 Pendências da Intelipulse</div>`;
-          pendIntelipulse.forEach(p => { html += `<div class="lam-item pend-rscrm">${escapeHtml(p.texto)}</div>`; });
+          pendIntelipulse.forEach(p => { html += `<div class="lam-item pend-rscrm">${escapeHtml(p.texto)}${pendNaoFeitoLamina(p)}</div>`; });
         }
       }
 
@@ -10674,6 +10655,163 @@ function toggleMenuUsuario(ev) {
 }
 document.addEventListener('click', ev => { const w = document.getElementById('user-wrap'); if (w && !w.contains(ev.target)) fecharMenuUsuario(); });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') fecharMenuUsuario(); });
+</script>
+<style id="pend-status-css">
+  /* Pendência "Não será realizado": fica em vermelho, com o motivo, e continua contando como em aberto */
+  .pend-item.nao-feito { color: var(--red); }
+  .pend-item .pend-texto { min-width: 0; overflow-wrap: anywhere; }
+  .pend-nao-motivo { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--red); white-space: pre-wrap; text-decoration: none; }
+  .pn-corpo .pend-col .pend-item.nao-feito { border-left-color: #DC2626; background: rgba(220, 38, 38, .10); }
+  .lam-item .lam-nao-feito { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; color: #DC2626; }
+  /* popup pequeno de decisão */
+  .pst-overlay { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(2, 31, 51, .5); }
+  .pst-overlay.open { display: flex; }
+  .pst-box { width: 100%; max-width: 380px; background: var(--white); color: var(--text-main); border-radius: 16px; padding: 20px 20px 16px; box-shadow: 0 18px 50px rgba(2, 12, 30, .35); }
+  .pst-box h3 { margin: 0 0 4px; font-size: 15.5px; font-weight: 800; }
+  .pst-item { margin: 0 0 14px; font-size: 12.5px; color: var(--gray-text); overflow-wrap: anywhere; max-height: 3.9em; overflow: hidden; }
+  .pst-box label { display: block; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; }
+  .pst-box textarea { width: 100%; min-height: 84px; resize: vertical; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
+  .pst-erro { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--red); min-height: 1em; }
+  .pst-acoes { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .pst-acoes.linha { flex-direction: row; justify-content: flex-end; margin-top: 10px; }
+  .pst-btn { font-family: inherit; font-size: 13.5px; font-weight: 700; padding: 10px 14px; border-radius: 11px; cursor: pointer; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); text-align: left; }
+  .pst-acoes.linha .pst-btn { text-align: center; }
+  .pst-btn:hover { border-color: var(--navy); }
+  .pst-btn.ok { background: #16A34A; border-color: #16A34A; color: #fff; }
+  .pst-btn.nao { background: rgba(220, 38, 38, .10); border-color: rgba(220, 38, 38, .55); color: var(--red); }
+  .pst-btn.nao:hover { border-color: var(--red); }
+  .pst-btn.cancelar { text-align: center; font-weight: 600; color: var(--gray-text); }
+</style>
+<script>
+// ── Pendência: Concluído / Não será realizado (2026-11-13) ──
+// Clicar na caixinha abre um popup pequeno. "Não será realizado" pede o motivo, mostra a pendência em vermelho
+// e ela continua contando como EM ABERTO (feito = false). Colunas novas em `pendencias`: nao_realizado, motivo_nao_realizado
+// (migracao-pendencia-nao-realizada.sql). Sem as colunas, concluir/reabrir continua funcionando; só o "Não será realizado" avisa.
+let pendPopupCtx = null;
+
+function pendNaoFeitoTexto(p) { return p && p.naoFeito && !p.feito ? ' — NÃO SERÁ REALIZADO: ' + (p.motivoNaoFeito || 'sem motivo informado') : ''; }
+function pendNaoFeitoLamina(p) { return p && p.naoFeito && !p.feito ? '<span class="lam-nao-feito">✖ Não será realizado: ' + escapeHtml(p.motivoNaoFeito || 'sem motivo informado') + '</span>' : ''; }
+
+function pendItemHtml(c, p, geral) {
+  const g = geral ? 'Geral' : '';
+  const idArgs = geral ? "'" + c.id + "','" + p.id + "'" : "'" + p.id + "'";
+  const nao = !!p.naoFeito && !p.feito;
+  const dica = p.feito ? 'Concluída — clique para reabrir' : (nao ? 'Não será realizado — clique para mudar' : 'Clique para concluir ou marcar como não realizada');
+  return `
+      <div class="pend-item ${p.feito ? 'done' : ''} ${nao ? 'nao-feito' : ''}" draggable="true" data-id="${p.id}">
+        <span class="pend-drag-handle" title="Arrastar para reordenar">⠿</span>
+        <input type="checkbox" ${p.feito ? 'checked' : ''} onclick="event.preventDefault(); pendCheckClick('${c.id}','${p.id}',${geral ? 'true' : 'false'})" title="${dica}">
+        <span class="pend-texto">${escapeHtml(p.texto)}${nao ? `<span class="pend-nao-motivo">✖ Não será realizado: ${escapeHtml(p.motivoNaoFeito || 'sem motivo informado')}</span>` : ''}</span>
+        ${p.mostrarLamina ? '' : '<span class="lamina-off-tag">fora da lâmina</span>'}
+        <span class="lamina-toggle" onclick="toggleLaminaPendencia${g}(${idArgs})" title="${p.mostrarLamina ? 'Vai pra lâmina — clique pra tirar' : 'Não vai pra lâmina — clique pra incluir'}">🖼</span>
+        <span class="edit" onclick="editarPendencia${g}(${idArgs})" title="Editar">✎</span>
+        <span class="del" onclick="removePendencia${g}(${idArgs})">✕</span>
+      </div>
+    `;
+}
+
+function pendRedesenhar(c, geral) { if (geral) renderPendListGeral(c); else renderPendList(c); }
+
+function pendCheckClick(clienteId, pendId, geral) {
+  const c = state.clients.find(x => x.id === clienteId);
+  const p = c && c.pendencias.find(x => x.id === pendId);
+  if (!p) return;
+  if (p.feito) { pendAplicarStatus(c, p, 'aberto', '', geral); return; }   // desmarcar uma concluída só reabre
+  pendAbrirPopup(c, p, geral);
+}
+
+function pendPopupEl() {
+  let el = document.getElementById('pst-overlay');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'pst-overlay';
+  el.className = 'pst-overlay';
+  el.addEventListener('mousedown', ev => { if (ev.target === el) pendFecharPopup(); });
+  el.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { ev.stopPropagation(); pendFecharPopup(); }
+    else if (ev.key === 'Enter' && !ev.shiftKey && ev.target && ev.target.id === 'pst-motivo') { ev.preventDefault(); pendConfirmarMotivo(); }
+  });
+  document.body.appendChild(el);
+  return el;
+}
+
+function pendFecharPopup() { const el = document.getElementById('pst-overlay'); if (el) el.classList.remove('open'); pendPopupCtx = null; }
+
+function pendAbrirPopup(c, p, geral) {
+  pendPopupCtx = { clienteId: c.id, pendId: p.id, geral: !!geral };
+  const el = pendPopupEl();
+  el.innerHTML = `<div class="pst-box" role="dialog" aria-modal="true">
+      <h3>O que aconteceu com esta pendência?</h3>
+      <p class="pst-item">${escapeHtml(p.texto)}</p>
+      <div class="pst-acoes">
+        <button type="button" class="pst-btn ok" onclick="pendEscolher('concluido')">✔ Concluído</button>
+        <button type="button" class="pst-btn nao" onclick="pendPedirMotivo()">✖ Não será realizado</button>
+        ${p.naoFeito ? '<button type="button" class="pst-btn" onclick="pendEscolher(\'aberto\')">↺ Voltar a pendente</button>' : ''}
+        <button type="button" class="pst-btn cancelar" onclick="pendFecharPopup()">Cancelar</button>
+      </div></div>`;
+  el.classList.add('open');
+}
+
+function pendPedirMotivo() {
+  const ctx = pendPopupCtx; if (!ctx) return;
+  const c = state.clients.find(x => x.id === ctx.clienteId);
+  const p = c && c.pendencias.find(x => x.id === ctx.pendId);
+  if (!p) return pendFecharPopup();
+  const el = pendPopupEl();
+  el.innerHTML = `<div class="pst-box" role="dialog" aria-modal="true">
+      <h3>Por que não será realizado?</h3>
+      <p class="pst-item">${escapeHtml(p.texto)}</p>
+      <label for="pst-motivo">Motivo</label>
+      <textarea id="pst-motivo" placeholder="Explique o motivo (Enter confirma, Shift+Enter pula linha)">${escapeHtml(p.motivoNaoFeito || '')}</textarea>
+      <div class="pst-erro" id="pst-erro"></div>
+      <div class="pst-acoes linha">
+        <button type="button" class="pst-btn" onclick="pendAbrirPopup(state.clients.find(x => x.id === '${c.id}'), pendBuscar('${c.id}','${p.id}'), ${ctx.geral ? 'true' : 'false'})">Voltar</button>
+        <button type="button" class="pst-btn ok" onclick="pendConfirmarMotivo()">OK</button>
+      </div></div>`;
+  const ta = document.getElementById('pst-motivo');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function pendBuscar(clienteId, pendId) { const c = state.clients.find(x => x.id === clienteId); return c && c.pendencias.find(x => x.id === pendId); }
+
+function pendConfirmarMotivo() {
+  const ctx = pendPopupCtx; if (!ctx) return;
+  const ta = document.getElementById('pst-motivo');
+  const motivo = ta ? ta.value.trim() : '';
+  if (!motivo) { const er = document.getElementById('pst-erro'); if (er) er.textContent = 'Escreva o motivo para continuar.'; if (ta) ta.focus(); return; }
+  pendEscolher('nao', motivo);
+}
+
+function pendEscolher(status, motivo) {
+  const ctx = pendPopupCtx; if (!ctx) return;
+  const c = state.clients.find(x => x.id === ctx.clienteId);
+  const p = c && c.pendencias.find(x => x.id === ctx.pendId);
+  const geral = ctx.geral;
+  pendFecharPopup();
+  if (c && p) pendAplicarStatus(c, p, status, motivo || '', geral);
+}
+
+async function pendAplicarStatus(c, p, status, motivo, geral) {
+  const upd = { feito: status === 'concluido' };
+  // as colunas novas só entram quando precisam (assim concluir/reabrir não depende do SQL novo)
+  if (status === 'nao') { upd.nao_realizado = true; upd.motivo_nao_realizado = motivo; }
+  else if (p.naoFeito) { upd.nao_realizado = false; upd.motivo_nao_realizado = ''; }
+  const { error } = await sb.from('pendencias').update(upd).eq('id', p.id);
+  if (error) {
+    const faltaColuna = /nao_realizado|motivo_nao_realizado|schema cache|column/i.test(error.message || '');
+    alert(faltaColuna
+      ? 'Erro ao atualizar pendência: ' + error.message + '\n\nRode o arquivo migracao-pendencia-nao-realizada.sql no SQL Editor do Supabase (projeto implantation).'
+      : 'Erro ao atualizar pendência: ' + error.message);
+    pendRedesenhar(c, geral);
+    return;
+  }
+  p.feito = status === 'concluido';
+  p.naoFeito = status === 'nao';
+  p.motivoNaoFeito = status === 'nao' ? motivo : '';
+  pendRedesenhar(c, geral);
+  if (!geral && typeof renderClientes === 'function' && activeTab === 'clientes') { try { renderClientes(); } catch (e) {} }
+  if (typeof renderStats === 'function') { try { renderStats(); } catch (e) {} }
+}
 </script>
 </body>
 </html>
