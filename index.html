@@ -10896,6 +10896,39 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-tab tr.pri .oc-txt { font-weight: 700; }
   .oc-tab tr.pend td.d small { color: #B45309; }
   .oc-tab tr.res { opacity: .68; }
+  .oc-de { font-size: 12.5px; color: var(--gray-text); }
+  .oc-tab th.c, .oc-tab td.c { min-width: 90px; }
+  .oc-tab th:nth-child(6), .oc-tab td:nth-child(6) { min-width: 210px; }
+  .oc-tab th:nth-child(7), .oc-tab td:nth-child(7) { min-width: 160px; }
+  .oc-scroll .oc-tab { min-width: 1000px; }
+  /* imagem para enviar: folha clara fixa (não depende do tema) */
+  .oce-wrap { position: fixed; left: -10000px; top: 0; }
+  .oce { width: 1100px; padding: 28px 30px 20px; background: #fff; color: #0F172A; font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; box-sizing: border-box; }
+  .oce-topo { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 14px; border-bottom: 4px solid #00C853; margin-bottom: 16px; }
+  .oce-tit { font-size: 24px; font-weight: 800; color: #021F33; }
+  .oce-sub { font-size: 13px; color: #475569; margin-top: 4px; }
+  .oce-data { font-size: 13px; font-weight: 700; color: #021F33; }
+  .oce-chips { display: flex; gap: 10px; margin-bottom: 18px; }
+  .oce-chip { flex: 1; padding: 10px 14px; border-radius: 12px; background: #F1F5F9; border-left: 5px solid #64748B; }
+  .oce-chip b { display: block; font-size: 24px; line-height: 1.1; color: #0F172A; }
+  .oce-chip span { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #475569; }
+  .oce-chip.am { border-left-color: #F59E0B; } .oce-chip.vd { border-left-color: #16A34A; } .oce-chip.vm { border-left-color: #DC2626; } .oce-chip.rx { border-left-color: #7C3AED; }
+  .oce-cli { margin: 0 0 16px; border: 1px solid #CBD5E1; border-radius: 12px; overflow: hidden; }
+  .oce-cli-topo { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; background: #021F33; color: #fff; }
+  .oce-cli-topo b { font-size: 16px; } .oce-cli-topo small { color: #9FC4DD; font-size: 12px; } .oce-cli-topo span { margin-left: auto; font-size: 12px; color: #D6E6F2; }
+  .oce table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .oce th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #475569; padding: 8px 10px; background: #F8FAFC; border-bottom: 1px solid #CBD5E1; }
+  .oce td { padding: 9px 10px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+  .oce tr:last-child td { border-bottom: 0; }
+  .oce th.c, .oce td.c { text-align: center; width: 92px; }
+  .oce td.d { width: 52px; color: #475569; white-space: nowrap; }
+  .oce td.o b { font-weight: 700; } .oce td.o small { display: block; margin-top: 2px; font-size: 11.5px; color: #64748B; }
+  .oce td.o em { display: block; margin-top: 3px; font-style: normal; font-size: 12px; color: #15803D; }
+  .oce tr.res td { color: #64748B; } .oce tr.res td.o b { font-weight: 600; }
+  .oce-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .oce-pill.vm { background: #FEE2E2; color: #B91C1C; } .oce-pill.am { background: #FEF3C7; color: #B45309; } .oce-pill.vd { background: #DCFCE7; color: #15803D; }
+  .oce-no { color: #94A3B8; } .oce-sem { color: #7C3AED; font-size: 12px; font-style: italic; }
+  .oce-rodape { margin-top: 6px; font-size: 11px; color: #94A3B8; text-align: right; }
   .oc-vazio { padding: 26px; text-align: center; color: var(--gray-text); border: 1px dashed var(--border-light); border-radius: 14px; }
   .oc-aviso { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; background: rgba(245, 158, 11, .15); color: var(--text-main); }
   .oc-scroll { overflow-x: auto; }
@@ -10909,7 +10942,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
    Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Quem é o problema são os campos novos. */
 const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Gilson', 'Emilio', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
 let pvAba = 'andamento';
-let ocFiltro = { modo: 'hoje', data: '', cliente: '', origem: '', semTicket: false };
+let ocFiltro = { modo: 'hoje', data: '', ini: '', fim: '', cliente: '', origem: '', ticket: '' };
 let atOcManual = false, ocResolvendoId = null;
 
 function dicaColunasAtividade(msg) {
@@ -10975,17 +11008,22 @@ function ocPassaPeriodo(a) {
   if (ocFiltro.modo === 'hoje') return ab || cri === hoje || conc === hoje;
   if (ocFiltro.modo === '7d') { const lim = addDays(hoje, -6); return ab || cri >= lim || conc >= lim; }
   if (ocFiltro.modo === 'dia') return !!ocFiltro.data && (cri === ocFiltro.data || conc === ocFiltro.data);
+  if (ocFiltro.modo === 'periodo') {
+    const ini = ocFiltro.ini || '0000-00-00', fim = ocFiltro.fim || '9999-99-99';
+    return (cri >= ini && cri <= fim) || (!!conc && conc >= ini && conc <= fim);
+  }
   return true;
 }
 function ocListaFiltrada() {
   return ocTodas().filter(ocPassaPeriodo)
     .filter(a => !ocFiltro.cliente || a.clienteNome === ocFiltro.cliente)
     .filter(a => !ocFiltro.origem || (a.ocOrigem || '') === ocFiltro.origem)
-    .filter(a => !ocFiltro.semTicket || !String(a.ocTicket || '').trim());
+    .filter(a => !ocFiltro.ticket || (ocFiltro.ticket === 'com') === !!String(a.ocTicket || '').trim());
 }
 function ocFiltroSet(campo, valor) {
   ocFiltro[campo] = valor;
   if (campo === 'modo' && valor === 'dia' && !ocFiltro.data) ocFiltro.data = todayStr();
+  if (campo === 'modo' && valor === 'periodo') { if (!ocFiltro.fim) ocFiltro.fim = todayStr(); if (!ocFiltro.ini) ocFiltro.ini = addDays(ocFiltro.fim, -6); }
   renderPedidoVenda();
 }
 function ocPrioridade(a) { return a.label === 'red' || a.label === 'orange'; }
@@ -11025,16 +11063,19 @@ function ocTelaHtml() {
     const cx = ocClienteObj(x), cy = ocClienteObj(y);
     return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
   });
-  const modos = [['hoje', 'Hoje + em aberto'], ['abertas', 'Só em aberto'], ['7d', 'Últimos 7 dias'], ['dia', 'Dia específico…'], ['todas', 'Todas']];
+  const modos = [['hoje', 'Hoje + em aberto'], ['abertas', 'Só em aberto'], ['7d', 'Últimos 7 dias'], ['dia', 'Dia específico…'], ['periodo', 'De … até …'], ['todas', 'Todas']];
   const barra = '<div class="oc-barra">'
     + '<select onchange="ocFiltroSet(\'modo\', this.value)" title="Período">' + modos.map(([v, n]) => '<option value="' + v + '"' + (ocFiltro.modo === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'
     + (ocFiltro.modo === 'dia' ? '<input type="date" value="' + escapeHtml(ocFiltro.data) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'data\', this.value)">' : '')
+    + (ocFiltro.modo === 'periodo' ? '<span class="oc-de">de</span><input type="date" value="' + escapeHtml(ocFiltro.ini) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'ini\', this.value)"><span class="oc-de">até</span><input type="date" value="' + escapeHtml(ocFiltro.fim) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'fim\', this.value)">' : '')
     + '<select onchange="ocFiltroSet(\'cliente\', this.value)" title="Cliente"><option value="">Todos os clientes</option>' + clientes.map(c => '<option value="' + escapeHtml(c) + '"' + (ocFiltro.cliente === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select>'
     + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Quem é o problema"><option value="">Quem é o problema: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
-    + '<label class="oc-ck"><input type="checkbox" ' + (ocFiltro.semTicket ? 'checked' : '') + ' onchange="ocFiltroSet(\'semTicket\', this.checked)"> só sem ticket</label>'
+    + '<select onchange="ocFiltroSet(\'ticket\', this.value)" title="Ticket"><option value="">Ticket: todos</option><option value="com"' + (ocFiltro.ticket === 'com' ? ' selected' : '') + '>Só com ticket</option><option value="sem"' + (ocFiltro.ticket === 'sem' ? ' selected' : '') + '>Só sem ticket</option></select>'
     + '<span class="oc-esp"></span>'
     + '<button class="btn btn-sm" onclick="ocNova()">+ Nova ocorrência</button>'
-    + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia as ocorrências sem ticket (do filtro atual), por cliente">📋 Copiar p/ tickets</button></div>';
+    + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia as ocorrências sem ticket (do filtro atual), por cliente">📋 Copiar p/ tickets</button>'
+    + '<button class="btn btn-sm" onclick="ocCopiarImagem()" title="Copia uma imagem pronta para colar (Ctrl+V) no WhatsApp ou e-mail">📸 Copiar imagem</button>'
+    + '<button class="btn btn-sm" onclick="ocBaixarImagem()" title="Baixa a imagem em PNG">⬇ Baixar imagem</button></div>';
   let corpo;
   if (!chaves.length) {
     corpo = '<div class="oc-vazio">' + (todas.length ? 'Nenhuma ocorrência neste filtro.' : 'Ainda não há ocorrências. Abra uma atividade e marque <b>Ocorrência da Digitação de pedido</b>, ou use <b>+ Nova ocorrência</b>.') + '</div>';
@@ -11139,6 +11180,83 @@ function ocNova() {
   atOcMudou(false);
   if (ocFiltro.cliente) document.getElementById('at-cliente-nome').value = ocFiltro.cliente;
 }
+// ── Imagem do resumo (para copiar/baixar e enviar): folha clara, só o resumo de cada ocorrência ──
+function ocFiltroTexto() {
+  const fd = s => s ? formatDate(s) : '…';
+  const base = { hoje: 'Hoje + em aberto', abertas: 'Só em aberto', '7d': 'Últimos 7 dias', todas: 'Todas as ocorrências' }[ocFiltro.modo]
+    || (ocFiltro.modo === 'dia' ? 'Dia ' + fd(ocFiltro.data) : 'De ' + fd(ocFiltro.ini) + ' até ' + fd(ocFiltro.fim));
+  const partes = [base];
+  if (ocFiltro.cliente) partes.push(ocFiltro.cliente);
+  if (ocFiltro.origem) partes.push('Problema: ' + ocFiltro.origem);
+  if (ocFiltro.ticket === 'com') partes.push('Só com ticket');
+  if (ocFiltro.ticket === 'sem') partes.push('Só sem ticket');
+  return partes.join(' · ');
+}
+function ocExportHtml(lista) {
+  const grupos = new Map();
+  lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
+  const chaves = [...grupos.keys()].sort((x, y) => {
+    const cx = ocClienteObj(x), cy = ocClienteObj(y);
+    return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
+  });
+  const ab = lista.filter(a => a.coluna !== 'concluida'), nRes = lista.length - ab.length;
+  const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
+  const chip = (n, rot, cls) => '<div class="oce-chip ' + (cls || '') + '"><b>' + n + '</b><span>' + rot + '</span></div>';
+  const agora = new Date();
+  let h = '<div class="oce"><div class="oce-topo"><div><div class="oce-tit">Ocorrências da Digitação de pedido</div><div class="oce-sub">' + escapeHtml(ocFiltroTexto()) + '</div></div>'
+    + '<div class="oce-data">Referente a ' + formatDate(todayStr()) + '</div></div>'
+    + '<div class="oce-chips">' + chip(lista.length, lista.length === 1 ? 'ocorrência' : 'ocorrências') + chip(ab.length, 'em aberto', 'am') + chip(nRes, nRes === 1 ? 'resolvida' : 'resolvidas', 'vd')
+    + chip(nPri, 'prioridade', nPri ? 'vm' : '') + chip(nSem, 'sem ticket', nSem ? 'rx' : '') + '</div>';
+  chaves.forEach(k => {
+    const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
+    const c = ocClienteObj(k), abc = arr.filter(a => a.coluna !== 'concluida').length;
+    h += '<div class="oce-cli"><div class="oce-cli-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '') + '<span>' + abc + ' em aberto · ' + arr.length + ' no total</span></div>'
+      + '<table><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Quem é o problema</th><th>Ticket</th></tr></thead><tbody>'
+      + arr.map(a => {
+        const res = a.coluna === 'concluida', cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
+        const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
+        const tk = String(a.ocTicket || '').trim();
+        return '<tr class="' + (res ? 'res' : '') + '"><td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '</td>'
+          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b><small>' + escapeHtml(a.responsavel || '') + '</small>' + (res && a.resolucao ? '<em>✔ ' + escapeHtml(a.resolucao) + '</em>' : '') + '</td>'
+          + '<td class="c">' + pill(ocPrioridade(a), 'Prioridade', 'vm') + '</td><td class="c">' + pill(!!a.ocPendencia && !res, 'Pendência', 'am') + '</td><td class="c">' + pill(res, 'Resolvido', 'vd') + '</td>'
+          + '<td>' + (a.ocOrigem ? escapeHtml(a.ocOrigem) : '<span class="oce-no">—</span>') + '</td>'
+          + '<td>' + (tk ? '<b>' + escapeHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  });
+  h += '<div class="oce-rodape">Gerado em ' + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' · Painel de Implantação Intelipulse</div></div>';
+  return h;
+}
+async function ocImagemCanvas() {
+  const lista = ocListaFiltrada();
+  if (!lista.length) { alert('Nenhuma ocorrência neste filtro para gerar a imagem.'); return null; }
+  if (typeof html2canvas === 'undefined') { alert('A biblioteca de imagem não carregou. Atualize a página (Ctrl+F5) e tente de novo.'); return null; }
+  const box = document.createElement('div');
+  box.className = 'oce-wrap';
+  box.innerHTML = ocExportHtml(lista);
+  document.body.appendChild(box);
+  try { return await html2canvas(box.firstElementChild, { scale: 2, backgroundColor: '#ffffff' }); }
+  finally { box.remove(); }
+}
+async function ocCopiarImagem() {
+  try {
+    const canvas = await ocImagemCanvas();
+    if (!canvas) return;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    alert('Imagem copiada! Agora é só colar (Ctrl+V) no WhatsApp, e-mail ou onde precisar.');
+  } catch (err) {
+    alert('Não foi possível copiar a imagem automaticamente neste navegador. Use "Baixar imagem" e anexe o arquivo. (' + err.message + ')');
+  }
+}
+async function ocBaixarImagem() {
+  const canvas = await ocImagemCanvas();
+  if (!canvas) return;
+  const link = document.createElement('a');
+  link.download = 'Ocorrencias-Digitacao-de-pedido-' + new Date().toLocaleDateString('pt-BR').replace(/\//g, '-') + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
 function ocCopiarTickets() {
   const lista = ocListaFiltrada().filter(a => !String(a.ocTicket || '').trim());
   if (!lista.length) { alert('Nenhuma ocorrência sem ticket neste filtro.'); return; }
