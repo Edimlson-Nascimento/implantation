@@ -2010,6 +2010,7 @@
         <div class="at-box" id="at-oc-box">
           <label class="at-check"><input type="checkbox" id="at-oc-pv" onchange="atOcMudou(true)"><span><b>Ocorrência da Digitação de pedido</b><small>Aparece na tela de Ocorrências do módulo.</small></span></label>
           <div class="at-oc-campos" id="at-oc-campos" style="display:none;">
+            <div class="at-oc-resumo"><span class="at-mini">Resumo (a linha que aparece na tela de Ocorrências)</span><input type="text" id="at-oc-resumo" maxlength="140" placeholder="Ex.: Sugestão de melhoria — peso do produto na digitação"></div>
             <div><span class="at-mini">Quem é o problema</span><select id="at-oc-origem"></select></div>
             <div><span class="at-mini">Nº do ticket</span><input type="text" id="at-oc-ticket" placeholder="#"></div>
             <label class="at-check at-pend"><input type="checkbox" id="at-oc-pend"><span><b>Pendência</b></span></label>
@@ -2708,7 +2709,7 @@ async function loadState() {
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
       sprintSemana: a.sprint_semana || null, impedidoDesde: a.impedido_desde || null, impedidoTotalMin: a.impedido_total_min || 0, impedidoMotivo: a.impedido_motivo || '',
-      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia,
+      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia, ocResumo: a.ocorrencia_resumo || '',
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -7226,7 +7227,9 @@ async function saveAtividade(silent) {
   const ocOrigem = ocMarcado ? document.getElementById('at-oc-origem').value : '';
   const ocTicket = ocMarcado ? document.getElementById('at-oc-ticket').value.trim() : '';
   const ocPendencia = ocMarcado && coluna !== 'concluida' ? document.getElementById('at-oc-pend').checked : false;
+  const ocResumo = ocMarcado ? document.getElementById('at-oc-resumo').value.trim() : '';
   if (ocMarcado || (anterior && anterior.ocPv)) Object.assign(payload, { ocorrencia_pv: ocMarcado, ocorrencia_origem: ocOrigem, ocorrencia_ticket: ocTicket, ocorrencia_pendencia: ocPendencia });
+  if (ocResumo || (anterior && anterior.ocResumo)) payload.ocorrencia_resumo = ocResumo;   // coluna nova: só vai quando há o que gravar
   if (coluna === 'concluida') {
     payload.concluido_em = concluidoEmInput || ((anterior && anterior.coluna === 'concluida' && anterior.concluidoEm) ? anterior.concluidoEm : todayStr());
     if (payload.concluido_em < criadoEmInput) { alert('A data de conclusão não pode ser anterior à data de criação.'); return; }
@@ -7245,14 +7248,14 @@ async function saveAtividade(silent) {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
       criadoEm: row.created_at, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo,
-      ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia
+      ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia, ocResumo
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
   } else {
     const { error } = await sb.from('atividades').update(payload).eq('id', editingAtividadeId);
     if (error) { alert('Erro ao salvar atividade: ' + error.message + dicaColunasAtividade(error.message)); return; }
-    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo, ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia });
+    Object.assign(anterior, { responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna, resolucao, participantes, concluidoEm: payload.concluido_em, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo, ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia, ocResumo });
     if (novoCriadoEm) anterior.criadoEm = novoCriadoEm;
     atividadeSalva = anterior;
   }
@@ -10843,6 +10846,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .at-oc-campos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px 10px; align-items: end; }
   .at-oc-campos > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .at-oc-campos select, .at-oc-campos input[type=text] { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--border-light); }
+  .at-oc-campos > .at-oc-resumo { grid-column: 1 / -1; }
   .at-oc-campos .at-pend { grid-column: 1 / -1; border: 0; padding: 0; background: none; }
   .at-mini { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gray-text); }
   /* celular/janela estreita: modal estreito como antes, em 2 colunas (campos curtos lado a lado, os longos ocupam a linha toda) */
@@ -10883,10 +10887,11 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-tab td.q { width: 190px; } .oc-tab td.k { width: 120px; }
   .oc-tab td.q select, .oc-tab td.k input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
   .oc-tab input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; }
-  .oc-txt { cursor: pointer; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .oc-l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .oc-txt { cursor: pointer; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .oc-txt:hover { color: var(--navy); }
-  .oc-quem { display: block; margin-top: 2px; font-size: 11.5px; color: var(--gray-text); }
-  .oc-res { display: block; margin-top: 3px; font-size: 12px; color: #15803D; white-space: pre-wrap; }
+  .oc-quem { flex: none; font-size: 11.5px; color: var(--gray-text); }
+  .oc-res { display: block; margin-top: 3px; font-size: 12px; color: #15803D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .oc-tab tr.pri td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   .oc-tab tr.pri .oc-txt { font-weight: 700; }
   .oc-tab tr.pend td.d small { color: #B45309; }
@@ -10895,7 +10900,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-aviso { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; background: rgba(245, 158, 11, .15); color: var(--text-main); }
   .oc-scroll { overflow-x: auto; }
   .oc-scroll .oc-tab { min-width: 820px; }
-  .oc-tab td:nth-child(2) { min-width: 240px; }
+  .oc-tab td:nth-child(2) { width: 100%; max-width: 0; min-width: 260px; }
 </style>
 <script>
 /* ── Ocorrências da Digitação de pedido (2026-11-13) ──
@@ -10924,6 +10929,7 @@ function atOcPreencher(a) {
   sel.value = a.ocOrigem || '';
   document.getElementById('at-oc-pv').checked = !!a.ocPv;
   document.getElementById('at-oc-ticket').value = a.ocTicket || '';
+  document.getElementById('at-oc-resumo').value = a.ocResumo || '';
   document.getElementById('at-oc-pend').checked = !!a.ocPendencia;
   atOcMudou(false);
   if (pvDados === null && !pvCarregando && typeof pvCarregar === 'function') pvCarregar();   // para saber quais clientes estão no módulo
@@ -10931,7 +10937,9 @@ function atOcPreencher(a) {
 function atOcMudou(manual) {
   if (manual) atOcManual = true;
   const campos = document.getElementById('at-oc-campos');
-  if (campos) campos.style.display = document.getElementById('at-oc-pv').checked ? '' : 'none';
+  const marcado = document.getElementById('at-oc-pv').checked;
+  if (campos) campos.style.display = marcado ? '' : 'none';
+  if (manual && marcado) { const r = document.getElementById('at-oc-resumo'); if (r) r.focus(); }   // marcou: já cai na linha do resumo
 }
 function atClienteNoModulo(nome) {
   const n = String(nome || '').trim().toLowerCase();
@@ -10983,6 +10991,11 @@ function ocFiltroSet(campo, valor) {
 function ocPrioridade(a) { return a.label === 'red' || a.label === 'orange'; }
 function ocClienteObj(nome) { const n = String(nome || '').toLowerCase(); return state.clients.find(c => String(c.nome).toLowerCase() === n) || null; }
 
+function ocResumoDe(a) {
+  const r = String(a.ocResumo || '').trim();
+  if (r) return r;
+  return String(a.titulo || '').split(/\r?\n/).map(s => s.trim()).find(Boolean) || '';
+}
 function ocLinhaHtml(a) {
   const res = a.coluna === 'concluida', pri = ocPrioridade(a), pend = !!a.ocPendencia && !res;
   const cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
@@ -10993,8 +11006,8 @@ function ocLinhaHtml(a) {
   const opcoes = '<option value="">—</option>' + lista.map(o => '<option value="' + escapeHtml(o) + '"' + (a.ocOrigem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('');
   return '<tr class="' + (pri ? 'pri ' : '') + (pend ? 'pend ' : '') + (res ? 'res' : '') + '">'
     + '<td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '<small>' + idade + '</small></td>'
-    + '<td><div class="oc-txt" onclick="openAtividadeModal(\'' + id + '\')" title="Abrir a atividade">' + escapeHtml(a.titulo) + '</div><span class="oc-quem">' + escapeHtml(a.responsavel || '') + '</span>'
-      + (res && a.resolucao ? '<span class="oc-res">✔ ' + escapeHtml(a.resolucao) + '</span>' : '') + '</td>'
+    + '<td><div class="oc-l1"><span class="oc-txt" onclick="openAtividadeModal(\'' + id + '\')" title="' + escapeHtml(String(a.titulo || '').slice(0, 700)) + '">' + escapeHtml(ocResumoDe(a)) + '</span><span class="oc-quem">' + escapeHtml(a.responsavel || '') + '</span></div>'
+      + (res && a.resolucao ? '<span class="oc-res" title="' + escapeHtml(a.resolucao) + '">✔ ' + escapeHtml(a.resolucao) + '</span>' : '') + '</td>'
     + '<td class="c"><input type="checkbox" ' + (pri ? 'checked' : '') + ' onclick="event.preventDefault(); ocPrior(\'' + id + '\', ' + (!pri) + ')" title="Prioridade (marca a etiqueta Alta Urgência)"></td>'
     + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
     + '<td class="c"><input type="checkbox" ' + (res ? 'checked' : '') + ' onclick="event.preventDefault(); ocResolverClick(\'' + id + '\')" title="' + (res ? 'Resolvida — clique para reabrir' : 'Marcar como resolvida') + '"></td>'
@@ -11139,7 +11152,9 @@ function ocCopiarTickets() {
       if (ocPrioridade(a)) etq.push('PRIORIDADE');
       if (a.ocPendencia) etq.push('pendência');
       if (a.coluna === 'concluida') etq.push('resolvido');
-      texto += '• ' + a.titulo.replace(/\s*\n\s*/g, ' ') + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
+      const desc = String(a.titulo || '').replace(/\s*\n\s*/g, ' ').trim();
+      texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
+      if (String(a.ocResumo || '').trim() && desc) texto += '   ' + desc + '\n';
       if (a.coluna === 'concluida' && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
