@@ -10916,7 +10916,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oce-chip { flex: 1; padding: 10px 14px; border-radius: 12px; background: #F1F5F9; border-left: 5px solid #64748B; }
   .oce-chip b { display: block; font-size: 24px; line-height: 1.1; color: #0F172A; }
   .oce-chip span { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #475569; }
-  .oce-chip.am { border-left-color: #F59E0B; } .oce-chip.vd { border-left-color: #16A34A; } .oce-chip.vm { border-left-color: #DC2626; } .oce-chip.rx { border-left-color: #7C3AED; }
+  .oce-chip.am { border-left-color: #F59E0B; } .oce-chip.vd { border-left-color: #16A34A; } .oce-chip.vm { border-left-color: #DC2626; } .oce-chip.rx { border-left-color: #7C3AED; } .oce-chip.az { border-left-color: #2563EB; }
   .oce-cli { margin: 0 0 16px; border: 1px solid #CBD5E1; border-radius: 12px; overflow: hidden; }
   .oce-cli-topo { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; background: #021F33; color: #fff; }
   .oce-cli-topo b { font-size: 16px; } .oce-cli-topo small { color: #9FC4DD; font-size: 12px; } .oce-cli-topo span { margin-left: auto; font-size: 12px; color: #D6E6F2; }
@@ -11203,7 +11203,7 @@ function ocExportHtml(lista) {
   let h = '<div class="oce"><div class="oce-topo"><div><div class="oce-tit">Ocorrências da Digitação de pedido</div><div class="oce-sub">' + escapeHtml(ocFiltroTexto()) + '</div></div>'
     + '<div class="oce-data">Referente a ' + formatDate(todayStr()) + '</div></div>'
     + '<div class="oce-chips">' + chip(lista.length, lista.length === 1 ? 'ocorrência' : 'ocorrências') + chip(ab.length, 'em aberto', 'am') + chip(nRes, nRes === 1 ? 'resolvida' : 'resolvidas', 'vd')
-    + chip(nPri, 'prioridade', nPri ? 'vm' : '') + chip(nSem, 'sem ticket', nSem ? 'rx' : '') + '</div>';
+    + chip(nPri, 'prioridade', nPri ? 'vm' : '') + chip(lista.length - nSem, 'com ticket', 'az') + chip(nSem, 'sem ticket', nSem ? 'rx' : '') + '</div>';
   chaves.forEach(k => {
     const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
     const c = ocClienteObj(k), abc = arr.filter(a => a.coluna !== 'concluida').length;
@@ -11277,7 +11277,7 @@ function ocTextoRelatorio(lista) {
   const ab = lista.filter(a => a.coluna !== 'concluida'), nRes = lista.length - ab.length;
   const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
   let txt = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n' + ocFiltroTexto() + '\n\n'
-    + lista.length + (lista.length === 1 ? ' ocorrência' : ' ocorrências') + ' · ' + ab.length + ' em aberto · ' + nRes + (nRes === 1 ? ' resolvida' : ' resolvidas') + ' · ' + nPri + ' prioridade · ' + nSem + ' sem ticket\n';
+    + lista.length + (lista.length === 1 ? ' ocorrência' : ' ocorrências') + ' · ' + ab.length + ' em aberto · ' + nRes + (nRes === 1 ? ' resolvida' : ' resolvidas') + ' · ' + nPri + ' prioridade · ' + (lista.length - nSem) + ' com ticket · ' + nSem + ' sem ticket\n';
   ocAgrupar(lista).forEach(([nome, arr]) => {
     const c = ocClienteObj(nome), abc = arr.filter(a => a.coluna !== 'concluida').length;
     txt += '\n🏢 ' + nome + (c && c.codigo ? ' #' + c.codigo : '') + ' — ' + abc + ' em aberto\n';
