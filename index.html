@@ -2709,7 +2709,7 @@ async function loadState() {
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
       sprintSemana: a.sprint_semana || null, impedidoDesde: a.impedido_desde || null, impedidoTotalMin: a.impedido_total_min || 0, impedidoMotivo: a.impedido_motivo || '',
-      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia, ocResumo: a.ocorrencia_resumo || '',
+      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia, ocResumo: a.ocorrencia_resumo || '', ocResolvido: a.ocorrencia_resolvida == null ? undefined : !!a.ocorrencia_resolvida, ocResolvidoEm: a.ocorrencia_resolvida_em || '',
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -7226,7 +7226,7 @@ async function saveAtividade(silent) {
   const ocMarcado = document.getElementById('at-oc-pv').checked;
   const ocOrigem = ocMarcado ? document.getElementById('at-oc-origem').value : '';
   const ocTicket = ocMarcado ? document.getElementById('at-oc-ticket').value.trim() : '';
-  const ocPendencia = ocMarcado && coluna !== 'concluida' ? document.getElementById('at-oc-pend').checked : false;
+  const ocPendencia = ocMarcado ? document.getElementById('at-oc-pend').checked : false;
   const ocResumo = ocMarcado ? document.getElementById('at-oc-resumo').value.trim() : '';
   if (ocMarcado || (anterior && anterior.ocPv)) Object.assign(payload, { ocorrencia_pv: ocMarcado, ocorrencia_origem: ocOrigem, ocorrencia_ticket: ocTicket, ocorrencia_pendencia: ocPendencia });
   if (ocResumo || (anterior && anterior.ocResumo)) payload.ocorrencia_resumo = ocResumo;   // coluna nova: só vai quando há o que gravar
@@ -7248,7 +7248,8 @@ async function saveAtividade(silent) {
       id: row.id, responsavel, criadoPor, titulo, clienteNome, label: editingAtividadeLabel, coluna,
       cancelado: false, resolucao, participantes, concluidoEm: payload.concluido_em, ordem: payload.ordem, imagens: [],
       criadoEm: row.created_at, prazo, sprintSemana, impedidoDesde, impedidoTotalMin, impedidoMotivo,
-      ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia, ocResumo
+      ocPv: ocMarcado, ocOrigem, ocTicket, ocPendencia, ocResumo,
+      ocResolvido: row.ocorrencia_resolvida == null ? undefined : !!row.ocorrencia_resolvida, ocResolvidoEm: ''
     };
     atividades.push(atividadeSalva);
     editingAtividadeId = row.id;
@@ -10946,11 +10947,14 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
 /* ── Ocorrências da Digitação de pedido (2026-11-13) ──
    Uma ocorrência é uma ATIVIDADE marcada no modal ("Ocorrência da Digitação de pedido"). A tela de Ocorrências só lê e edita essas atividades.
    Colunas novas em `atividades`: ocorrencia_pv, ocorrencia_origem, ocorrencia_ticket, ocorrencia_pendencia (migracao-ocorrencias-pv.sql).
-   Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Responsável (origem) são os campos novos. */
+   Resolvido = marca PRÓPRIA da ocorrência (ocorrencia_resolvida/_em), independente da coluna da atividade (desde 2026-11-16); Prioridade = etiqueta vermelha/laranja; Pendência e Responsável (origem) são os campos novos. */
 const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Gilson', 'Emilio', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
 let pvAba = 'andamento';
 let ocFiltro = { modo: 'hoje', data: '', ini: '', fim: '', cliente: '', origem: '', ticket: '' };
 let atOcManual = false, ocResolvendoId = null;
+// Resolvida = marca própria da ocorrência. Se a coluna ainda não existe no banco (SQL não rodado), cai no comportamento antigo (coluna Concluído).
+function ocResolvida(a) { return a.ocResolvido === undefined ? a.coluna === 'concluida' : !!a.ocResolvido; }
+function ocResolvidaEm(a) { return a.ocResolvido === undefined ? (a.concluidoEm || '') : (a.ocResolvidoEm || a.concluidoEm || ''); }
 
 function dicaColunasAtividade(msg) {
   msg = msg || '';
@@ -10997,7 +11001,7 @@ document.getElementById('at-cliente-nome').addEventListener('change', atOcClient
 function ocTodas() { return atividades.filter(a => a.ocPv && !a.cancelado); }
 function pvSetAba(a) { pvAba = a; renderPedidoVenda(); }
 function pvAbasHtml() {
-  const n = ocTodas().filter(a => a.coluna !== 'concluida').length;
+  const n = ocTodas().filter(a => !ocResolvida(a)).length;
   return '<div class="pv-abas">'
     + '<button type="button" class="pv-aba' + (pvAba === 'andamento' ? ' on' : '') + '" onclick="pvSetAba(\'andamento\')">Andamento do módulo</button>'
     + '<button type="button" class="pv-aba' + (pvAba === 'ocorrencias' ? ' on' : '') + '" onclick="pvSetAba(\'ocorrencias\')">Ocorrências' + (n ? '<span class="pv-aba-n">' + n + '</span>' : '') + '</button></div>';
@@ -11005,9 +11009,9 @@ function pvAbasHtml() {
 
 // ── filtros ──
 function ocPassaPeriodo(a) {
-  const hoje = todayStr(), ab = a.coluna !== 'concluida';
+  const hoje = todayStr(), ab = !ocResolvida(a);
   const cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
-  const conc = a.concluidoEm || '';
+  const conc = ocResolvida(a) ? ocResolvidaEm(a) : '';
   if (ocFiltro.modo === 'abertas') return ab;
   if (ocFiltro.modo === 'hoje') return ab || cri === hoje || conc === hoje;
   if (ocFiltro.modo === '7d') { const lim = addDays(hoje, -6); return ab || cri >= lim || conc >= lim; }
@@ -11040,7 +11044,7 @@ function ocResumoDe(a) {
   return String(a.titulo || '').split(/\r?\n/).map(s => s.trim()).find(Boolean) || '';
 }
 function ocLinhaHtml(a) {
-  const res = a.coluna === 'concluida', pri = ocPrioridade(a), pend = !!a.ocPendencia && !res;
+  const res = ocResolvida(a), pri = ocPrioridade(a), pend = !!a.ocPendencia && !res;
   const cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
   const dias = a.criadoEm ? diasDesde(a.criadoEm) : 0;
   const idade = res ? 'resolvida' : (dias === 0 ? 'hoje' : 'há ' + dias + 'd');
@@ -11079,8 +11083,8 @@ function ocTelaHtml() {
     corpo = '<div class="oc-vazio">' + (todas.length ? 'Nenhuma ocorrência neste filtro.' : 'Ainda não há ocorrências. Abra uma atividade e marque <b>Ocorrência da Digitação de pedido</b>, ou use <b>+ Nova ocorrência</b>.') + '</div>';
   } else {
     corpo = chaves.map(k => {
-      const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
-      const ab = arr.filter(a => a.coluna !== 'concluida'), sem = arr.filter(a => !String(a.ocTicket || '').trim()).length, pri = ab.filter(ocPrioridade).length;
+      const arr = grupos.get(k).slice().sort((a, b) => ((ocResolvida(a)) - (ocResolvida(b))) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
+      const ab = arr.filter(a => !ocResolvida(a)), sem = arr.filter(a => !String(a.ocTicket || '').trim()).length, pri = ab.filter(ocPrioridade).length;
       const c = ocClienteObj(k);
       return '<div class="oc-grupo"><div class="oc-grupo-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '')
         + '<span class="oc-sel ab">' + ab.length + ' em aberto</span>' + (sem ? '<span class="oc-sel sem">' + sem + ' sem ticket</span>' : '') + (pri ? '<span class="oc-sel pri">' + pri + ' prioridade</span>' : '') + '</div>'
@@ -11127,58 +11131,14 @@ function ocSetTicket(id, v) {
   ocGravar(id, { ocorrencia_ticket: v }, { ocTicket: v });
 }
 
-// Resolvido = Concluído (a resolução é obrigatória, como no resto das atividades)
+// Resolvido = marca própria da ocorrência (não mexe na coluna nem na resolução da atividade)
 function ocResolverClick(id) {
   const a = atividades.find(x => x.id === id); if (!a) return;
-  if (a.coluna === 'concluida') {
-    const aberta = (KANBAN_COLUMNS.find(c => c.id !== 'concluida') || { id: 'afazer' }).id;
-    ocGravar(id, { coluna: aberta, concluido_em: null }, { coluna: aberta, concluidoEm: null });
-    return;
-  }
-  ocAbrirResolucao(a);
-}
-function ocResOverlay() {
-  let el = document.getElementById('oc-res-overlay');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'oc-res-overlay'; el.className = 'pst-overlay';
-  el.addEventListener('mousedown', ev => { if (ev.target === el) ocFecharResolucao(); });
-  el.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape') { ev.stopPropagation(); ocFecharResolucao(); }
-    else if (ev.key === 'Enter' && !ev.shiftKey && ev.target && ev.target.id === 'oc-res-txt') { ev.preventDefault(); ocConfirmarResolucao(); }
-  });
-  document.body.appendChild(el);
-  return el;
-}
-function ocAbrirResolucao(a) {
-  ocResolvendoId = a.id;
-  const el = ocResOverlay();
-  el.innerHTML = '<div class="pst-box" role="dialog" aria-modal="true"><h3>Resolver ocorrência</h3><p class="pst-item">' + escapeHtml(a.titulo) + '</p>'
-    + '<label for="oc-res-txt">O que foi feito?</label><textarea id="oc-res-txt" placeholder="Descreva a solução (Enter confirma, Shift+Enter pula linha)">' + escapeHtml(a.resolucao || '') + '</textarea>'
-    + '<div class="pst-erro" id="oc-res-erro"></div>'
-    + '<div class="pst-acoes linha"><button type="button" class="pst-btn" onclick="ocFecharResolucao()">Cancelar</button><button type="button" class="pst-btn ok" onclick="ocConfirmarResolucao()">Resolver</button></div></div>';
-  el.classList.add('open');
-  const ta = document.getElementById('oc-res-txt'); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-}
-function ocFecharResolucao() { const el = document.getElementById('oc-res-overlay'); if (el) el.classList.remove('open'); ocResolvendoId = null; }
-async function ocConfirmarResolucao() {
-  const id = ocResolvendoId;
-  const ta = document.getElementById('oc-res-txt');
-  const txt = ta ? ta.value.trim() : '';
-  if (!txt) { const er = document.getElementById('oc-res-erro'); if (er) er.textContent = 'Escreva o que foi feito para resolver.'; if (ta) ta.focus(); return; }
-  const a = atividades.find(x => x.id === id);
-  ocFecharResolucao();
-  if (!a) return;
-  const hoje = todayStr();
-  const campos = { coluna: 'concluida', resolucao: txt, concluido_em: hoje };
-  const local = { coluna: 'concluida', resolucao: txt, concluidoEm: hoje };
-  if (!a.prazo) { campos.prazo = hoje; local.prazo = hoje; }                       // sem prazo: o prazo vira a data de conclusão (regra das atividades)
-  if (a.ocPendencia) { campos.ocorrencia_pendencia = false; local.ocPendencia = false; }
-  if (a.impedidoDesde) {                                                          // concluir encerra o impedimento
-    const min = (a.impedidoTotalMin || 0) + Math.max(0, Math.round((Date.now() - new Date(a.impedidoDesde).getTime()) / 60000));
-    Object.assign(campos, { impedido_desde: null, impedido_total_min: min }); Object.assign(local, { impedidoDesde: null, impedidoTotalMin: min });
-  }
-  if (await ocGravar(id, campos, local)) await registrarHistoricoDeAtividade(a);
+  const ligar = !ocResolvida(a), hoje = todayStr();
+  const campos = { ocorrencia_resolvida: ligar, ocorrencia_resolvida_em: ligar ? hoje : null };
+  const local = { ocResolvido: ligar, ocResolvidoEm: ligar ? hoje : '' };
+  if (ligar && a.ocPendencia) { campos.ocorrencia_pendencia = false; local.ocPendencia = false; }   // resolvida: não fica mais pendente
+  ocGravar(id, campos, local);
 }
 
 // ── criar e copiar ──
@@ -11208,7 +11168,7 @@ function ocExportHtml(lista) {
     const cx = ocClienteObj(x), cy = ocClienteObj(y);
     return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
   });
-  const ab = lista.filter(a => a.coluna !== 'concluida'), nRes = lista.length - ab.length;
+  const ab = lista.filter(a => !ocResolvida(a)), nRes = lista.length - ab.length;
   const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
   const chip = (n, rot, cls) => '<div class="oce-chip ' + (cls || '') + '"><b>' + n + '</b><span>' + rot + '</span></div>';
   const agora = new Date();
@@ -11217,12 +11177,12 @@ function ocExportHtml(lista) {
     + '<div class="oce-chips">' + chip(lista.length, lista.length === 1 ? 'ocorrência' : 'ocorrências') + chip(ab.length, 'em aberto', 'am') + chip(nRes, nRes === 1 ? 'resolvida' : 'resolvidas', 'vd')
     + chip(nPri, 'prioridade', nPri ? 'vm' : '') + chip(lista.length - nSem, 'com ticket', 'az') + chip(nSem, 'sem ticket', nSem ? 'rx' : '') + '</div>';
   chaves.forEach(k => {
-    const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
-    const c = ocClienteObj(k), abc = arr.filter(a => a.coluna !== 'concluida').length;
+    const arr = grupos.get(k).slice().sort((a, b) => ((ocResolvida(a)) - (ocResolvida(b))) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
+    const c = ocClienteObj(k), abc = arr.filter(a => !ocResolvida(a)).length;
     h += '<div class="oce-cli"><div class="oce-cli-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '') + '<span>' + abc + ' em aberto · ' + arr.length + ' no total</span></div>'
       + '<table><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
       + arr.map(a => {
-        const res = a.coluna === 'concluida', cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
+        const res = ocResolvida(a), cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
         const tk = String(a.ocTicket || '').trim();
         return '<tr class="' + (res ? 'res' : '') + '"><td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '</td>'
@@ -11283,18 +11243,18 @@ function ocAgrupar(lista) {
   return [...grupos.keys()].sort((x, y) => {
     const cx = ocClienteObj(x), cy = ocClienteObj(y);
     return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
-  }).map(k => [k, grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)))]);
+  }).map(k => [k, grupos.get(k).slice().sort((a, b) => ((ocResolvida(a)) - (ocResolvida(b))) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)))]);
 }
 function ocTextoRelatorio(lista) {
-  const ab = lista.filter(a => a.coluna !== 'concluida'), nRes = lista.length - ab.length;
+  const ab = lista.filter(a => !ocResolvida(a)), nRes = lista.length - ab.length;
   const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
   let txt = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n' + ocFiltroTexto() + '\n\n'
     + lista.length + (lista.length === 1 ? ' ocorrência' : ' ocorrências') + ' · ' + ab.length + ' em aberto · ' + nRes + (nRes === 1 ? ' resolvida' : ' resolvidas') + ' · ' + nPri + ' prioridade · ' + (lista.length - nSem) + ' com ticket · ' + nSem + ' sem ticket\n';
   ocAgrupar(lista).forEach(([nome, arr]) => {
-    const c = ocClienteObj(nome), abc = arr.filter(a => a.coluna !== 'concluida').length;
+    const c = ocClienteObj(nome), abc = arr.filter(a => !ocResolvida(a)).length;
     txt += '\n🏢 ' + nome + (c && c.codigo ? ' #' + c.codigo : '') + ' — ' + abc + ' em aberto\n';
     arr.forEach(a => {
-      const res = a.coluna === 'concluida', etq = [];
+      const res = ocResolvida(a), etq = [];
       if (ocPrioridade(a)) etq.push('PRIORIDADE');
       if (a.ocPendencia && !res) etq.push('pendência');
       if (res) etq.push('resolvido');
@@ -11356,11 +11316,11 @@ function ocCopiarTickets() {
       const etq = [];
       if (ocPrioridade(a)) etq.push('PRIORIDADE');
       if (a.ocPendencia) etq.push('pendência');
-      if (a.coluna === 'concluida') etq.push('resolvido');
+      if (ocResolvida(a)) etq.push('resolvido');
       const desc = String(a.titulo || '').replace(/\s*\n\s*/g, ' ').trim();
       texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
       if (String(a.ocResumo || '').trim() && desc) texto += '   ' + desc + '\n';
-      if (a.coluna === 'concluida' && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
+      if (ocResolvida(a) && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Copiado! ' + lista.length + ' ocorrência(s) sem ticket.'), () => promptFallbackCopy(texto));
