@@ -10901,6 +10901,10 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-tab th:nth-child(6), .oc-tab td:nth-child(6) { min-width: 210px; }
   .oc-tab th:nth-child(7), .oc-tab td:nth-child(7) { min-width: 160px; }
   .oc-scroll .oc-tab { min-width: 1000px; }
+  .oc-rel-box { max-width: 1180px; }
+  .oc-rel-dica { margin: -8px 0 12px; font-size: 12.5px; color: var(--gray-text); }
+  .oc-rel-prev { max-height: 62vh; overflow: auto; margin: 4px 0 14px; border: 1px solid var(--border-light); border-radius: 12px; background: #fff; }
+  .oc-rel-prev .oce { margin: 0 auto; }
   /* imagem para enviar: folha clara fixa (não depende do tema) */
   .oce-wrap { position: fixed; left: -10000px; top: 0; }
   .oce { width: 1100px; padding: 28px 30px 20px; background: #fff; color: #0F172A; font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; box-sizing: border-box; }
@@ -11025,6 +11029,7 @@ function ocFiltroSet(campo, valor) {
   if (campo === 'modo' && valor === 'dia' && !ocFiltro.data) ocFiltro.data = todayStr();
   if (campo === 'modo' && valor === 'periodo') { if (!ocFiltro.fim) ocFiltro.fim = todayStr(); if (!ocFiltro.ini) ocFiltro.ini = addDays(ocFiltro.fim, -6); }
   renderPedidoVenda();
+  if (typeof ocRelAberto === 'function' && ocRelAberto()) ocRelRender();
 }
 function ocPrioridade(a) { return a.label === 'red' || a.label === 'orange'; }
 function ocClienteObj(nome) { const n = String(nome || '').toLowerCase(); return state.clients.find(c => String(c.nome).toLowerCase() === n) || null; }
@@ -11063,19 +11068,11 @@ function ocTelaHtml() {
     const cx = ocClienteObj(x), cy = ocClienteObj(y);
     return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
   });
-  const modos = [['hoje', 'Hoje + em aberto'], ['abertas', 'Só em aberto'], ['7d', 'Últimos 7 dias'], ['dia', 'Dia específico…'], ['periodo', 'De … até …'], ['todas', 'Todas']];
-  const barra = '<div class="oc-barra">'
-    + '<select onchange="ocFiltroSet(\'modo\', this.value)" title="Período">' + modos.map(([v, n]) => '<option value="' + v + '"' + (ocFiltro.modo === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'
-    + (ocFiltro.modo === 'dia' ? '<input type="date" value="' + escapeHtml(ocFiltro.data) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'data\', this.value)">' : '')
-    + (ocFiltro.modo === 'periodo' ? '<span class="oc-de">de</span><input type="date" value="' + escapeHtml(ocFiltro.ini) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'ini\', this.value)"><span class="oc-de">até</span><input type="date" value="' + escapeHtml(ocFiltro.fim) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'fim\', this.value)">' : '')
-    + '<select onchange="ocFiltroSet(\'cliente\', this.value)" title="Cliente"><option value="">Todos os clientes</option>' + clientes.map(c => '<option value="' + escapeHtml(c) + '"' + (ocFiltro.cliente === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select>'
-    + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Quem é o problema"><option value="">Quem é o problema: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
-    + '<select onchange="ocFiltroSet(\'ticket\', this.value)" title="Ticket"><option value="">Ticket: todos</option><option value="com"' + (ocFiltro.ticket === 'com' ? ' selected' : '') + '>Só com ticket</option><option value="sem"' + (ocFiltro.ticket === 'sem' ? ' selected' : '') + '>Só sem ticket</option></select>'
+  const barra = '<div class="oc-barra">' + ocFiltrosCamposHtml()
     + '<span class="oc-esp"></span>'
     + '<button class="btn btn-sm" onclick="ocNova()">+ Nova ocorrência</button>'
     + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia as ocorrências sem ticket (do filtro atual), por cliente">📋 Copiar p/ tickets</button>'
-    + '<button class="btn btn-sm" onclick="ocCopiarImagem()" title="Copia uma imagem pronta para colar (Ctrl+V) no WhatsApp ou e-mail">📸 Copiar imagem</button>'
-    + '<button class="btn btn-sm" onclick="ocBaixarImagem()" title="Baixa a imagem em PNG">⬇ Baixar imagem</button></div>';
+    + '<button class="btn btn-sm btn-primary" onclick="ocAbrirRelatorio()" title="Ver o relatório na tela e depois copiar o texto ou a imagem, ou baixar a imagem">📄 Gerar relatório</button></div>';
   let corpo;
   if (!chaves.length) {
     corpo = '<div class="oc-vazio">' + (todas.length ? 'Nenhuma ocorrência neste filtro.' : 'Ainda não há ocorrências. Abra uma atividade e marque <b>Ocorrência da Digitação de pedido</b>, ou use <b>+ Nova ocorrência</b>.') + '</div>';
@@ -11255,6 +11252,84 @@ async function ocBaixarImagem() {
   link.download = 'Ocorrencias-Digitacao-de-pedido-' + new Date().toLocaleDateString('pt-BR').replace(/\//g, '-') + '.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+// ── Relatório (como o de Atividades): ver na tela e depois copiar texto / copiar imagem / baixar imagem ──
+function ocFiltrosCamposHtml() {
+  const clientes = [...new Set(ocTodas().map(a => a.clienteNome).filter(Boolean))].sort((x, y) => x.localeCompare(y));
+  const modos = [['hoje', 'Hoje + em aberto'], ['abertas', 'Só em aberto'], ['7d', 'Últimos 7 dias'], ['dia', 'Dia específico…'], ['periodo', 'De … até …'], ['todas', 'Todas']];
+  return '<select onchange="ocFiltroSet(\'modo\', this.value)" title="Período">' + modos.map(([v, n]) => '<option value="' + v + '"' + (ocFiltro.modo === v ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'
+    + (ocFiltro.modo === 'dia' ? '<input type="date" value="' + escapeHtml(ocFiltro.data) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'data\', this.value)">' : '')
+    + (ocFiltro.modo === 'periodo' ? '<span class="oc-de">de</span><input type="date" value="' + escapeHtml(ocFiltro.ini) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'ini\', this.value)"><span class="oc-de">até</span><input type="date" value="' + escapeHtml(ocFiltro.fim) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'fim\', this.value)">' : '')
+    + '<select onchange="ocFiltroSet(\'cliente\', this.value)" title="Cliente"><option value="">Todos os clientes</option>' + clientes.map(c => '<option value="' + escapeHtml(c) + '"' + (ocFiltro.cliente === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select>'
+    + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Quem é o problema"><option value="">Quem é o problema: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
+    + '<select onchange="ocFiltroSet(\'ticket\', this.value)" title="Ticket"><option value="">Ticket: todos</option><option value="com"' + (ocFiltro.ticket === 'com' ? ' selected' : '') + '>Só com ticket</option><option value="sem"' + (ocFiltro.ticket === 'sem' ? ' selected' : '') + '>Só sem ticket</option></select>';
+}
+function ocAgrupar(lista) {
+  const grupos = new Map();
+  lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
+  return [...grupos.keys()].sort((x, y) => {
+    const cx = ocClienteObj(x), cy = ocClienteObj(y);
+    return ((cx && parseInt(cx.codigo, 10)) || 9999) - ((cy && parseInt(cy.codigo, 10)) || 9999) || x.localeCompare(y);
+  }).map(k => [k, grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)))]);
+}
+function ocTextoRelatorio(lista) {
+  const ab = lista.filter(a => a.coluna !== 'concluida'), nRes = lista.length - ab.length;
+  const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
+  let txt = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n' + ocFiltroTexto() + '\n\n'
+    + lista.length + (lista.length === 1 ? ' ocorrência' : ' ocorrências') + ' · ' + ab.length + ' em aberto · ' + nRes + (nRes === 1 ? ' resolvida' : ' resolvidas') + ' · ' + nPri + ' prioridade · ' + nSem + ' sem ticket\n';
+  ocAgrupar(lista).forEach(([nome, arr]) => {
+    const c = ocClienteObj(nome), abc = arr.filter(a => a.coluna !== 'concluida').length;
+    txt += '\n🏢 ' + nome + (c && c.codigo ? ' #' + c.codigo : '') + ' — ' + abc + ' em aberto\n';
+    arr.forEach(a => {
+      const res = a.coluna === 'concluida', etq = [];
+      if (ocPrioridade(a)) etq.push('PRIORIDADE');
+      if (a.ocPendencia && !res) etq.push('pendência');
+      if (res) etq.push('resolvido');
+      const tk = String(a.ocTicket || '').trim();
+      txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
+      if (res && a.resolucao) txt += '   ✔ ' + String(a.resolucao).replace(/\s*\n\s*/g, ' ') + '\n';
+    });
+  });
+  return txt;
+}
+function ocRelAberto() { const el = document.getElementById('oc-rel-overlay'); return !!el && el.classList.contains('open'); }
+function ocRelRender() {
+  const f = document.getElementById('oc-rel-filtros'), v = document.getElementById('oc-rel-prev');
+  if (!f || !v) return;
+  f.innerHTML = ocFiltrosCamposHtml();
+  const lista = ocListaFiltrada();
+  v.innerHTML = lista.length ? ocExportHtml(lista) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
+}
+function ocAbrirRelatorio() {
+  let el = document.getElementById('oc-rel-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'oc-rel-overlay';
+    el.className = 'modal-overlay';
+    el.addEventListener('mousedown', ev => { if (ev.target === el) ocFecharRelatorio(); });
+    el.innerHTML = '<div class="modal-box oc-rel-box"><h2>Relatório de Ocorrências — Digitação de pedido</h2>'
+      + '<div class="oc-rel-dica">Confira o relatório abaixo antes de copiar ou baixar. Os filtros daqui valem também para a tela.</div>'
+      + '<div class="oc-barra" id="oc-rel-filtros"></div>'
+      + '<div class="oc-rel-prev" id="oc-rel-prev"></div>'
+      + '<div class="modal-footer"><div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      + '<button class="btn" onclick="ocCopiarTexto()">📝 Copiar texto</button>'
+      + '<button class="btn" onclick="withLock(this, ocCopiarImagem)">📋 Copiar imagem</button>'
+      + '<button class="btn btn-primary" onclick="withLock(this, ocBaixarImagem)">📸 Baixar imagem</button></div>'
+      + '<button class="btn" onclick="ocFecharRelatorio()" style="margin-left:auto;">Fechar</button></div></div>';
+    document.body.appendChild(el);
+  }
+  el.classList.add('open');
+  ocRelRender();
+}
+function ocFecharRelatorio() { const el = document.getElementById('oc-rel-overlay'); if (el) el.classList.remove('open'); }
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ocRelAberto()) ocFecharRelatorio(); });
+function ocCopiarTexto() {
+  const lista = ocListaFiltrada();
+  if (!lista.length) { alert('Nenhuma ocorrência neste filtro.'); return; }
+  const texto = ocTextoRelatorio(lista);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Texto copiado! Já pode colar no WhatsApp ou e-mail.'), () => promptFallbackCopy(texto));
+  else promptFallbackCopy(texto);
 }
 
 function ocCopiarTickets() {
