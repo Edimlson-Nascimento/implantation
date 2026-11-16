@@ -10987,12 +10987,9 @@ function atClienteNoModulo(nome) {
   const c = state.clients.find(x => String(x.nome).toLowerCase() === n);
   return !!c && pvDados.some(r => r.cliente_id === c.id);
 }
-// atividade NOVA: ao escolher um cliente que está no módulo, o check já vem marcado (dá para desmarcar)
-function atOcClienteMudou() {
-  if (editingAtividadeId || atOcManual) return;
-  document.getElementById('at-oc-pv').checked = atClienteNoModulo(document.getElementById('at-cliente-nome').value);
-  atOcMudou(false);
-}
+// (antes: atividade NOVA de cliente do módulo vinha com o check marcado — removido, ver abaixo)
+// (2026-11-16) NÃO marca mais sozinho: só vira ocorrência quando a pessoa marca o check à mão
+function atOcClienteMudou() { /* intencionalmente vazio */ }
 document.getElementById('at-cliente-nome').addEventListener('input', atOcClienteMudou);
 document.getElementById('at-cliente-nome').addEventListener('change', atOcClienteMudou);
 
