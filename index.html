@@ -2011,7 +2011,7 @@
           <label class="at-check"><input type="checkbox" id="at-oc-pv" onchange="atOcMudou(true)"><span><b>Ocorrência da Digitação de pedido</b><small>Aparece na tela de Ocorrências do módulo.</small></span></label>
           <div class="at-oc-campos" id="at-oc-campos" style="display:none;">
             <div class="at-oc-resumo"><span class="at-mini">Resumo (a linha que aparece na tela de Ocorrências)</span><input type="text" id="at-oc-resumo" maxlength="140" placeholder="Ex.: Sugestão de melhoria — peso do produto na digitação"></div>
-            <div><span class="at-mini">Quem é o problema</span><select id="at-oc-origem"></select></div>
+            <div><span class="at-mini">Responsável</span><select id="at-oc-origem"></select></div>
             <div><span class="at-mini">Nº do ticket</span><input type="text" id="at-oc-ticket" placeholder="#"></div>
             <label class="at-check at-pend"><input type="checkbox" id="at-oc-pend"><span><b>Pendência</b></span></label>
           </div>
@@ -10943,7 +10943,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
 /* ── Ocorrências da Digitação de pedido (2026-11-13) ──
    Uma ocorrência é uma ATIVIDADE marcada no modal ("Ocorrência da Digitação de pedido"). A tela de Ocorrências só lê e edita essas atividades.
    Colunas novas em `atividades`: ocorrencia_pv, ocorrencia_origem, ocorrencia_ticket, ocorrencia_pendencia (migracao-ocorrencias-pv.sql).
-   Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Quem é o problema são os campos novos. */
+   Resolvido = coluna Concluído (com a resolução); Prioridade = etiqueta vermelha/laranja; Pendência e Responsável (origem) são os campos novos. */
 const OC_ORIGENS = ['Cliente', 'Intelipulse', 'Gilson', 'Emilio', 'Desenvolvimento', 'Integração / ERP do cliente', 'Outro'];
 let pvAba = 'andamento';
 let ocFiltro = { modo: 'hoje', data: '', ini: '', fim: '', cliente: '', origem: '', ticket: '' };
@@ -11083,8 +11083,8 @@ function ocTelaHtml() {
       const c = ocClienteObj(k);
       return '<div class="oc-grupo"><div class="oc-grupo-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '')
         + '<span class="oc-sel ab">' + ab.length + ' em aberto</span>' + (sem ? '<span class="oc-sel sem">' + sem + ' sem ticket</span>' : '') + (pri ? '<span class="oc-sel pri">' + pri + ' prioridade</span>' : '') + '</div>'
-        + '<div class="oc-scroll"><table class="oc-tab"><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Quem é o problema</th><th>Ticket</th></tr></thead><tbody>'
-        + arr.map(ocLinhaHtml).join('') + '</tbody></table></div></div>';
+        + '<div class="oc-scroll"><table class="oc-tab"><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
++ arr.map(ocLinhaHtml).join('') + '</tbody></table></div></div>';
     }).join('');
   }
   return '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Ocorrências da Digitação de pedido</h2><p class="bk-sub" style="margin:0;">As ocorrências são atividades marcadas como "Ocorrência da Digitação de pedido". O que não foi resolvido continua aparecendo nos dias seguintes.</p></div></div>' + barra + corpo;
@@ -11184,7 +11184,7 @@ function ocFiltroTexto() {
     || (ocFiltro.modo === 'dia' ? 'Dia ' + fd(ocFiltro.data) : 'De ' + fd(ocFiltro.ini) + ' até ' + fd(ocFiltro.fim));
   const partes = [base];
   if (ocFiltro.cliente) partes.push(ocFiltro.cliente);
-  if (ocFiltro.origem) partes.push('Problema: ' + ocFiltro.origem);
+  if (ocFiltro.origem) partes.push('Responsável: ' + ocFiltro.origem);
   if (ocFiltro.ticket === 'com') partes.push('Só com ticket');
   if (ocFiltro.ticket === 'sem') partes.push('Só sem ticket');
   return partes.join(' · ');
@@ -11208,7 +11208,7 @@ function ocExportHtml(lista) {
     const arr = grupos.get(k).slice().sort((a, b) => ((a.coluna === 'concluida') - (b.coluna === 'concluida')) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
     const c = ocClienteObj(k), abc = arr.filter(a => a.coluna !== 'concluida').length;
     h += '<div class="oce-cli"><div class="oce-cli-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '') + '<span>' + abc + ' em aberto · ' + arr.length + ' no total</span></div>'
-      + '<table><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Quem é o problema</th><th>Ticket</th></tr></thead><tbody>'
+      + '<table><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
       + arr.map(a => {
         const res = a.coluna === 'concluida', cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
@@ -11262,7 +11262,7 @@ function ocFiltrosCamposHtml() {
     + (ocFiltro.modo === 'dia' ? '<input type="date" value="' + escapeHtml(ocFiltro.data) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'data\', this.value)">' : '')
     + (ocFiltro.modo === 'periodo' ? '<span class="oc-de">de</span><input type="date" value="' + escapeHtml(ocFiltro.ini) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'ini\', this.value)"><span class="oc-de">até</span><input type="date" value="' + escapeHtml(ocFiltro.fim) + '" max="' + todayStr() + '" onchange="ocFiltroSet(\'fim\', this.value)">' : '')
     + '<select onchange="ocFiltroSet(\'cliente\', this.value)" title="Cliente"><option value="">Todos os clientes</option>' + clientes.map(c => '<option value="' + escapeHtml(c) + '"' + (ocFiltro.cliente === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select>'
-    + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Quem é o problema"><option value="">Quem é o problema: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
+    + '<select onchange="ocFiltroSet(\'origem\', this.value)" title="Responsável"><option value="">Responsável: todos</option>' + OC_ORIGENS.map(o => '<option value="' + escapeHtml(o) + '"' + (ocFiltro.origem === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('') + '</select>'
     + '<select onchange="ocFiltroSet(\'ticket\', this.value)" title="Ticket"><option value="">Ticket: todos</option><option value="com"' + (ocFiltro.ticket === 'com' ? ' selected' : '') + '>Só com ticket</option><option value="sem"' + (ocFiltro.ticket === 'sem' ? ' selected' : '') + '>Só sem ticket</option></select>';
 }
 function ocAgrupar(lista) {
@@ -11287,7 +11287,7 @@ function ocTextoRelatorio(lista) {
       if (a.ocPendencia && !res) etq.push('pendência');
       if (res) etq.push('resolvido');
       const tk = String(a.ocTicket || '').trim();
-      txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
+      txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
       if (res && a.resolucao) txt += '   ✔ ' + String(a.resolucao).replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
@@ -11346,7 +11346,7 @@ function ocCopiarTickets() {
       if (a.ocPendencia) etq.push('pendência');
       if (a.coluna === 'concluida') etq.push('resolvido');
       const desc = String(a.titulo || '').replace(/\s*\n\s*/g, ' ').trim();
-      texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — problema: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
+      texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
       if (String(a.ocResumo || '').trim() && desc) texto += '   ' + desc + '\n';
       if (a.coluna === 'concluida' && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
     });
