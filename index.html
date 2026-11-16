@@ -10887,6 +10887,9 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-tab td.q { width: 190px; } .oc-tab td.k { width: 120px; }
   .oc-tab td.q select, .oc-tab td.k input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
   .oc-tab input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; }
+  .oc-tab th.x, .oc-tab td.x { width: 44px; min-width: 44px; text-align: center; padding-left: 4px; padding-right: 8px; }
+  .oc-del { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-light); background: transparent; color: #DC2626; border-radius: 8px; width: 32px; height: 32px; padding: 0; cursor: pointer; }
+  .oc-del:hover, .oc-del:focus-visible { color: #fff; border-color: #DC2626; background: #DC2626; outline: none; }
   .oc-l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
   .oc-txt { cursor: pointer; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .oc-txt:hover { color: var(--navy); }
@@ -11055,7 +11058,8 @@ function ocLinhaHtml(a) {
     + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
     + '<td class="c"><input type="checkbox" ' + (res ? 'checked' : '') + ' onclick="event.preventDefault(); ocResolverClick(\'' + id + '\')" title="' + (res ? 'Resolvida — clique para reabrir' : 'Marcar como resolvida') + '"></td>'
     + '<td class="q"><select onchange="ocSetOrigem(\'' + id + '\', this.value)">' + opcoes + '</select></td>'
-    + '<td class="k"><input type="text" value="' + escapeHtml(a.ocTicket || '') + '" placeholder="sem ticket" onchange="ocSetTicket(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></td></tr>';
+    + '<td class="k"><input type="text" value="' + escapeHtml(a.ocTicket || '') + '" placeholder="sem ticket" onchange="ocSetTicket(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></td>'
+    + '<td class="x"><button type="button" class="oc-del" onclick="ocExcluir(\'' + id + '\')" title="Excluir esta ocorrência" aria-label="Excluir esta ocorrência"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 10v6M14 10v6"/></svg></button></td></tr>';
 }
 
 function ocTelaHtml() {
@@ -11083,7 +11087,7 @@ function ocTelaHtml() {
       const c = ocClienteObj(k);
       return '<div class="oc-grupo"><div class="oc-grupo-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '')
         + '<span class="oc-sel ab">' + ab.length + ' em aberto</span>' + (sem ? '<span class="oc-sel sem">' + sem + ' sem ticket</span>' : '') + (pri ? '<span class="oc-sel pri">' + pri + ' prioridade</span>' : '') + '</div>'
-        + '<div class="oc-scroll"><table class="oc-tab"><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
+        + '<div class="oc-scroll"><table class="oc-tab"><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th><th class="x"></th></tr></thead><tbody>'
 + arr.map(ocLinhaHtml).join('') + '</tbody></table></div></div>';
     }).join('');
   }
@@ -11100,6 +11104,17 @@ async function ocGravar(id, campos, local) {
   renderPedidoVenda();
   if (typeof renderStats === 'function') { try { renderStats(); } catch (e) {} }
   return true;
+}
+// Excluir a ocorrência = excluir a atividade (mesmo efeito de "Excluir" no modal da atividade)
+async function ocExcluir(id) {
+  const a = atividades.find(x => x.id === id); if (!a) return;
+  if (!confirm('Excluir esta ocorrência definitivamente?\n\n' + ocResumoDe(a) + '\n\nEla é uma atividade: some também do quadro de Atividades. Essa ação não pode ser desfeita.')) return;
+  const { error } = await sb.from('atividades').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  atividades = atividades.filter(x => x.id !== id);
+  renderPedidoVenda();
+  if (typeof ocRelAberto === 'function' && ocRelAberto()) ocRelRender();
+  if (typeof renderStats === 'function') { try { renderStats(); } catch (e) {} }
 }
 function ocPrior(id, ligar) {
   const a = atividades.find(x => x.id === id); if (!a) return;
