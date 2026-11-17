@@ -11054,7 +11054,7 @@ function ocLinhaHtml(a) {
   return '<tr class="' + (pri ? 'pri ' : '') + (pend ? 'pend ' : '') + (res ? 'res' : '') + '">'
     + '<td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '<small>' + idade + '</small></td>'
     + '<td><div class="oc-l1"><span class="oc-txt" onclick="openAtividadeModal(\'' + id + '\')" title="' + escapeHtml(String(a.titulo || '').slice(0, 700)) + '">' + escapeHtml(ocResumoDe(a)) + '</span><span class="oc-quem">' + escapeHtml(a.responsavel || '') + '</span></div>'
-      + (res && a.resolucao ? '<span class="oc-res" title="' + escapeHtml(a.resolucao) + '">✔ ' + escapeHtml(a.resolucao) + '</span>' : '') + '</td>'
+      + '</td>'
     + '<td class="c"><input type="checkbox" ' + (pri ? 'checked' : '') + ' onclick="event.preventDefault(); ocPrior(\'' + id + '\', ' + (!pri) + ')" title="Prioridade (marca a etiqueta Alta Urgência)"></td>'
     + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
     + '<td class="c"><input type="checkbox" ' + (res ? 'checked' : '') + ' onclick="event.preventDefault(); ocResolverClick(\'' + id + '\')" title="' + (res ? 'Resolvida — clique para reabrir' : 'Marcar como resolvida') + '"></td>'
@@ -11186,7 +11186,7 @@ function ocExportHtml(lista) {
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
         const tk = String(a.ocTicket || '').trim();
         return '<tr class="' + (res ? 'res' : '') + '"><td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '</td>'
-          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b><small>' + escapeHtml(a.responsavel || '') + '</small>' + (res && a.resolucao ? '<em>✔ ' + escapeHtml(a.resolucao) + '</em>' : '') + '</td>'
+          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b><small>' + escapeHtml(a.responsavel || '') + '</small>' + '</td>'
           + '<td class="c">' + pill(ocPrioridade(a), 'Prioridade', 'vm') + '</td><td class="c">' + pill(!!a.ocPendencia && !res, 'Pendência', 'am') + '</td><td class="c">' + pill(res, 'Resolvido', 'vd') + '</td>'
           + '<td>' + (a.ocOrigem ? escapeHtml(a.ocOrigem) : '<span class="oce-no">—</span>') + '</td>'
           + '<td>' + (tk ? '<b>' + escapeHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
@@ -11260,7 +11260,6 @@ function ocTextoRelatorio(lista) {
       if (res) etq.push('resolvido');
       const tk = String(a.ocTicket || '').trim();
       txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
-      if (res && a.resolucao) txt += '   ✔ ' + String(a.resolucao).replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
   return txt;
@@ -11320,7 +11319,6 @@ function ocCopiarTickets() {
       const desc = String(a.titulo || '').replace(/\s*\n\s*/g, ' ').trim();
       texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
       if (String(a.ocResumo || '').trim() && desc) texto += '   ' + desc + '\n';
-      if (ocResolvida(a) && a.resolucao) texto += '   ✔ ' + a.resolucao.replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Copiado! ' + lista.length + ' ocorrência(s) sem ticket.'), () => promptFallbackCopy(texto));
