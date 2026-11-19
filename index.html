@@ -4143,8 +4143,8 @@ let modulosErp = [], modulosErpErro = '', modulosProjetoErpErro = '';
 let canaisErp = null, canaisErpErro = '', canaisLidoEm = null;   // canais de atendimento (t900_canais), vêm junto das licenças; null = função antiga
 let licencasErroAtivas = '';   // erro ao contar usuários ativos (as contratadas continuam valendo)
 let usuariosColunasErp = [];   // colunas de t01_usuarios (diagnóstico do filtro de usuário ativo)   // add-ons por empresa (wiz_projetos), vêm junto das licenças
-function garantirLicencasErp() {
-  if (licencasErp !== null || licencasErpCarregando) return;
+function garantirLicencasErp(forcar) {
+  if (licencasErpCarregando || (licencasErp !== null && !forcar)) return;
   licencasErpCarregando = true;
   (async () => {
     try {
@@ -4167,7 +4167,7 @@ function garantirLicencasErp() {
       ticketsColunasErp = json.tickets_colunas || [];
       licencasErpErro = '';
     } catch (e) {
-      licencasErp = [];            // não insiste a cada render; recarregar a página tenta de novo
+      if (licencasErp === null) licencasErp = [];   // não insiste a cada render; recarregar a página tenta de novo (numa releitura forçada mantém o que já havia)
       licencasErpErro = e.message || String(e);
       console.warn('Licenças do ERP indisponíveis:', licencasErpErro);
     } finally {
@@ -4273,12 +4273,12 @@ function modulosHtml(l) {
       ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td>${escapeHtml(rotuloStatusModulo(m))}</td><td><b>${m.quantidade != null ? m.quantidade : '—'}</b></td></tr>`).join('')}
     </tbody></table>${aviso}`;
 }
-function abrirTicketsCliente(clienteId) {
+function abrirTicketsCliente(clienteId, lembrete) {
   const c = state.clients.find(x => x.id === clienteId);
   const l = c && licencasInfo(c);
   if (!c || !l || l.origem !== 'erp') return;
   const lista = ticketsAbertosDaEmpresa(l.empresaId);
-  document.getElementById('tk-cli-titulo').textContent = `Tickets em aberto — ${c.nome}`;
+  document.getElementById('tk-cli-titulo').textContent = lembrete ? `⚠ ${lista.length} ticket${lista.length === 1 ? '' : 's'} em aberto — ${c.nome}` : `Tickets em aberto — ${c.nome}`;
   const linhas = lista.map(t => {
     const dias = t.criado_em ? diasDesde(t.criado_em) : null;
     return `<tr>
@@ -4290,10 +4290,24 @@ function abrirTicketsCliente(clienteId) {
     </tr>`;
   }).join('');
   const aviso = ticketsTituloColuna ? '' : `<div class="lic-quadro-obs" style="margin-bottom:6px;">⚠ Não identifiquei a coluna do nome do ticket no ERP${ticketsColunasErp.length ? ' (colunas da tabela: ' + escapeHtml(ticketsColunasErp.join(', ')) + ')' : ''}; por isso só aparece o número.</div>`;
+  const notaLembrete = lembrete ? '<div class="lic-quadro-obs" style="margin-bottom:8px;">Atividade salva. Este cliente tem tickets em aberto: confira se algum já cobre o assunto ou se ainda falta abrir um.</div>' : '';
   document.getElementById('tk-cli-corpo').innerHTML = lista.length
-    ? `${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
+    ? `${notaLembrete}${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
     : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
   document.getElementById('tk-cli-overlay').classList.add('open');
+}
+// Depois de salvar uma atividade: se o cliente tem tickets em aberto no ERP, abre o aviso (para ninguém esquecer).
+async function avisarTicketsAbertosAtividade(clienteNome) {
+  try {
+    const nome = String(clienteNome || '').trim().toLowerCase();
+    const c = state.clients.find(x => String(x.nome).toLowerCase() === nome);
+    if (!c) return;
+    for (let i = 0; i < 40 && licencasErpCarregando; i++) await new Promise(r => setTimeout(r, 150));   // até ~6 s se a leitura do ERP estiver em andamento
+    if (licencasErpCarregando || licencasErp === null || ticketsAbertosErp === null || ticketsAbertosErpErro) return;
+    const l = licencasInfo(c);
+    if (!l || l.origem !== 'erp' || !ticketsAbertosDaEmpresa(l.empresaId).length) return;
+    abrirTicketsCliente(c.id, true);
+  } catch (e) { console.warn('Aviso de tickets ao salvar a atividade:', e); }
 }
 // ── Canais de atendimento (ERP: t900_canais) ──
 // Conexão do canal = t900_status_whatsapp (open = conectado); a disponibilidade do usuário (on-line/pausa/off-line) é outra informação.
@@ -6795,9 +6809,8 @@ function renderAtividades() {
     addBtn.className = 'kanban-add';
     addBtn.textContent = '+ Nova atividade';
     addBtn.onclick = () => novaAtividade(col.id);
-    cardsWrap.appendChild(addBtn);
-
     colEl.appendChild(cardsWrap);
+    colEl.appendChild(addBtn);   // fora da área que rola: fica sempre visível no pé da raia
 
     colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('drop-hover'); });
     colEl.addEventListener('dragleave', () => colEl.classList.remove('drop-hover'));
@@ -6837,7 +6850,7 @@ function sizeKanbanBoard() {
   const board = document.getElementById('kanban-board');
   if (!board || board.getBoundingClientRect().width === 0) return;
   const top = board.getBoundingClientRect().top;
-  const altura = Math.max(480, window.innerHeight - top - 12);
+  const altura = Math.max(320, window.innerHeight - top - 12);
   board.style.height = altura + 'px';
 }
 window.addEventListener('resize', () => {
@@ -6987,6 +7000,7 @@ function novaAtividade(coluna) {
 }
 
 function openAtividadeModal(id, coluna) {
+  garantirLicencasErp(!canaisLidoEm || Date.now() - canaisLidoEm.getTime() > 120000);   // tickets do ERP prontos para o aviso ao salvar
   editingAtividadeId = id;
   const isNew = !id;
   document.getElementById('atividade-modal-title').textContent = isNew ? 'Nova Atividade' : 'Editar Atividade';
@@ -7266,7 +7280,7 @@ async function saveAtividade(silent) {
     await registrarHistoricoDeAtividade(atividadeSalva);
   }
 
-  if (!silent) { closeAtividadeModal(); render(); }
+  if (!silent) { closeAtividadeModal(); render(); avisarTicketsAbertosAtividade(clienteNome); }
 }
 
 async function cancelarAtividade() {
@@ -9072,6 +9086,7 @@ function scrumBaixarPDF() {
   #view-atividades .kanban-card { border-top: 1px solid var(--border-light); border-radius: 12px; padding: 13px 14px 12px 18px; box-shadow: inset 5px 0 0 var(--card-cor, var(--col-cor, #94A3B8)), 0 1px 4px rgba(0,0,0,.1); }
   #view-atividades .kanban-card:hover { box-shadow: inset 5px 0 0 var(--card-cor, var(--col-cor, #94A3B8)), 0 8px 18px rgba(0,0,0,.2); }
   #view-atividades .kanban-column.drop-hover { box-shadow: 0 0 0 2px var(--col-cor) inset; }
+  #view-atividades .kanban-column > .kanban-add { flex: none; width: auto; margin: 0 12px 12px; }
 
   /* Indicadores */
   #view-indicadores .resumo-box > #ind-resumo { grid-column: 1 / -1; }
@@ -10373,7 +10388,13 @@ function pvLinhas() {
   const base = (pvDados || []).map(r => ({ r, c: state.clients.find(x => x.id === r.cliente_id) })).filter(x => x.c)
     .sort((a, b) => (a.r.ordem == null ? 1e9 : a.r.ordem) - (b.r.ordem == null ? 1e9 : b.r.ordem) || (parseInt(a.c.codigo, 10) || 9999) - (parseInt(b.c.codigo, 10) || 9999) || String(a.c.nome).localeCompare(String(b.c.nome))); return pvAplicarOrdenacao(base);
 }
-function pvFeitos(r, grupo, lista) { const d = r[grupo] || {}; return lista.filter(i => d[i[0]] && d[i[0]].feito).length; }
+/* Critérios por cliente: os padrões (PV_SETUP/PV_VALID) menos os excluídos (oculto) mais os incluídos à mão (chave x_..., com nome/dica guardados no próprio item). */
+function pvItens(r, grupo) {
+  const base = grupo === 'setup' ? PV_SETUP : PV_VALID, d = r[grupo] || {};
+  const extras = Object.keys(d).filter(k => d[k] && d[k].custom && !d[k].oculto).sort((a, b) => (d[a].criado || 0) - (d[b].criado || 0)).map(k => [k, d[k].nome || '(sem nome)', d[k].dica || '']);
+  return base.filter(i => !(d[i[0]] && d[i[0]].oculto)).concat(extras);
+}
+function pvFeitos(r, grupo) { const d = r[grupo] || {}; return pvItens(r, grupo).filter(i => d[i[0]] && d[i[0]].feito).length; }
 function pvHardCare(r) {
   if (!r.hardcare_inicio) return null;
   if (pvStatusDe(r, 'hardcare') === 'ok') return { txt: 'concluído', cls: '' };
@@ -10394,8 +10415,8 @@ function pvPctTd(r) {
 function pvCelulaHtml(r, k) {
   const st = pvStatusDe(r, k);
   let sub = '';
-  if (k === 'setup') sub = pvFeitos(r, 'setup', PV_SETUP) + '/' + PV_SETUP.length + ' itens';
-  else if (k === 'validacao') sub = pvFeitos(r, 'validacao', PV_VALID) + '/' + PV_VALID.length + ' itens';
+  if (k === 'setup') sub = pvFeitos(r, 'setup') + '/' + pvItens(r, 'setup').length + ' itens';
+  else if (k === 'validacao') sub = pvFeitos(r, 'validacao') + '/' + pvItens(r, 'validacao').length + ' itens';
   else if (k === 'hardcare') { const h = pvHardCare(r); if (h) sub = '<span class="' + h.cls + '">' + h.txt + '</span>'; }
   const idx = PV_ETAPAS.findIndex(e => e[0] === k), nome = PV_ETAPAS[idx][1];
   const ant = idx > 0 ? pvStatusDe(r, PV_ETAPAS[idx - 1][0]) : null;
@@ -10550,7 +10571,25 @@ async function pvAdicionar(id) {
 }
 
 // ── detalhe do cliente: etapas, Setup, Validação, Hard Care ──
-function pvHProg(r, grupo, lista) { return ' <i class="pv-hprog"><b style="width:' + Math.round(pvFeitos(r, grupo, lista) * 100 / lista.length) + '%"></b></i>'; }
+function pvHProg(r, grupo) { const n = pvItens(r, grupo).length; return ' <i class="pv-hprog"><b style="width:' + (n ? Math.round(pvFeitos(r, grupo) * 100 / n) : 0) + '%"></b></i>'; }
+function pvAddItem(id, grupo) {
+  const nome = (prompt('Nome do novo critério:') || '').trim(); if (!nome) return;
+  const dica = (prompt('Descrição/dica (opcional):') || '').trim();
+  const k = 'x_' + Date.now().toString(36);
+  pvAtualizar(id, r => { r[grupo] = r[grupo] || {}; r[grupo][k] = { custom: true, nome, dica, criado: Date.now(), feito: false }; }).then(() => pvRenderModal(id));
+}
+function pvDelItem(id, grupo, k) {
+  const r = (pvDados || []).find(x => x.cliente_id === id); if (!r) return;
+  const it = pvItens(r, grupo).find(i => i[0] === k); if (!it) return;
+  if (!confirm('Excluir o critério "' + it[1] + '" deste cliente?')) return;
+  pvAtualizar(id, r => {
+    const d = r[grupo] = r[grupo] || {};
+    if (d[k] && d[k].custom) delete d[k]; else d[k] = { ...(d[k] || {}), oculto: true };
+  }).then(() => pvRenderModal(id));
+}
+function pvRestaurarItens(id, grupo) {
+  pvAtualizar(id, r => { const d = r[grupo] || {}; Object.keys(d).forEach(k => { if (d[k] && d[k].oculto) delete d[k].oculto; }); }).then(() => pvRenderModal(id));
+}
 function pvRenderModal(id) {
   const r = (pvDados || []).find(x => x.cliente_id === id), c = r && state.clients.find(x => x.id === r.cliente_id);
   if (!r || !c) return;
@@ -10572,15 +10611,21 @@ function pvRenderModal(id) {
         + '<span>' + (pvHardCare(r) ? escapeHtml(pvHardCare(r).txt) : 'o início é preenchido sozinho quando o Hard Care entra em andamento') + '</span></div>' : '';
     return linha + hc;
   }).join('');
-  const lista = (grupo, itens) => itens.map(([k, n, dica]) => {
-    const d = (r[grupo] || {})[k] || {};
-    return '<div class="pv-chk-linha"><label class="pv-chk"><input type="checkbox"' + (d.feito ? ' checked' : '') + ' onchange="pvSetCheck(\'' + id + '\',\'' + grupo + '\',\'' + k + '\',\'feito\',this.checked)"><span><b>' + escapeHtml(n) + '</b>' + (dica ? '<small>' + escapeHtml(dica) + '</small>' : '') + '</span></label>'
-      + '<input type="text" placeholder="Observação deste cliente" value="' + escapeHtml(d.obs || '') + '" ' + inp('onchange="pvSetCheck(\'' + id + '\',\'' + grupo + '\',\'' + k + '\',\'obs\',this.value)"') + '></div>';
-  }).join('');
+  const lista = (grupo) => {
+    const ocultos = Object.values(r[grupo] || {}).filter(v => v && v.oculto).length;
+    return pvItens(r, grupo).map(([k, n, dica]) => {
+      const d = (r[grupo] || {})[k] || {};
+      return '<div class="pv-chk-linha"><label class="pv-chk"><input type="checkbox"' + (d.feito ? ' checked' : '') + ' onchange="pvSetCheck(\'' + id + '\',\'' + grupo + '\',\'' + k + '\',\'feito\',this.checked)"><span><b>' + escapeHtml(n) + '</b>' + (dica ? '<small>' + escapeHtml(dica) + '</small>' : '') + '</span></label>'
+        + '<div style="display:flex;gap:6px;align-items:center;"><input type="text" style="flex:1;" placeholder="Observação deste cliente" value="' + escapeHtml(d.obs || '') + '" ' + inp('onchange="pvSetCheck(\'' + id + '\',\'' + grupo + '\',\'' + k + '\',\'obs\',this.value)"') + '>'
+        + '<button type="button" title="Excluir este critério" onclick="pvDelItem(\'' + id + '\',\'' + grupo + '\',\'' + k + '\')" style="flex:none;border:0;background:transparent;color:#EF4444;cursor:pointer;font-size:15px;padding:2px 6px;">✕</button></div></div>';
+    }).join('')
+      + '<div style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;"><button type="button" onclick="pvAddItem(\'' + id + '\',\'' + grupo + '\')" style="border:1px dashed rgba(127,127,127,.5);background:transparent;color:inherit;border-radius:8px;padding:5px 12px;font-size:12.5px;cursor:pointer;">+ Adicionar critério</button>'
+      + (ocultos ? '<button type="button" onclick="pvRestaurarItens(\'' + id + '\',\'' + grupo + '\')" style="border:0;background:transparent;color:var(--gray-text);text-decoration:underline;font-size:12px;cursor:pointer;">Restaurar ' + ocultos + ' excluído(s)</button>' : '') + '</div>';
+  };
   document.getElementById('pv-corpo').innerHTML =
     '<div class="pv-sec"><h4>Etapas</h4>' + etapas + '</div>'
-    + '<div class="pv-sec"><h4>Setup de implantação · ' + pvFeitos(r, 'setup', PV_SETUP) + ' de ' + PV_SETUP.length + pvHProg(r, 'setup', PV_SETUP) + '</h4>' + lista('setup', PV_SETUP) + '</div>'
-    + '<div class="pv-sec"><h4>Validação com Cliente · ' + pvFeitos(r, 'validacao', PV_VALID) + ' de ' + PV_VALID.length + pvHProg(r, 'validacao', PV_VALID) + '</h4>' + lista('validacao', PV_VALID) + '</div>'
+    + '<div class="pv-sec"><h4>Setup de implantação · ' + pvFeitos(r, 'setup') + ' de ' + pvItens(r, 'setup').length + pvHProg(r, 'setup') + '</h4>' + lista('setup') + '</div>'
+    + '<div class="pv-sec"><h4>Validação com Cliente · ' + pvFeitos(r, 'validacao') + ' de ' + pvItens(r, 'validacao').length + pvHProg(r, 'validacao') + '</h4>' + lista('validacao') + '</div>'
     + '<div class="pv-sec"><h4>Observação geral</h4><textarea class="pv-geral" placeholder="Anotações deste cliente no módulo" onchange="pvSetGeral(\'' + id + '\',this.value)">' + escapeHtml(r.observacao || '') + '</textarea></div>'
     + (r.atualizado_em ? '<div class="pv-ultima">Última alteração: ' + escapeHtml(formatDataHora(r.atualizado_em)) + (r.atualizado_por ? ' por ' + escapeHtml(r.atualizado_por) : '') + '</div>' : '');
   document.getElementById('pv-remover').onclick = () => pvRemover(id);
@@ -10616,7 +10661,7 @@ function pvTexto() {
   const l1 = linhas.map(({ r, c }) => '• ' + c.nome + ': ' + PV_ETAPAS.map(([k, n]) => {
     const st = PV_STATUS[pvStatusDe(r, k)].toUpperCase();
     const h = k === 'hardcare' ? pvHardCare(r) : null;
-    return n + ' ' + st + (k === 'setup' ? ' (' + pvFeitos(r, 'setup', PV_SETUP) + '/' + PV_SETUP.length + ')' : '') + (k === 'validacao' ? ' (' + pvFeitos(r, 'validacao', PV_VALID) + '/' + PV_VALID.length + ')' : '') + (h ? ' (' + h.txt + ')' : '');
+    return n + ' ' + st + (k === 'setup' ? ' (' + pvFeitos(r, 'setup') + '/' + pvItens(r, 'setup').length + ')' : '') + (k === 'validacao' ? ' (' + pvFeitos(r, 'validacao') + '/' + pvItens(r, 'validacao').length + ')' : '') + (h ? ' (' + h.txt + ')' : '');
   }).join(' · '));
   return '📦 Módulo de Digitação de pedido — andamento por cliente (' + formatDate(todayStr()) + ')\n\n' + (l1.length ? l1.join('\n') : 'Nenhum cliente no módulo ainda.');
 }
