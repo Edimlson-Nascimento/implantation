@@ -10430,6 +10430,7 @@ function renderPedidoVenda() {
   const el = document.getElementById('pv-conteudo');
   if (!el) return;
   if (pvAba === 'ocorrencias') { el.innerHTML = pvAbasHtml() + ocTelaHtml(); return; }
+  if (pvAba === 'guia') { guiaRender(el); return; }
   if (pvDados === null) {
     if (!pvCarregando) pvCarregar();
     if (typeof garantirLicencasErp === 'function') garantirLicencasErp();   // só para sugerir (★) quem tem o módulo no ERP
@@ -11049,7 +11050,8 @@ function pvAbasHtml() {
   const n = ocTodas().filter(a => !ocResolvida(a)).length;
   return '<div class="pv-abas">'
     + '<button type="button" class="pv-aba' + (pvAba === 'andamento' ? ' on' : '') + '" onclick="pvSetAba(\'andamento\')">Andamento do módulo</button>'
-    + '<button type="button" class="pv-aba' + (pvAba === 'ocorrencias' ? ' on' : '') + '" onclick="pvSetAba(\'ocorrencias\')">Ocorrências' + (n ? '<span class="pv-aba-n">' + n + '</span>' : '') + '</button></div>';
+    + '<button type="button" class="pv-aba' + (pvAba === 'ocorrencias' ? ' on' : '') + '" onclick="pvSetAba(\'ocorrencias\')">Ocorrências' + (n ? '<span class="pv-aba-n">' + n + '</span>' : '') + '</button>'
+    + '<button type="button" class="pv-aba' + (pvAba === 'guia' ? ' on' : '') + '" onclick="pvSetAba(\'guia\')">Guia</button></div>';
 }
 
 // ── filtros ──
@@ -11368,6 +11370,246 @@ function ocCopiarTickets() {
   });
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Copiado! ' + lista.length + ' ocorrência(s) sem ticket.'), () => promptFallbackCopy(texto));
   else promptFallbackCopy(texto);
+}
+</script>
+<style id="guia-css">
+  .gd-busca { position: relative; margin: 4px 0 8px; }
+  .gd-busca input { width: 100%; font: inherit; font-size: 16px; padding: 13px 14px 13px 14px; border-radius: 10px; border: 2px solid var(--border-light); background: var(--white); color: var(--text-main); outline: none; }
+  .gd-busca input:focus { border-color: var(--green-mid); }
+  .gd-status { font-size: 12.5px; color: var(--gray-text); margin: 0 0 12px; min-height: 18px; }
+  .gd-cat { margin: 18px 0 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-text); }
+  .gd-card { background: var(--white); color: var(--text-main); border: 1px solid var(--border-light); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .gd-card h3 { margin: 0 0 8px; font-size: 15.5px; font-weight: 700; }
+  .gd-onde { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin: 0 0 10px; }
+  .gd-onde .lbl { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--gray-text); }
+  .gd-onde code { font-size: 12.5px; padding: 3px 8px; border-radius: 6px; background: rgba(127,127,127,.15); overflow-wrap: anywhere; }
+  .gd-resp { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+  .gd-pend { margin: 10px 0 0; padding: 7px 11px; border-radius: 8px; background: rgba(245,158,11,.15); font-size: 12.5px; }
+  .gd-imgs { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 0; }
+  .gd-imgs img { max-width: 240px; max-height: 160px; object-fit: contain; border: 1px solid var(--border-light); border-radius: 8px; background: rgba(127,127,127,.1); cursor: zoom-in; }
+  .gd-imgs img.grande { max-width: 100%; max-height: none; cursor: zoom-out; }
+  .gd-fonte { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--green-mid); overflow-wrap: anywhere; }
+  .gd-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--gray-text); }
+  .gd-meta button { font: inherit; font-size: 12.5px; background: transparent; border: 0; color: var(--gray-text); cursor: pointer; padding: 3px 8px; border-radius: 6px; }
+  .gd-meta button:hover { color: var(--text-main); text-decoration: underline; }
+  .gd-meta button.del:hover { color: var(--red); }
+  .gd-vazio { padding: 26px 18px; text-align: center; border: 1px dashed var(--border-light); border-radius: 12px; color: var(--gray-text); }
+  .gd-vazio strong { display: block; font-size: 16px; color: var(--text-main); margin-bottom: 6px; }
+  .gd-card mark, .gd-vazio mark { background: #FFE98A; color: #1a1a1a; border-radius: 3px; padding: 0 1px; }
+  .gd-form { background: var(--white); color: var(--text-main); border: 2px solid var(--green-mid); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .gd-form h3 { margin: 0 0 12px; font-size: 15.5px; }
+  .gd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .gd-grid .full { grid-column: 1 / -1; }
+  .gd-grid > div { min-width: 0; }
+  .gd-form label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .gd-form label small { font-weight: 400; color: var(--gray-text); }
+  .gd-form input[type=text], .gd-form textarea, .gd-form select { width: 100%; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--light-bg); color: var(--text-main); }
+  .gd-form textarea { min-height: 90px; resize: vertical; }
+  .gd-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+  .gd-thumb { position: relative; }
+  .gd-thumb img { width: 110px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-light); display: block; }
+  .gd-thumb button { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-light); background: var(--white); color: var(--red); cursor: pointer; line-height: 1; padding: 0; }
+  .gd-hint { font-size: 12px; color: var(--gray-text); margin: 5px 0 0; }
+  .gd-linha { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  @media (max-width: 600px) { .gd-grid { grid-template-columns: 1fr; } }
+</style>
+<script>
+/* ── Guia da Digitação de pedido (2026-11-20) ──
+   Terceira sub-aba de "Digitação de pedido": campo de busca que responde com o que está no repositório (tabela pv_guia).
+   TODA a equipe lê; só Edimilson e Gilson (desempVerTodos / is_gestor_desempenho no banco) incluem, editam e excluem.
+   Imagens das rotinas no bucket público guia-imagens. SQL: migracao-guia-pedidos.sql. Sem a tabela a aba avisa e nada mais quebra. */
+const GUIA_CATS = ['Parâmetro', 'Conta corrente / Flex', 'Desconto', 'Outro'];
+const GUIA_STOP = new Set('a o as os um uma uns umas de do da dos das no na nos nas em e é ou que qual quais como onde esta está para por com sem tem ter quanto quantos quando quero saber ver me meu minha se ao aos sao ha foi ser eh'.split(' '));
+let guiaDados = null, guiaCarregando = false, guiaErro = '', guiaQ = '';
+let guiaEditId = null, guiaImgs = [], guiaImgsOrig = [], guiaTituloInicial = '';
+const guiaPodeEditar = () => desempVerTodos();
+
+function guiaNorm(s) { return String(s == null ? '' : s).split('').map(ch => ch.normalize('NFD').charAt(0).toLowerCase()).join(''); }
+function guiaTokens(t) {
+  const all = guiaNorm(t).split(/[^a-z0-9]+/).filter(Boolean);
+  const uteis = all.filter(x => !GUIA_STOP.has(x));
+  return uteis.length ? uteis : all;
+}
+function guiaAcha(hay, tok) { return tok.length < 3 ? new RegExp('(^|[^a-z0-9])' + tok + '($|[^a-z0-9])').test(hay) : hay.indexOf(tok) !== -1; }
+function guiaDestaque(texto, toks) {
+  texto = String(texto == null ? '' : texto);
+  if (!toks.length) return escapeHtml(texto);
+  const n = guiaNorm(texto), r = [];
+  toks.forEach(t => { let i = 0; while ((i = n.indexOf(t, i)) !== -1) { r.push([i, i + t.length]); i += t.length; } });
+  if (!r.length) return escapeHtml(texto);
+  r.sort((a, b) => a[0] - b[0]);
+  const m = [r[0].slice()];
+  for (let k = 1; k < r.length; k++) { const u = m[m.length - 1]; if (r[k][0] <= u[1]) u[1] = Math.max(u[1], r[k][1]); else m.push(r[k].slice()); }
+  let out = '', pos = 0;
+  m.forEach(x => { out += escapeHtml(texto.slice(pos, x[0])) + '<mark>' + escapeHtml(texto.slice(x[0], x[1])) + '</mark>'; pos = x[1]; });
+  return out + escapeHtml(texto.slice(pos));
+}
+const GUIA_CAMPOS = [['titulo', 3], ['palavras', 3], ['onde', 2], ['categoria', 1], ['resposta', 1], ['pendente', 1]];
+function guiaBuscaItens(toks) {
+  const res = [];
+  (guiaDados || []).forEach(e => {
+    const hays = GUIA_CAMPOS.map(c => [guiaNorm(e[c[0]]), c[1]]);
+    let casou = 0, score = 0;
+    toks.forEach(t => { let b = 0; hays.forEach(h => { if (h[0] && guiaAcha(h[0], t) && h[1] > b) b = h[1]; }); if (b) { casou++; score += b; } });
+    if (casou >= Math.max(1, Math.ceil(toks.length * 0.5))) res.push({ e, casou, score });
+  });
+  res.sort((a, b) => b.casou - a.casou || b.score - a.score || String(a.e.titulo).localeCompare(String(b.e.titulo), 'pt-BR'));
+  return res.map(r => r.e);
+}
+
+async function guiaCarregar() {
+  if (guiaCarregando) return;
+  guiaCarregando = true;
+  const { data, error } = await sb.from('pv_guia').select('*').order('titulo');
+  guiaCarregando = false;
+  if (error) { guiaErro = /pv_guia|does not exist|schema cache|relation/i.test(error.message || '') ? 'tabela' : (error.message || 'erro'); guiaDados = []; }
+  else { guiaErro = ''; guiaDados = data || []; }
+  if (pvAba === 'guia') { if (guiaEditId === null) renderPedidoVenda(); else guiaPintarLista(); }
+}
+
+function guiaCardHtml(e, toks) {
+  let h = '<article class="gd-card"><h3>' + guiaDestaque(e.titulo, toks) + '</h3>';
+  if (e.onde) h += '<p class="gd-onde"><span class="lbl">Onde está</span><code>' + guiaDestaque(e.onde, toks) + '</code></p>';
+  if (e.resposta) h += '<p class="gd-resp">' + guiaDestaque(e.resposta, toks) + '</p>';
+  const imgs = Array.isArray(e.imagens) ? e.imagens : [];
+  if (imgs.length) h += '<div class="gd-imgs">' + imgs.map(i => '<img src="' + escapeHtml(i.url) + '" alt="Imagem da rotina" loading="lazy" onclick="this.classList.toggle(\'grande\')">').join('') + '</div>';
+  if (e.link && /^https?:\/\//i.test(e.link)) h += '<a class="gd-fonte" href="' + escapeHtml(e.link) + '" target="_blank" rel="noopener">Ver na documentação (TOTVS) ↗</a>';
+  if (e.pendente) h += '<p class="gd-pend"><b>A confirmar:</b> ' + guiaDestaque(e.pendente, toks) + '</p>';
+  h += '<div class="gd-meta"><span>' + escapeHtml(e.categoria || '') + (e.atualizado_em ? ' · atualizado em ' + formatDate(String(e.atualizado_em).slice(0, 10)) : '') + (e.atualizado_por ? ' por ' + escapeHtml(e.atualizado_por) : '') + '</span>';
+  if (guiaPodeEditar()) h += '<span><button type="button" onclick="guiaEditar(\'' + e.id + '\')">Editar</button><button type="button" class="del" onclick="guiaExcluir(\'' + e.id + '\')">Excluir</button></span>';
+  return h + '</div></article>';
+}
+function guiaPintarLista() {
+  const box = document.getElementById('gd-lista'), st = document.getElementById('gd-status');
+  if (!box) return;
+  const termo = guiaQ.trim(), dados = guiaDados || [];
+  if (!termo) {
+    if (st) st.textContent = dados.length + (dados.length === 1 ? ' item no guia' : ' itens no guia');
+    if (!dados.length) { box.innerHTML = '<div class="gd-vazio"><strong>O guia ainda está vazio</strong>' + (guiaPodeEditar() ? 'Use "+ Novo item" para cadastrar o primeiro.' : 'Edimilson e Gilson cadastram os itens.') + '</div>'; return; }
+    const g = {};
+    dados.slice().sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), 'pt-BR')).forEach(e => { (g[e.categoria || 'Outro'] = g[e.categoria || 'Outro'] || []).push(e); });
+    const ordem = GUIA_CATS.filter(c => g[c]).concat(Object.keys(g).filter(c => !GUIA_CATS.includes(c)));
+    box.innerHTML = ordem.map(c => '<div class="gd-cat">' + escapeHtml(c) + '</div>' + g[c].map(e => guiaCardHtml(e, [])).join('')).join('');
+    return;
+  }
+  const toks = guiaTokens(termo), achados = guiaBuscaItens(toks);
+  if (!achados.length) {
+    if (st) st.textContent = 'Nenhum resultado';
+    box.innerHTML = '<div class="gd-vazio"><strong>Não foi encontrado no repositório</strong>Nada cadastrado para “' + escapeHtml(termo) + '”. Tente outra palavra, o número da rotina ou o nome da tabela.'
+      + (guiaPodeEditar() ? '<div style="margin-top:14px"><button class="btn btn-sm" onclick="guiaNovo(true)">+ Cadastrar este assunto</button></div>' : '<br>Se o assunto for novo, peça a Edimilson ou Gilson para cadastrar.') + '</div>';
+    return;
+  }
+  if (st) st.textContent = achados.length + (achados.length === 1 ? ' resultado' : ' resultados');
+  box.innerHTML = achados.map(e => guiaCardHtml(e, toks)).join('');
+}
+function guiaBuscar(v) { guiaQ = v || ''; guiaPintarLista(); }
+
+function guiaTelaHtml() {
+  const aviso = guiaErro === 'tabela'
+    ? '<div class="pv-aviso">⚠ A tabela do guia ainda não existe no Supabase. Rode o arquivo <code>migracao-guia-pedidos.sql</code> no SQL Editor do projeto <b>implantation</b> e clique na aba de novo.</div>'
+    : (guiaErro ? '<div class="pv-aviso">⚠ Não consegui ler o guia (' + escapeHtml(guiaErro) + ').</div>' : '');
+  return '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Guia da Digitação de pedido</h2><p class="bk-sub" style="margin:0;">Digite o assunto, a rotina, a tabela ou o campo para ver a resposta. '
+    + (guiaPodeEditar() ? '' : 'Só Edimilson e Gilson incluem e excluem itens.') + '</p></div>'
+    + '<div class="pv-acoes">' + (guiaPodeEditar() && !guiaErro ? '<button class="btn btn-sm" onclick="guiaNovo()">+ Novo item</button>' : '') + '</div></div>'
+    + aviso
+    + '<div class="gd-busca"><input id="gd-q" type="search" autocomplete="off" spellcheck="false" placeholder="Ex.: validade do orçamento, 2314, desconto flex" value="' + escapeHtml(guiaQ) + '" oninput="guiaBuscar(this.value)"></div>'
+    + '<div class="gd-status" id="gd-status"></div><div id="gd-form"></div><div id="gd-lista"></div>';
+}
+function guiaRender(el) {
+  if (guiaDados === null) {
+    if (!guiaCarregando) guiaCarregar();
+    el.innerHTML = pvAbasHtml() + '<div class="pv-vazio">Carregando…</div>';
+    return;
+  }
+  el.innerHTML = pvAbasHtml() + guiaTelaHtml();
+  guiaPintarLista();
+  if (guiaEditId !== null) guiaFormHtml();
+}
+
+// ── cadastro (só Edimilson e Gilson) ──
+function guiaNovo(daBusca) { if (!guiaPodeEditar()) return; guiaEditId = 'novo'; guiaImgs = []; guiaImgsOrig = []; guiaTituloInicial = daBusca ? guiaQ.trim() : ''; guiaFormHtml(); }
+function guiaEditar(id) {
+  if (!guiaPodeEditar()) return;
+  const e = (guiaDados || []).find(x => x.id === id);
+  if (!e) return;
+  guiaEditId = id; guiaImgsOrig = Array.isArray(e.imagens) ? e.imagens.slice() : []; guiaImgs = guiaImgsOrig.slice(); guiaTituloInicial = '';
+  guiaFormHtml();
+}
+function guiaFormHtml() {
+  const box = document.getElementById('gd-form');
+  if (!box) return;
+  const e = guiaEditId === 'novo' ? { categoria: GUIA_CATS[0], titulo: guiaTituloInicial } : ((guiaDados || []).find(x => x.id === guiaEditId) || {});
+  const v = k => escapeHtml(e[k] || '');
+  box.innerHTML = '<div class="gd-form"><h3>' + (guiaEditId === 'novo' ? 'Novo item' : 'Editar item') + '</h3><div class="gd-grid">'
+    + '<div class="full"><label for="gd-f-titulo">Assunto / pergunta</label><input type="text" id="gd-f-titulo" value="' + v('titulo') + '" placeholder="Ex.: Validade do orçamento"></div>'
+    + '<div><label for="gd-f-cat">Categoria</label><select id="gd-f-cat">' + GUIA_CATS.map(c => '<option' + (e.categoria === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select></div>'
+    + '<div><label for="gd-f-onde">Onde está <small>(tabela, campo, rotina)</small></label><input type="text" id="gd-f-onde" value="' + v('onde') + '" placeholder="Ex.: Tabela PCPARAMFILIAL, campo NOME"></div>'
+    + '<div class="full"><label for="gd-f-resp">Resposta / o que controla</label><textarea id="gd-f-resp" placeholder="Explique o que é, valores possíveis e como usar">' + v('resposta') + '</textarea></div>'
+    + '<div class="full"><label for="gd-f-pal">Palavras para achar este item <small>(sinônimos, separados por espaço)</small></label><input type="text" id="gd-f-pal" value="' + v('palavras') + '" placeholder="Ex.: vencimento prazo dias expira"></div>'
+    + '<div class="full"><label for="gd-f-link">Link da documentação <small>(TOTVS ou outra fonte, opcional)</small></label><input type="text" id="gd-f-link" value="' + v('link') + '" placeholder="https://..."></div>'
+    + '<div class="full"><label>Imagens da rotina</label><input type="file" id="gd-f-file" accept="image/*" multiple onchange="guiaAddFiles(this.files); this.value=\'\'"><p class="gd-hint">Escolha arquivos ou cole um print com Ctrl+V.</p><div class="gd-thumbs" id="gd-f-imgs"></div><p class="gd-hint" id="gd-f-msg"></p></div>'
+    + '<div class="full"><label for="gd-f-pend">A confirmar <small>(opcional)</small></label><input type="text" id="gd-f-pend" value="' + v('pendente') + '" placeholder="O que ainda falta confirmar neste item"></div>'
+    + '</div><div class="gd-linha"><button class="btn btn-sm" type="button" onclick="guiaCancelar()">Cancelar</button><button class="btn btn-sm btn-primary" type="button" id="gd-salvar" onclick="guiaSalvar()">Salvar</button></div></div>';
+  guiaPintarThumbs();
+  const t = document.getElementById('gd-f-titulo'); if (t) { t.focus(); box.scrollIntoView({ block: 'nearest' }); }
+}
+function guiaPintarThumbs() {
+  const b = document.getElementById('gd-f-imgs');
+  if (b) b.innerHTML = guiaImgs.map((i, k) => '<div class="gd-thumb"><img src="' + escapeHtml(i.url) + '" alt=""><button type="button" aria-label="Remover imagem" onclick="guiaRemoverImg(' + k + ')">×</button></div>').join('');
+}
+function guiaRemoverImg(k) { guiaImgs.splice(k, 1); guiaPintarThumbs(); }
+async function guiaAddFiles(files) {
+  const msg = document.getElementById('gd-f-msg');
+  for (const f of Array.from(files || [])) {
+    if (!/^image\//.test(f.type)) continue;
+    if (msg) msg.textContent = 'Enviando imagem…';
+    const path = Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '-' + (f.name || 'imagem.png').replace(/[^a-zA-Z0-9._-]+/g, '_');
+    const { error } = await sb.storage.from('guia-imagens').upload(path, f, { contentType: f.type });
+    if (error) { if (msg) msg.textContent = 'Não consegui enviar a imagem (' + error.message + ').'; continue; }
+    guiaImgs.push({ path, url: sb.storage.from('guia-imagens').getPublicUrl(path).data.publicUrl });
+    guiaPintarThumbs();
+    if (msg) msg.textContent = '';
+  }
+}
+document.addEventListener('paste', ev => {
+  if (guiaEditId === null || pvAba !== 'guia' || !ev.clipboardData) return;
+  const imgs = Array.from(ev.clipboardData.files || []).filter(f => /^image\//.test(f.type));
+  if (imgs.length) { ev.preventDefault(); guiaAddFiles(imgs); }
+});
+function guiaLimparStorage(paths) { if (paths.length) sb.storage.from('guia-imagens').remove(paths).then(() => {}, () => {}); }
+function guiaCancelar() {
+  guiaLimparStorage(guiaImgs.filter(i => !guiaImgsOrig.some(o => o.path === i.path)).map(i => i.path));   // apaga o que foi enviado e não salvo
+  guiaEditId = null; guiaImgs = []; guiaImgsOrig = [];
+  const b = document.getElementById('gd-form'); if (b) b.innerHTML = '';
+}
+async function guiaSalvar() {
+  if (!guiaPodeEditar()) return;
+  const val = id => (document.getElementById(id).value || '').trim();
+  const titulo = val('gd-f-titulo'), resposta = val('gd-f-resp'), onde = val('gd-f-onde'), link = val('gd-f-link');
+  if (!titulo) return alert('Informe o assunto.');
+  if (!resposta && !onde) return alert('Preencha a resposta ou onde está a configuração.');
+  if (link && !/^https?:\/\//i.test(link)) return alert('O link precisa começar com http:// ou https://');
+  const payload = { titulo, categoria: val('gd-f-cat'), onde, resposta, palavras: val('gd-f-pal'), pendente: val('gd-f-pend'), link, imagens: guiaImgs, atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() };
+  const btn = document.getElementById('gd-salvar'); if (btn) btn.disabled = true;
+  const novo = guiaEditId === 'novo';
+  const { data, error } = novo ? await sb.from('pv_guia').insert(payload).select().single() : await sb.from('pv_guia').update(payload).eq('id', guiaEditId).select().single();
+  if (btn) btn.disabled = false;
+  if (error) { alert('Não consegui salvar: ' + error.message + (/row-level|permission|policy/i.test(error.message) ? '\n\nSó Edimilson e Gilson podem incluir e editar itens do guia.' : '')); return; }
+  guiaLimparStorage(guiaImgsOrig.filter(o => !guiaImgs.some(i => i.path === o.path)).map(o => o.path));   // imagens removidas na edição
+  if (novo) guiaDados.push(data); else guiaDados = guiaDados.map(x => x.id === data.id ? data : x);
+  guiaEditId = null; guiaImgs = []; guiaImgsOrig = [];
+  const b = document.getElementById('gd-form'); if (b) b.innerHTML = '';
+  guiaPintarLista();
+}
+async function guiaExcluir(id) {
+  if (!guiaPodeEditar()) return;
+  const e = (guiaDados || []).find(x => x.id === id);
+  if (!e || !confirm('Excluir "' + e.titulo + '" do guia? Isso não pode ser desfeito.')) return;
+  const { error } = await sb.from('pv_guia').delete().eq('id', id);
+  if (error) return alert('Não consegui excluir: ' + error.message);
+  guiaLimparStorage((Array.isArray(e.imagens) ? e.imagens : []).map(i => i.path));
+  guiaDados = guiaDados.filter(x => x.id !== id);
+  guiaPintarLista();
 }
 </script>
 </body>
