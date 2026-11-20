@@ -11418,7 +11418,7 @@ function ocCopiarTickets() {
    Terceira sub-aba de "Digitação de pedido": campo de busca que responde com o que está no repositório (tabela pv_guia).
    TODA a equipe lê; só Edimilson e Gilson (desempVerTodos / is_gestor_desempenho no banco) incluem, editam e excluem.
    Imagens das rotinas no bucket público guia-imagens. SQL: migracao-guia-pedidos.sql. Sem a tabela a aba avisa e nada mais quebra. */
-const GUIA_CATS = ['Parâmetro', 'Conta corrente / Flex', 'Desconto', 'Outro'];
+const GUIA_CATS = ['Parâmetro', 'Conta corrente / Flex', 'Desconto', 'Preço', 'Cadastro', 'Rotina', 'Outro'];
 const GUIA_STOP = new Set('a o as os um uma uns umas de do da dos das no na nos nas em e é ou que qual quais como onde esta está para por com sem tem ter quanto quantos quando quero saber ver me meu minha se ao aos sao ha foi ser eh'.split(' '));
 let guiaDados = null, guiaCarregando = false, guiaErro = '', guiaQ = '';
 let guiaEditId = null, guiaImgs = [], guiaImgsOrig = [], guiaTituloInicial = '';
@@ -11542,7 +11542,7 @@ function guiaFormHtml() {
   const v = k => escapeHtml(e[k] || '');
   box.innerHTML = '<div class="gd-form"><h3>' + (guiaEditId === 'novo' ? 'Novo item' : 'Editar item') + '</h3><div class="gd-grid">'
     + '<div class="full"><label for="gd-f-titulo">Assunto / pergunta</label><input type="text" id="gd-f-titulo" value="' + v('titulo') + '" placeholder="Ex.: Validade do orçamento"></div>'
-    + '<div><label for="gd-f-cat">Categoria</label><select id="gd-f-cat">' + GUIA_CATS.map(c => '<option' + (e.categoria === c ? ' selected' : '') + '>' + escapeHtml(c) + '</option>').join('') + '</select></div>'
+    + '<div><label for="gd-f-cat">Categoria</label><input type="text" id="gd-f-cat" list="gd-cats" autocomplete="off" value="' + escapeHtml(e.categoria || '') + '" placeholder="Escolha ou digite uma nova"><datalist id="gd-cats">' + GUIA_CATS.concat((guiaDados || []).map(x => x.categoria)).filter((c, i, v) => c && v.indexOf(c) === i).map(c => '<option value="' + escapeHtml(c) + '"></option>').join('') + '</datalist></div>'
     + '<div><label for="gd-f-onde">Onde está <small>(tabela, campo, rotina)</small></label><input type="text" id="gd-f-onde" value="' + v('onde') + '" placeholder="Ex.: Tabela PCPARAMFILIAL, campo NOME"></div>'
     + '<div class="full"><label for="gd-f-resp">Resposta / o que controla</label><textarea id="gd-f-resp" placeholder="Explique o que é, valores possíveis e como usar">' + v('resposta') + '</textarea></div>'
     + '<div class="full"><label for="gd-f-pal">Palavras para achar este item <small>(sinônimos, separados por espaço)</small></label><input type="text" id="gd-f-pal" value="' + v('palavras') + '" placeholder="Ex.: vencimento prazo dias expira"></div>'
@@ -11589,7 +11589,7 @@ async function guiaSalvar() {
   if (!titulo) return alert('Informe o assunto.');
   if (!resposta && !onde) return alert('Preencha a resposta ou onde está a configuração.');
   if (link && !/^https?:\/\//i.test(link)) return alert('O link precisa começar com http:// ou https://');
-  const payload = { titulo, categoria: val('gd-f-cat'), onde, resposta, palavras: val('gd-f-pal'), pendente: val('gd-f-pend'), link, imagens: guiaImgs, atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() };
+  const payload = { titulo, categoria: val('gd-f-cat') || 'Outro', onde, resposta, palavras: val('gd-f-pal'), pendente: val('gd-f-pend'), link, imagens: guiaImgs, atualizado_por: currentPessoaNome || '', atualizado_em: new Date().toISOString() };
   const btn = document.getElementById('gd-salvar'); if (btn) btn.disabled = true;
   const novo = guiaEditId === 'novo';
   const { data, error } = novo ? await sb.from('pv_guia').insert(payload).select().single() : await sb.from('pv_guia').update(payload).eq('id', guiaEditId).select().single();
