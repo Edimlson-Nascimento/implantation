@@ -11123,7 +11123,7 @@ function ocTelaHtml() {
   const barra = '<div class="oc-barra">' + ocFiltrosCamposHtml()
     + '<span class="oc-esp"></span>'
     + '<button class="btn btn-sm" onclick="ocNova()">+ Nova ocorrência</button>'
-    + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia as ocorrências sem ticket (do filtro atual), por cliente">📋 Copiar p/ tickets</button>'
+    + '<button class="btn btn-sm" onclick="ocCopiarTickets()" title="Copia o resumo em texto (o mesmo do Gerar relatório) das ocorrências do filtro atual, por cliente">📋 Copiar p/ tickets</button>'
     + '<button class="btn btn-sm btn-primary" onclick="ocAbrirRelatorio()" title="Ver o relatório na tela e depois copiar o texto ou a imagem, ou baixar a imagem">📄 Gerar relatório</button></div>';
   let corpo;
   if (!chaves.length) {
@@ -11351,25 +11351,8 @@ function ocCopiarTexto() {
 }
 
 function ocCopiarTickets() {
-  const lista = ocListaFiltrada().filter(a => !String(a.ocTicket || '').trim());
-  if (!lista.length) { alert('Nenhuma ocorrência sem ticket neste filtro.'); return; }
-  const grupos = new Map();
-  lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
-  let texto = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n';
-  [...grupos.keys()].sort((x, y) => x.localeCompare(y)).forEach(k => {
-    texto += '\n🏢 ' + k + '\n';
-    grupos.get(k).forEach(a => {
-      const etq = [];
-      if (ocPrioridade(a)) etq.push('PRIORIDADE');
-      if (a.ocPendencia) etq.push('pendência');
-      if (ocResolvida(a)) etq.push('resolvido');
-      const desc = String(a.titulo || '').replace(/\s*\n\s*/g, ' ').trim();
-      texto += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + '\n';
-      if (String(a.ocResumo || '').trim() && desc) texto += '   ' + desc + '\n';
-    });
-  });
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => alert('Copiado! ' + lista.length + ' ocorrência(s) sem ticket.'), () => promptFallbackCopy(texto));
-  else promptFallbackCopy(texto);
+  // Mesmo texto do "Gerar relatório → Copiar texto": todas as ocorrências do filtro atual, por cliente (as sem ticket vêm marcadas "sem ticket")
+  ocCopiarTexto();
 }
 </script>
 <style id="guia-css">
