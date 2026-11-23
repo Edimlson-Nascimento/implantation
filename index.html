@@ -11092,7 +11092,16 @@ function ocFiltroSet(campo, valor) {
   if (typeof ocRelAberto === 'function' && ocRelAberto()) ocRelRender();
 }
 function ocPrioridade(a) { return a.label === 'red' || a.label === 'orange'; }
-function ocClienteObj(nome) { const n = String(nome || '').toLowerCase(); return state.clients.find(c => String(c.nome).toLowerCase() === n) || null; }
+function ocClienteObj(nome) {
+  const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const n = norm(nome);
+  if (!n) return null;
+  const exato = state.clients.find(c => norm(c.nome) === n);
+  if (exato) return exato;
+  // nome digitado na atividade pode ser parte do nome cadastrado (ex.: "Jumbo" x "Jumbo Alimentos"): só vale se achar um único cliente
+  const parecidos = state.clients.filter(c => { const cn = norm(c.nome); return cn.startsWith(n + ' ') || n.startsWith(cn + ' '); });
+  return parecidos.length === 1 ? parecidos[0] : null;
+}
 
 function ocResumoDe(a) {
   const r = String(a.ocResumo || '').trim();
