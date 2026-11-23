@@ -10938,6 +10938,10 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-del { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-light); background: transparent; color: #DC2626; border-radius: 8px; width: 32px; height: 32px; padding: 0; cursor: pointer; }
   .oc-del:hover, .oc-del:focus-visible { color: #fff; border-color: #DC2626; background: #DC2626; outline: none; }
   .oc-l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .oc-l2 { display: flex; align-items: center; gap: 6px; margin-top: 5px; max-width: 760px; }
+  .oc-l2 > span { font-size: 11.5px; font-weight: 700; color: var(--gray-text); white-space: nowrap; }
+  .oc-l2 input { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; padding: 3px 8px; border-radius: 6px; border: 1px dashed var(--border-light); background: transparent; color: var(--text-main); }
+  .oc-l2 input:focus { outline: none; border-style: solid; border-color: var(--green-mid); background: var(--white); }
   .oc-txt { cursor: pointer; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .oc-txt:hover { color: var(--navy); }
   .oc-quem { flex: none; font-size: 11.5px; color: var(--gray-text); }
@@ -11106,6 +11110,7 @@ function ocLinhaHtml(a) {
   return '<tr class="' + (pri ? 'pri ' : '') + (pend ? 'pend ' : '') + (res ? 'res' : '') + '">'
     + '<td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '<small>' + idade + '</small></td>'
     + '<td><div class="oc-l1"><span class="oc-txt" onclick="openAtividadeModal(\'' + id + '\')" title="' + escapeHtml(String(a.titulo || '').slice(0, 700)) + '">' + escapeHtml(ocResumoDe(a)) + '</span><span class="oc-quem">' + escapeHtml(a.responsavel || '') + '</span></div>'
+      + '<div class="oc-l2"><span>Observação:</span><input type="text" value="' + escapeHtml(a.ocObs || '') + '" placeholder="Ex.: aguardando o retorno da validação do cliente" onchange="ocSetObs(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></div>'
       + '</td>'
     + '<td class="c"><input type="checkbox" ' + (pri ? 'checked' : '') + ' onclick="event.preventDefault(); ocPrior(\'' + id + '\', ' + (!pri) + ')" title="Prioridade (marca a etiqueta Alta Urgência)"></td>'
     + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
@@ -11213,13 +11218,11 @@ function ocFiltroTexto() {
   if (ocFiltro.ticket === 'sem') partes.push('Só sem ticket');
   return partes.join(' · ');
 }
-// Observação da ocorrência (ex.: "aguardando o retorno da validação do cliente"): digitada na prévia do relatório, grava em atividades.ocorrencia_observacao
-function ocObsHtml(a, editavel) {
+// Observação da ocorrência (ex.: "aguardando o retorno da validação do cliente"): digitada na tela de Ocorrências (embaixo da linha); grava em atividades.ocorrencia_observacao
+function ocObsHtml(a) {
   const obs = String(a.ocObs || '').trim();
-  if (editavel) return '<div class="oce-obs"><span>Observação:</span><textarea data-id="' + a.id + '" placeholder="Ex.: aguardando o retorno da validação do cliente" oninput="ocObsAjustar(this)" onblur="ocSetObs(this.dataset.id, this.value)" onkeydown="if(event.key===&quot;Enter&quot; &amp;&amp; !event.shiftKey){event.preventDefault();this.blur();}">' + escapeHtml(obs) + '</textarea></div>';
   return obs ? '<div class="oce-obs"><span>Observação:</span><span class="oce-obs-txt">' + escapeHtml(obs) + '</span></div>' : '';
 }
-function ocObsAjustar(el) { el.style.height = 'auto'; el.style.height = Math.max(24, el.scrollHeight + 2) + 'px'; }
 function ocSetObs(id, v) {
   v = String(v || '').trim();
   const a = atividades.find(x => x.id === id); if (!a) return;
@@ -11229,7 +11232,7 @@ function ocSetObs(id, v) {
     if (error) alert('Não consegui salvar a observação: ' + error.message + (/ocorrencia_observacao|column/i.test(error.message) ? '\n\nFalta criar a coluna. Rode o arquivo migracao-ocorrencia-observacao.sql no SQL Editor do Supabase (projeto implantation). Até lá a observação fica só nesta tela.' : ''));
   });
 }
-function ocExportHtml(lista, editavel) {
+function ocExportHtml(lista) {
   const grupos = new Map();
   lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
   const chaves = [...grupos.keys()].sort((x, y) => {
@@ -11254,7 +11257,7 @@ function ocExportHtml(lista, editavel) {
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
         const tk = String(a.ocTicket || '').trim();
         return '<tr class="' + (res ? 'res' : '') + '"><td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '</td>'
-          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b>' + ocObsHtml(a, editavel) + '</td>'
+          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b>' + ocObsHtml(a) + '</td>'
           + '<td class="c">' + pill(ocPrioridade(a), 'Prioridade', 'vm') + '</td><td class="c">' + pill(!!a.ocPendencia && !res, 'Pendência', 'am') + '</td><td class="c">' + pill(res, 'Resolvido', 'vd') + '</td>'
           + '<td>' + (a.ocOrigem ? escapeHtml(a.ocOrigem) : '<span class="oce-no">—</span>') + '</td>'
           + '<td>' + (tk ? '<b>' + escapeHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
@@ -11336,8 +11339,7 @@ function ocRelRender() {
   if (!f || !v) return;
   f.innerHTML = ocFiltrosCamposHtml();
   const lista = ocListaFiltrada();
-  v.innerHTML = lista.length ? ocExportHtml(lista, true) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
-  v.querySelectorAll('.oce-obs textarea').forEach(ocObsAjustar);
+  v.innerHTML = lista.length ? ocExportHtml(lista) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
 }
 function ocAbrirRelatorio() {
   let el = document.getElementById('oc-rel-overlay');
