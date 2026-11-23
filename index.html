@@ -11293,10 +11293,7 @@ function ocAgrupar(lista) {
   }).map(k => [k, grupos.get(k).slice().sort((a, b) => ((ocResolvida(a)) - (ocResolvida(b))) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)))]);
 }
 function ocTextoRelatorio(lista) {
-  const ab = lista.filter(a => !ocResolvida(a)), nRes = lista.length - ab.length;
-  const nSem = lista.filter(a => !String(a.ocTicket || '').trim()).length, nPri = ab.filter(ocPrioridade).length;
-  let txt = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n' + ocFiltroTexto() + '\n\n'
-    + lista.length + (lista.length === 1 ? ' ocorrência' : ' ocorrências') + ' · ' + ab.length + ' em aberto · ' + nRes + (nRes === 1 ? ' resolvida' : ' resolvidas') + ' · ' + nPri + ' prioridade · ' + (lista.length - nSem) + ' com ticket · ' + nSem + ' sem ticket\n';
+  let txt = '📋 Ocorrências — Digitação de pedido — ' + formatDate(todayStr()) + '\n';
   ocAgrupar(lista).forEach(([nome, arr]) => {
     const c = ocClienteObj(nome), abc = arr.filter(a => !ocResolvida(a)).length;
     txt += '\n🏢 ' + nome + (c && c.codigo ? ' #' + c.codigo : '') + ' — ' + abc + ' em aberto\n';
