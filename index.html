@@ -2709,7 +2709,7 @@ async function loadState() {
       label: a.label, coluna: a.coluna, cancelado: a.cancelado, resolucao: a.resolucao || '', participantes: a.participantes || [],
       concluidoEm: a.concluido_em, ordem: a.ordem, criadoEm: a.created_at, prazo: a.prazo || null,
       sprintSemana: a.sprint_semana || null, impedidoDesde: a.impedido_desde || null, impedidoTotalMin: a.impedido_total_min || 0, impedidoMotivo: a.impedido_motivo || '',
-      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia, ocResumo: a.ocorrencia_resumo || '', ocResolvido: a.ocorrencia_resolvida == null ? undefined : !!a.ocorrencia_resolvida, ocResolvidoEm: a.ocorrencia_resolvida_em || '',
+      ocPv: !!a.ocorrencia_pv, ocOrigem: a.ocorrencia_origem || '', ocTicket: a.ocorrencia_ticket || '', ocPendencia: !!a.ocorrencia_pendencia, ocResumo: a.ocorrencia_resumo || '', ocObs: a.ocorrencia_observacao || '', ocResolvido: a.ocorrencia_resolvida == null ? undefined : !!a.ocorrencia_resolvida, ocResolvidoEm: a.ocorrencia_resolvida_em || '',
       imagens: imgs.filter(i => i.atividade_id === a.id).map(i => ({ id: i.id, url: i.url, path: i.path }))
     }));
   }
@@ -10977,6 +10977,11 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oce th.c, .oce td.c { text-align: center; width: 92px; }
   .oce td.d { width: 52px; color: #475569; white-space: nowrap; }
   .oce td.o b { font-weight: 700; } .oce td.o small { display: block; margin-top: 2px; font-size: 11.5px; color: #64748B; }
+  .oce td.o .oce-obs { display: flex; gap: 6px; align-items: flex-start; margin-top: 5px; font-size: 12px; }
+  .oce-obs > span { font-weight: 700; color: #64748B; white-space: nowrap; padding-top: 3px; }
+  .oce-obs textarea { flex: 1; min-width: 0; font: inherit; font-size: 12px; line-height: 1.35; color: #0F172A; background: #FFFBEB; border: 1px dashed #CBD5E1; border-radius: 6px; padding: 3px 7px; resize: none; overflow: hidden; height: 24px; }
+  .oce-obs textarea:focus { outline: none; border-color: #00C853; background: #fff; }
+  .oce-obs .oce-obs-txt { white-space: pre-wrap; font-weight: 600; color: #0F172A; padding-top: 3px; }
   .oce td.o em { display: block; margin-top: 3px; font-style: normal; font-size: 12px; color: #15803D; }
   .oce tr.res td { color: #64748B; } .oce tr.res td.o b { font-weight: 600; }
   .oce-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
@@ -11208,7 +11213,23 @@ function ocFiltroTexto() {
   if (ocFiltro.ticket === 'sem') partes.push('Só sem ticket');
   return partes.join(' · ');
 }
-function ocExportHtml(lista) {
+// Observação da ocorrência (ex.: "aguardando o retorno da validação do cliente"): digitada na prévia do relatório, grava em atividades.ocorrencia_observacao
+function ocObsHtml(a, editavel) {
+  const obs = String(a.ocObs || '').trim();
+  if (editavel) return '<div class="oce-obs"><span>Observação:</span><textarea data-id="' + a.id + '" placeholder="Ex.: aguardando o retorno da validação do cliente" oninput="ocObsAjustar(this)" onblur="ocSetObs(this.dataset.id, this.value)" onkeydown="if(event.key===&quot;Enter&quot; &amp;&amp; !event.shiftKey){event.preventDefault();this.blur();}">' + escapeHtml(obs) + '</textarea></div>';
+  return obs ? '<div class="oce-obs"><span>Observação:</span><span class="oce-obs-txt">' + escapeHtml(obs) + '</span></div>' : '';
+}
+function ocObsAjustar(el) { el.style.height = 'auto'; el.style.height = Math.max(24, el.scrollHeight + 2) + 'px'; }
+function ocSetObs(id, v) {
+  v = String(v || '').trim();
+  const a = atividades.find(x => x.id === id); if (!a) return;
+  if ((a.ocObs || '') === v) return;
+  a.ocObs = v;   // vale já para copiar texto/imagem, mesmo antes do banco responder
+  sb.from('atividades').update({ ocorrencia_observacao: v }).eq('id', id).then(({ error }) => {
+    if (error) alert('Não consegui salvar a observação: ' + error.message + (/ocorrencia_observacao|column/i.test(error.message) ? '\n\nFalta criar a coluna. Rode o arquivo migracao-ocorrencia-observacao.sql no SQL Editor do Supabase (projeto implantation). Até lá a observação fica só nesta tela.' : ''));
+  });
+}
+function ocExportHtml(lista, editavel) {
   const grupos = new Map();
   lista.forEach(a => { const k = a.clienteNome || '(sem cliente)'; if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(a); });
   const chaves = [...grupos.keys()].sort((x, y) => {
@@ -11233,7 +11254,7 @@ function ocExportHtml(lista) {
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
         const tk = String(a.ocTicket || '').trim();
         return '<tr class="' + (res ? 'res' : '') + '"><td class="d">' + (cri ? formatDate(cri).slice(0, 5) : '—') + '</td>'
-          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b><small>' + escapeHtml(a.responsavel || '') + '</small>' + '</td>'
+          + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b>' + ocObsHtml(a, editavel) + '</td>'
           + '<td class="c">' + pill(ocPrioridade(a), 'Prioridade', 'vm') + '</td><td class="c">' + pill(!!a.ocPendencia && !res, 'Pendência', 'am') + '</td><td class="c">' + pill(res, 'Resolvido', 'vd') + '</td>'
           + '<td>' + (a.ocOrigem ? escapeHtml(a.ocOrigem) : '<span class="oce-no">—</span>') + '</td>'
           + '<td>' + (tk ? '<b>' + escapeHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
@@ -11304,6 +11325,7 @@ function ocTextoRelatorio(lista) {
       if (res) etq.push('resolvido');
       const tk = String(a.ocTicket || '').trim();
       txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
+      if (String(a.ocObs || '').trim()) txt += '   Observação: ' + String(a.ocObs).trim().replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
   return txt;
@@ -11314,7 +11336,8 @@ function ocRelRender() {
   if (!f || !v) return;
   f.innerHTML = ocFiltrosCamposHtml();
   const lista = ocListaFiltrada();
-  v.innerHTML = lista.length ? ocExportHtml(lista) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
+  v.innerHTML = lista.length ? ocExportHtml(lista, true) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
+  v.querySelectorAll('.oce-obs textarea').forEach(ocObsAjustar);
 }
 function ocAbrirRelatorio() {
   let el = document.getElementById('oc-rel-overlay');
