@@ -1475,7 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.5</span></span></div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.6</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
@@ -7521,14 +7521,13 @@ function importJSON(file) {
   reader.readAsText(file);
 }
 
-document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target.id === 'modal-overlay') closeModal();
-});
-document.getElementById('agendamento-modal-overlay').addEventListener('click', e => {
-  if (e.target.id === 'agendamento-modal-overlay') closeAgendamentoModal();
-});
-document.getElementById('atividade-modal-overlay').addEventListener('click', e => {
-  if (e.target.id === 'atividade-modal-overlay') closeAtividadeModal();
+// Os formulários (cliente, agendamento, atividade) NÃO fecham mais ao clicar fora: quem está digitando e clica na janela
+// para voltar de outro programa perdia tudo. Fecham só por Salvar/Fechar. Se a página for recarregada ou a aba fechada com
+// um deles aberto, o navegador pergunta antes (o texto digitado ainda não foi salvo).
+window.addEventListener('beforeunload', e => {
+  if (['modal-overlay', 'agendamento-modal-overlay', 'atividade-modal-overlay'].some(id => { const el = document.getElementById(id); return el && el.classList.contains('open'); })) {
+    e.preventDefault(); e.returnValue = '';
+  }
 });
 document.getElementById('relatorio-modal-overlay').addEventListener('click', e => {
   if (e.target.id === 'relatorio-modal-overlay') closeRelatorioModal();
