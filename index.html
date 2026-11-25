@@ -85,7 +85,7 @@
     border-radius: 100px;
     margin-bottom: 14px;
   }
-  .app-versao { margin: 6px 0 0 4px; font-size: 10.5px; letter-spacing: .04em; color: var(--on-navy); opacity: .55; font-variant-numeric: tabular-nums; cursor: help; }
+  .app-versao { display: block; margin-top: 3px; font-size: 9.5px; font-weight: 500; letter-spacing: .06em; text-transform: none; color: var(--on-navy); opacity: .6; font-variant-numeric: tabular-nums; cursor: help; }
   .header-tag::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
   .sidebar-logo-img { height: 28px; width: auto; display: block; }
   .header-sub { color: var(--gray-text); font-size: 13.5px; }
@@ -1475,8 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag">Gestão de Implantação</div>
-      <div class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v2026-11-25.2</div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.3</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
