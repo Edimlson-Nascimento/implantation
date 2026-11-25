@@ -1475,7 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.6</span></span></div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.7</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
@@ -4281,12 +4281,18 @@ function ticketResponsavelNome(t) {
   const nome = String(t.responsavel_nome || '').trim().split(' ').filter(Boolean).slice(0, 2).join(' ');
   return nome || (t.pessoa && t.pessoa !== 'Outros' ? t.pessoa : 'Sem responsável');
 }
-function abrirTicketsCliente(clienteId, lembrete) {
+// Ticket do módulo Digitação de pedido = título que COMEÇA com "Digitação de Pedido(s)" (sem diferenciar acento nem maiúsculas)
+function ticketEhDigitacaoPedido(t) {
+  const n = String(t.titulo || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return /^digitac(ao|oes)\s+de\s+pedido/.test(n);
+}
+function abrirTicketsCliente(clienteId, lembrete, apenasPv) {
   const c = state.clients.find(x => x.id === clienteId);
   const l = c && licencasInfo(c);
   if (!c || !l || l.origem !== 'erp') return;
-  const lista = ticketsAbertosDaEmpresa(l.empresaId);
-  document.getElementById('tk-cli-titulo').textContent = lembrete ? `⚠ ${lista.length} ticket${lista.length === 1 ? '' : 's'} em aberto — ${c.nome}` : `Tickets em aberto — ${c.nome}`;
+  const lista = apenasPv ? ticketsAbertosDaEmpresa(l.empresaId).filter(ticketEhDigitacaoPedido) : ticketsAbertosDaEmpresa(l.empresaId);
+  if (apenasPv) document.getElementById('tk-cli-titulo').textContent = `Tickets de Digitação de pedidos em aberto — ${c.nome}`;
+  else document.getElementById('tk-cli-titulo').textContent = lembrete ?`⚠ ${lista.length} ticket${lista.length === 1 ? '' : 's'} em aberto — ${c.nome}` : `Tickets em aberto — ${c.nome}`;
   const linhas = lista.map(t => {
     const dias = t.criado_em ? diasDesde(t.criado_em) : null;
     return `<tr>
@@ -4301,7 +4307,7 @@ function abrirTicketsCliente(clienteId, lembrete) {
   const notaLembrete = lembrete ? '<div class="lic-quadro-obs" style="margin-bottom:8px;">Atividade salva. Este cliente tem tickets em aberto: confira se algum já cobre o assunto ou se ainda falta abrir um.</div>' : '';
   document.getElementById('tk-cli-corpo').innerHTML = lista.length
     ? `${notaLembrete}${aviso}<div class="table-wrap"><table class="tk-cli-tabela"><thead><tr><th>Nº</th><th>Ticket</th><th>Situação</th><th>Responsável</th><th>Aberto em</th></tr></thead><tbody>${linhas}</tbody></table></div>`
-    : '<div class="lic-quadro-obs">Nenhum ticket em aberto para este cliente.</div>';
+    : `<div class="lic-quadro-obs">${apenasPv ? 'Nenhum ticket de Digitação de pedidos em aberto para este cliente.' : 'Nenhum ticket em aberto para este cliente.'}</div>`;
   document.getElementById('tk-cli-overlay').classList.add('open');
 }
 // Depois de salvar uma atividade: se o cliente tem tickets em aberto no ERP, abre o aviso (para ninguém esquecer).
@@ -10429,14 +10435,14 @@ function pvTicketsInfo(c) {
   if (ticketsAbertosErpErro) return { n: null, motivo: 'Não consegui ler os tickets do ERP: ' + ticketsAbertosErpErro };
   const l = licencasInfo(c);
   if (!l || l.origem !== 'erp') return { n: null, motivo: licencasErpErro ? 'ERP indisponível: ' + licencasErpErro : 'Não achei este cliente no ERP (confira o código ou o ID da empresa no cadastro).' };
-  return { n: ticketsAbertosDaEmpresa(l.empresaId).length };
+  return { n: ticketsAbertosDaEmpresa(l.empresaId).filter(ticketEhDigitacaoPedido).length };   // só os de Digitação de pedidos
 }
 function pvTicketsTd(c) {
   const t = pvTicketsInfo(c);
   if (t.carregando) return '<td class="pv-tk"><span class="pv-tk-nd" title="Lendo os tickets do ERP…">…</span></td>';
   if (t.n === null) return '<td class="pv-tk"><span class="pv-tk-nd" title="' + escapeHtml(t.motivo) + '">—</span></td>';
-  if (!t.n) return '<td class="pv-tk"><span class="pv-tk-zero" title="Nenhum ticket em aberto">0</span></td>';
-  return '<td class="pv-tk"><button type="button" class="tk-count-btn" onclick="abrirTicketsCliente(\'' + c.id + '\')" title="Ver os ' + t.n + ' ticket' + (t.n === 1 ? '' : 's') + ' em aberto">' + t.n + '</button></td>';
+  if (!t.n) return '<td class="pv-tk"><span class="pv-tk-zero" title="Nenhum ticket de Digitação de pedidos em aberto">0</span></td>';
+  return '<td class="pv-tk"><button type="button" class="tk-count-btn" onclick="abrirTicketsCliente(\'' + c.id + '\', false, true)" title="Ver os ' + t.n + ' ticket' + (t.n === 1 ? '' : 's') + ' de Digitação de pedidos em aberto">' + t.n + '</button></td>';
 }
 function pvCelulaHtml(r, k) {
   const st = pvStatusDe(r, k);
