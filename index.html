@@ -1475,7 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.3</span></span></div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.4</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
@@ -10455,7 +10455,7 @@ function renderPedidoVenda() {
   let nGoLive = 0, nHC = 0, nHCand = 0, nVal = 0, nTrein = 0;
   linhas.forEach(({ r }) => { if (pvStatusDe(r, 'validacao') === 'ok') nVal++; if (pvStatusDe(r, 'treinamento') === 'ok') nTrein++; if (pvStatusDe(r, 'golive') === 'ok') nGoLive++; const h = pvStatusDe(r, 'hardcare'); if (h === 'ok') nHC++; else if (h === 'andamento') nHCand++; });
   const resumo = linhas.length && typeof v7FaixaHtml === 'function'
-    ? '<div class="pv-resumo">' + v7FaixaHtml([[linhas.length, linhas.length === 1 ? 'cliente no módulo' : 'clientes no módulo', 'destaque'], [nVal, 'Validação concluída'], [nTrein, 'Treinamento concluído'], [nGoLive, 'Go Live concluído'], [nHCand, 'Hard Care em andamento'], [nHC, 'Hard Care concluído']],
+    ? '<div class="pv-resumo">' + v7FaixaHtml([[linhas.length, linhas.length === 1 ? 'cliente no módulo' : 'clientes no módulo', 'destaque'], [nVal, 'Validação concluída'], [nTrein, 'Treinamento concluído'], [nGoLive, 'Go Live concluído'], [nHC, 'Hard Care concluído']],
         [[nHC, '#22C55E', 'Hard Care concluído'], [nHCand, '#F59E0B', 'Hard Care em andamento'], [linhas.length - nHC - nHCand, '#64748B', 'Hard Care não iniciado']].filter(p => p[0] > 0),
         [['#22C55E', 'Hard Care concluído', nHC], ['#F59E0B', 'Hard Care em andamento', nHCand], ['#64748B', 'Hard Care não iniciado', linhas.length - nHC - nHCand]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
