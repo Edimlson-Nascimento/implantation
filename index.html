@@ -1475,7 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.4</span></span></div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.5</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
@@ -10292,6 +10292,9 @@ function bkCopiar() {
   .pv-tabela th.pv-sorted { color: var(--green-mid); }
   .pv-visual.pv-export th.pv-sorted { color: var(--pv-mut); }
   .pv-tabela td.pv-cod { font-size: 17px; font-weight: 700; width: 64px; color: var(--pv-fg); }
+  .pv-tabela td.pv-tk { text-align: center; width: 92px; }
+  .pv-tabela .pv-tk-zero { font-weight: 700; opacity: .55; }
+  .pv-tabela .pv-tk-nd { opacity: .5; cursor: help; }
   .pv-grip { cursor: grab; color: var(--pv-mut); font-size: 18px; line-height: 1.2; user-select: none; padding: 0 2px; }
   .pv-grip:hover { color: var(--pv-fg); }
   .pv-tabela tr.pv-arrastando { opacity: .4; }
@@ -10420,6 +10423,22 @@ function pvPctTd(r) {
   const n = PV_ETAPAS.filter(([k]) => pvStatusDe(r, k) === 'ok').length, p = Math.round(n * 100 / PV_ETAPAS.length);
   return '<td class="pv-status"><span class="pv-pct ' + (p >= 80 ? 'alta' : (p >= 40 ? 'media' : '')) + '">' + p + '%</span><small>' + n + ' de ' + PV_ETAPAS.length + '</small></td>';
 }
+// Quantidade de tickets em aberto do cliente no ERP (inclui a fila de desenvolvimento); clicar abre a lista no mesmo popup de Pendências.
+function pvTicketsInfo(c) {
+  if (licencasErp === null || licencasErpCarregando) return { n: null, carregando: true };
+  if (ticketsAbertosErp === null) return { n: null, motivo: 'A função tickets-erp publicada é antiga (não traz os tickets). Publique a versão atual.' };
+  if (ticketsAbertosErpErro) return { n: null, motivo: 'Não consegui ler os tickets do ERP: ' + ticketsAbertosErpErro };
+  const l = licencasInfo(c);
+  if (!l || l.origem !== 'erp') return { n: null, motivo: licencasErpErro ? 'ERP indisponível: ' + licencasErpErro : 'Não achei este cliente no ERP (confira o código ou o ID da empresa no cadastro).' };
+  return { n: ticketsAbertosDaEmpresa(l.empresaId).length };
+}
+function pvTicketsTd(c) {
+  const t = pvTicketsInfo(c);
+  if (t.carregando) return '<td class="pv-tk"><span class="pv-tk-nd" title="Lendo os tickets do ERP…">…</span></td>';
+  if (t.n === null) return '<td class="pv-tk"><span class="pv-tk-nd" title="' + escapeHtml(t.motivo) + '">—</span></td>';
+  if (!t.n) return '<td class="pv-tk"><span class="pv-tk-zero" title="Nenhum ticket em aberto">0</span></td>';
+  return '<td class="pv-tk"><button type="button" class="tk-count-btn" onclick="abrirTicketsCliente(\'' + c.id + '\')" title="Ver os ' + t.n + ' ticket' + (t.n === 1 ? '' : 's') + ' em aberto">' + t.n + '</button></td>';
+}
 function pvCelulaHtml(r, k) {
   const st = pvStatusDe(r, k);
   let sub = '';
@@ -10445,6 +10464,7 @@ function renderPedidoVenda() {
     el.innerHTML = pvAbasHtml() + '<div class="pv-vazio">Carregando…</div>';
     return;
   }
+  if (typeof garantirLicencasErp === 'function') garantirLicencasErp();   // tickets em aberto e módulos do ERP (lê uma vez; refaz esta tela ao terminar)
   const linhas = pvLinhas();
   const usados = new Set(pvDados.map(r => r.cliente_id));
   const disponiveis = state.clients.filter(c => !usados.has(c.id)).sort((a, b) => (pvTemModuloErp(b) - pvTemModuloErp(a)) || String(a.nome).localeCompare(String(b.nome)));
@@ -10459,10 +10479,10 @@ function renderPedidoVenda() {
         [[nHC, '#22C55E', 'Hard Care concluído'], [nHCand, '#F59E0B', 'Hard Care em andamento'], [linhas.length - nHC - nHCand, '#64748B', 'Hard Care não iniciado']].filter(p => p[0] > 0),
         [['#22C55E', 'Hard Care concluído', nHC], ['#F59E0B', 'Hard Care em andamento', nHCand], ['#64748B', 'Hard Care não iniciado', linhas.length - nHC - nHCand]], 'v7-compacta') + '</div>' : '';
   const corpo = linhas.length
-    ? '<table class="pv-tabela"><thead><tr>' + pvThHtml('codigo', 'Código') + pvThHtml('nome', 'Cliente') + PV_ETAPAS.map(([k, n]) => pvThHtml(k, n)).join('') + pvThHtml('status', 'Status') + '</tr></thead><tbody>'
+    ? '<table class="pv-tabela"><thead><tr>' + pvThHtml('codigo', 'Código') + pvThHtml('nome', 'Cliente') + pvThHtml('tickets', 'Tickets') + PV_ETAPAS.map(([k, n]) => pvThHtml(k, n)).join('') + pvThHtml('status', 'Status') + '</tr></thead><tbody>'
       + linhas.map(({ r, c }) => '<tr data-id="' + r.cliente_id + '"><td class="pv-cod">' + escapeHtml(c.codigo || '') + '</td><td><div class="pv-cli-wrap">' + (pvSortCol ? '' : '<span class="pv-grip" title="Arraste para reordenar" onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false">⠿</span>') + '<div><button type="button" class="pv-cli" onclick="pvAbrir(\'' + r.cliente_id + '\')" title="Abrir checklist de Setup e Validação">' + escapeHtml(c.nome) + '</button>'
           + '<span class="pv-cli-sub">' + pvSubFase(c) + '</span></div></div></td>'
-          + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + pvPctTd(r) + '</tr>').join('')
+          + pvTicketsTd(c) + PV_ETAPAS.map(([k]) => pvCelulaHtml(r, k)).join('') + pvPctTd(r) + '</tr>').join('')
       + '</tbody></table>'
     : '<div class="pv-vazio">Nenhum cliente neste módulo ainda. Use "Adicionar cliente" para começar.</div>';
   el.innerHTML = pvAbasHtml() + '<div class="pv-topo"><div><h2 style="margin:0 0 4px;">Módulo de Digitação de pedido</h2><p class="bk-sub" style="margin:0;">Andamento do módulo em cada cliente. Clique no selo de uma etapa para avançar (Pendente → Em andamento → Concluído) e no nome do cliente para ver o Setup e a Validação.</p></div>'
@@ -10497,6 +10517,7 @@ function pvAplicarOrdenacao(base) {
   const val = x => col === 'codigo' ? (parseInt(x.c.codigo, 10) || 9999)
     : col === 'nome' ? String(x.c.nome).toLowerCase()
     : col === 'status' ? PV_ETAPAS.filter(([k]) => pvStatusDe(x.r, k) === 'ok').length
+    : col === 'tickets' ? (pvTicketsInfo(x.c).n ?? -1)
     : (PV_RANK[pvStatusDe(x.r, col)] || 0);
   return base.slice().sort((a, b) => {
     const va = val(a), vb = val(b);
