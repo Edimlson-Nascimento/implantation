@@ -4273,6 +4273,13 @@ function modulosHtml(l) {
       ${l.modulos.map(m => `<tr><td title="${escapeHtml(m.descricao)}">${escapeHtml(m.modulo)}</td><td>${escapeHtml(rotuloStatusModulo(m))}</td><td><b>${m.quantidade != null ? m.quantidade : '—'}</b></td></tr>`).join('')}
     </tbody></table>${aviso}`;
 }
+// Responsável do ticket para mostrar na tela: os 4 da equipe pelo nome curto; os demais pelo nome que vem do ERP (t01_nome), em vez de "Outros"
+function ticketResponsavelNome(t) {
+  const equipe = ['Gilson', 'Edimilson', 'Jefferson', 'Leandro'];
+  if (equipe.includes(t.pessoa)) return t.pessoa;
+  const nome = String(t.responsavel_nome || '').trim().split(' ').filter(Boolean).slice(0, 2).join(' ');
+  return nome || (t.pessoa && t.pessoa !== 'Outros' ? t.pessoa : 'Sem responsável');
+}
 function abrirTicketsCliente(clienteId, lembrete) {
   const c = state.clients.find(x => x.id === clienteId);
   const l = c && licencasInfo(c);
@@ -4285,7 +4292,7 @@ function abrirTicketsCliente(clienteId, lembrete) {
       <td class="tk-num">${escapeHtml(String(t.numero ?? t.id))}</td>
       <td>${t.titulo ? escapeHtml(t.titulo) : '<span class="tk-sem-titulo">—</span>'}</td>
       <td>${escapeHtml(String(t.status || '').replace(/^\d+\s*-\s*/, ''))}${t.grupo === 'dev' ? ' <span class="tk-dev" title="Fila do desenvolvimento">dev</span>' : ''}</td>
-      <td>${escapeHtml(t.pessoa || '')}</td>
+      <td>${escapeHtml(ticketResponsavelNome(t))}</td>
       <td>${t.criado_em ? formatDate(String(t.criado_em).slice(0, 10)) + (dias != null ? ` <span class="tk-sem-titulo">(${dias}d)</span>` : '') : ''}</td>
     </tr>`;
   }).join('');
