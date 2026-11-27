@@ -1475,7 +1475,7 @@
 <div class="app-shell" id="app-shell" style="display:none;">
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.25.7</span></span></div>
+      <div class="header-tag"><span class="ht-txt">Gestão de Implantação<span class="app-versao" id="app-versao" title="Versão do painel carregada neste navegador. Se estiver diferente da última, aperte Ctrl+F5.">v.2026.11.27.1</span></span></div>
       <img src="logo-intelipulse.png" alt="Intelipulse" class="sidebar-logo-img">
     </div>
     <div class="user-wrap" id="user-wrap">
@@ -10965,7 +10965,8 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oc-tab tr:last-child td { border-bottom: 0; }
   .oc-tab td.d { width: 74px; white-space: nowrap; color: var(--gray-text); }
   .oc-tab td.d small { display: block; font-size: 11px; }
-  .oc-tab td.q { width: 190px; } .oc-tab td.k { width: 120px; }
+  .oc-tab td.q { width: 190px; } .oc-tab td.k { width: 140px; }
+  .oc-tab td.k input.tk-fechado { color: var(--accent-ink); font-weight: 700; }
   .oc-tab td.q select, .oc-tab td.k input { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--white); color: var(--text-main); }
   .oc-tab input[type=checkbox] { width: 17px; height: 17px; cursor: pointer; }
   .oc-tab th.x, .oc-tab td.x { width: 44px; min-width: 44px; text-align: center; padding-left: 4px; padding-right: 8px; }
@@ -11025,6 +11026,7 @@ async function pendAplicarStatus(c, p, status, motivo, geral) {
   .oce-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
   .oce-pill.vm { background: #FEE2E2; color: #B91C1C; } .oce-pill.am { background: #FEF3C7; color: #B45309; } .oce-pill.vd { background: #DCFCE7; color: #15803D; }
   .oce-no { color: #94A3B8; } .oce-sem { color: #7C3AED; font-size: 12px; font-style: italic; }
+  .oce-fech { color: #15803D; font-weight: 700; white-space: nowrap; }
   .oce-rodape { margin-top: 6px; font-size: 11px; color: #94A3B8; text-align: right; }
   .oc-vazio { padding: 26px; text-align: center; color: var(--gray-text); border: 1px dashed var(--border-light); border-radius: 14px; }
   .oc-aviso { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; background: rgba(245, 158, 11, .15); color: var(--text-main); }
@@ -11159,11 +11161,12 @@ function ocLinhaHtml(a) {
     + '<td class="c"><input type="checkbox" ' + (pend ? 'checked' : '') + (res ? ' disabled' : '') + ' onclick="event.preventDefault(); ocPend(\'' + id + '\', ' + (!pend) + ')" title="Pendência"></td>'
     + '<td class="c"><input type="checkbox" ' + (res ? 'checked' : '') + ' onclick="event.preventDefault(); ocResolverClick(\'' + id + '\')" title="' + (res ? 'Resolvida — clique para reabrir' : 'Marcar como resolvida') + '"></td>'
     + '<td class="q"><select onchange="ocSetOrigem(\'' + id + '\', this.value)">' + opcoes + '</select></td>'
-    + '<td class="k"><input type="text" value="' + escapeHtml(a.ocTicket || '') + '" placeholder="sem ticket" onchange="ocSetTicket(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></td>'
+    + '<td class="k"><input type="text" class="' + (ocTkRotulo(a.ocTicket) !== String(a.ocTicket || '') ? 'tk-fechado' : '') + '" value="' + escapeHtml(ocTkRotulo(a.ocTicket)) + '" data-raw="' + escapeHtml(a.ocTicket || '') + '" data-disp="' + escapeHtml(ocTkRotulo(a.ocTicket)) + '" placeholder="sem ticket" onfocus="ocTkFoco(this)" onblur="ocTkBlur(this)" onchange="ocSetTicket(\'' + id + '\', this.value)" onkeydown="if(event.key===\'Enter\') this.blur()"></td>'
     + '<td class="x"><button type="button" class="oc-del" onclick="ocExcluir(\'' + id + '\')" title="Excluir esta ocorrência" aria-label="Excluir esta ocorrência"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 10v6M14 10v6"/></svg></button></td></tr>';
 }
 
 function ocTelaHtml() {
+  ocTkGarantir();   // busca no ERP a situação dos tickets citados (em segundo plano; redesenha sozinha quando chega)
   const todas = ocTodas();
   const lista = ocListaFiltrada();
   const clientes = [...new Set(todas.map(a => a.clienteNome).filter(Boolean))].sort((x, y) => x.localeCompare(y));
@@ -11224,9 +11227,76 @@ function ocPrior(id, ligar) {
 }
 function ocPend(id, ligar) { ocGravar(id, { ocorrencia_pendencia: ligar }, { ocPendencia: ligar }); }
 function ocSetOrigem(id, v) { ocGravar(id, { ocorrencia_origem: v }, { ocOrigem: v }); }
+// ── Situação do ticket no ERP: "2228 - Fechado" (2026-11-27) ──
+// O número digitado é o sis15_id do ERP. A função tickets-erp (modo ticket_status) devolve a situação: ticket fechado/resolvido aparece
+// como "N - Fechado" (cancelado, "N - Cancelado"); aberto fica como está. Na tela, o campo mostra o rótulo e, ao clicar para editar,
+// volta ao número puro (o "- Fechado" nunca é gravado). Sem a função nova publicada, tudo continua exatamente como antes.
+const ocTkStatus = new Map();     // número -> { grupo, status }
+const ocTkEstado = { em: 0, buscando: null, perguntados: new Set(), antiga: false, erro: '' };
+function ocTkNumeros() {
+  const s = new Set();
+  ocTodas().forEach(a => (String(a.ocTicket || '').match(/\d{1,9}/g) || []).forEach(n => s.add(n)));
+  return [...s];
+}
+function ocTkLimpa(v) { return String(v || '').replace(/\s*-\s*(Fechado|Cancelado)\s*$/i, '').trim(); }
+function ocTkSufixo(n) {
+  const s = ocTkStatus.get(n);
+  return s && s.grupo === 'fechado' ? ' - Fechado' : (s && s.grupo === 'cancelado' ? ' - Cancelado' : '');
+}
+function ocTkRotulo(tk) { return String(tk || '').replace(/\d{1,9}/g, n => n + ocTkSufixo(n)); }
+function ocTkHtml(tk) {
+  const txt = String(tk || ''); let out = '', i = 0;
+  txt.replace(/\d{1,9}/g, (n, pos) => {
+    const suf = ocTkSufixo(n);
+    out += escapeHtml(txt.slice(i, pos)) + escapeHtml(n) + (suf ? '<span class="oce-fech">' + suf + '</span>' : '');
+    i = pos + n.length; return n;
+  });
+  return out + escapeHtml(txt.slice(i));
+}
+function ocTkFoco(el) { el.value = el.dataset.raw || ''; }
+function ocTkBlur(el) { if (ocTkLimpa(el.value) === ocTkLimpa(el.dataset.raw)) el.value = el.dataset.disp || el.value; }
+function ocTkRedesenhar() {
+  const ae = document.activeElement;
+  const digitando = ae && ae.tagName === 'INPUT' && ae.closest && ae.closest('#pv-conteudo');
+  if (!digitando && activeTab === 'pedidovenda' && pvAba === 'ocorrencias') renderPedidoVenda();
+  if (typeof ocRelAberto === 'function' && ocRelAberto()) ocRelRender();
+}
+function ocTkGarantir(forcar) {
+  if (ocTkEstado.buscando) return ocTkEstado.buscando;
+  if (ocTkEstado.antiga) return Promise.resolve();
+  const nums = ocTkNumeros();
+  if (!nums.length) return Promise.resolve();
+  const faltam = nums.filter(n => !ocTkEstado.perguntados.has(n));
+  const velho = Date.now() - ocTkEstado.em > 120000;
+  if (!forcar && !velho && !faltam.length) return Promise.resolve();
+  const lote = (faltam.length ? faltam : nums).slice(0, 200);
+  lote.forEach(n => ocTkEstado.perguntados.add(n));   // marca já: se falhar, só tenta de novo depois de 2 min (não repete a cada redesenho)
+  ocTkEstado.buscando = (async () => {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+      const res = await fetch(TICKETS_ERP_FN_URL + '?modo=ticket_status&numeros=' + lote.join(','), { headers: { Authorization: 'Bearer ' + session.access_token } });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || ('Erro ' + res.status));
+      if (!Array.isArray(json.status_tickets)) { ocTkEstado.antiga = true; return; }   // função tickets-erp antiga: não sabe responder, mostra como antes
+      const novo = new Map(json.status_tickets.map(r => [String(r.numero), { grupo: r.grupo, status: r.status }]));
+      let mudou = false;
+      lote.forEach(n => {
+        const a = ocTkStatus.get(n), b = novo.get(n);
+        if ((a && a.grupo) !== (b && b.grupo)) mudou = true;
+        if (b) ocTkStatus.set(n, b); else ocTkStatus.delete(n);
+      });
+      ocTkEstado.erro = '';
+      if (mudou) ocTkRedesenhar();
+    } catch (err) { ocTkEstado.erro = (err && err.message) || String(err); }
+    finally { ocTkEstado.em = Date.now(); ocTkEstado.buscando = null; }
+  })();
+  return ocTkEstado.buscando;
+}
 function ocSetTicket(id, v) {
   v = String(v || '').trim();
   const a = atividades.find(x => x.id === id);
+  v = ocTkLimpa(v);   // nunca grava o "- Fechado" que é só exibição
   if (a && (a.ocTicket || '') === v) return;
   ocGravar(id, { ocorrencia_ticket: v }, { ocTicket: v });
 }
@@ -11294,7 +11364,7 @@ function ocExportHtml(lista) {
     const arr = grupos.get(k).slice().sort((a, b) => ((ocResolvida(a)) - (ocResolvida(b))) || (ocPrioridade(b) - ocPrioridade(a)) || String(a.criadoEm).localeCompare(String(b.criadoEm)));
     const c = ocClienteObj(k), abc = arr.filter(a => !ocResolvida(a)).length;
     h += '<div class="oce-cli"><div class="oce-cli-topo"><b>' + escapeHtml(k) + '</b>' + (c && c.codigo ? '<small>#' + escapeHtml(c.codigo) + '</small>' : '') + '<span>' + abc + ' em aberto · ' + arr.length + ' no total</span></div>'
-      + '<table><colgroup><col style="width:56px"><col><col style="width:92px"><col style="width:92px"><col style="width:92px"><col style="width:130px"><col style="width:104px"></colgroup><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
+      + '<table><colgroup><col style="width:56px"><col><col style="width:92px"><col style="width:92px"><col style="width:92px"><col style="width:130px"><col style="width:128px"></colgroup><thead><tr><th>Data</th><th>Ocorrência</th><th class="c">Prioridade</th><th class="c">Pendência</th><th class="c">Resolvido</th><th>Responsável</th><th>Ticket</th></tr></thead><tbody>'
       + arr.map(a => {
         const res = ocResolvida(a), cri = a.criadoEm ? dataLocalISO(a.criadoEm) : '';
         const pill = (on, txt, cls) => on ? '<span class="oce-pill ' + cls + '">' + txt + '</span>' : '<span class="oce-no">—</span>';
@@ -11303,13 +11373,14 @@ function ocExportHtml(lista) {
           + '<td class="o"><b>' + escapeHtml(ocResumoDe(a)) + '</b>' + ocObsHtml(a) + '</td>'
           + '<td class="c">' + pill(ocPrioridade(a), 'Prioridade', 'vm') + '</td><td class="c">' + pill(!!a.ocPendencia && !res, 'Pendência', 'am') + '</td><td class="c">' + pill(res, 'Resolvido', 'vd') + '</td>'
           + '<td>' + (a.ocOrigem ? escapeHtml(a.ocOrigem) : '<span class="oce-no">—</span>') + '</td>'
-          + '<td>' + (tk ? '<b>' + escapeHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
+          + '<td>' + (tk ? '<b>' + ocTkHtml(tk) + '</b>' : '<span class="oce-sem">sem ticket</span>') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   });
   h += '<div class="oce-rodape">Gerado em ' + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' · Painel de Implantação Intelipulse</div></div>';
   return h;
 }
 async function ocImagemCanvas() {
+  await ocTkGarantir();
   const lista = ocListaFiltrada();
   if (!lista.length) { alert('Nenhuma ocorrência neste filtro para gerar a imagem.'); return null; }
   if (typeof html2canvas === 'undefined') { alert('A biblioteca de imagem não carregou. Atualize a página (Ctrl+F5) e tente de novo.'); return null; }
@@ -11370,7 +11441,7 @@ function ocTextoRelatorio(lista) {
       if (a.ocPendencia && !res) etq.push('pendência');
       if (res) etq.push('resolvido');
       const tk = String(a.ocTicket || '').trim();
-      txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + tk : 'sem ticket') + '\n';
+      txt += '• ' + ocResumoDe(a) + (a.ocOrigem ? ' — responsável: ' + a.ocOrigem : '') + (etq.length ? ' [' + etq.join(', ') + ']' : '') + ' — ' + (tk ? 'ticket ' + ocTkRotulo(tk) : 'sem ticket') + '\n';
       if (String(a.ocObs || '').trim()) txt += '   Observação: ' + String(a.ocObs).trim().replace(/\s*\n\s*/g, ' ') + '\n';
     });
   });
@@ -11385,6 +11456,7 @@ function ocRelRender() {
   v.innerHTML = lista.length ? ocExportHtml(lista) : '<div class="oc-vazio" style="margin:18px;">Nenhuma ocorrência neste filtro. Mude o período ou os filtros acima.</div>';
 }
 function ocAbrirRelatorio() {
+  ocTkGarantir(true).then(() => { if (ocRelAberto()) ocRelRender(); });   // situação dos tickets em dia ao abrir o relatório
   let el = document.getElementById('oc-rel-overlay');
   if (!el) {
     el = document.createElement('div');
@@ -11407,7 +11479,8 @@ function ocAbrirRelatorio() {
 }
 function ocFecharRelatorio() { const el = document.getElementById('oc-rel-overlay'); if (el) el.classList.remove('open'); }
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && ocRelAberto()) ocFecharRelatorio(); });
-function ocCopiarTexto() {
+async function ocCopiarTexto() {
+  await ocTkGarantir();   // espera a situação dos tickets chegar, para o texto sair com "- Fechado"
   const lista = ocListaFiltrada();
   if (!lista.length) { alert('Nenhuma ocorrência neste filtro.'); return; }
   const texto = ocTextoRelatorio(lista);
